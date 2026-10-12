@@ -1,0 +1,64 @@
+:root {
+	/* Brand */
+	--color-brand-primary: #1BC5BD;
+	--color-brand-aqua: #2DD4BF;
+	--color-brand-deep: #115E59;
+	--color-brand-dark: #0E443E;
+
+	/* Surfaces */
+	--color-page: #F2F7F5;
+	--color-surface: #FFFFFF;
+	--color-surface-icon: #EDF6F4;
+	--color-surface-dark: #0B2926;
+	--color-surface-footer: #071F1D;
+	--color-surface-metric: #123631;
+
+	/* Text */
+	--color-text-heading: #0F172A;
+	--color-text-navigation: #334155;
+	--color-text-body: #475569;
+	--color-text-muted: #64748B;
+	--color-text-placeholder: #94A3B8;
+	--color-text-light: #CBD5E1;
+	--color-text-white: #FFFFFF;
+
+	/* Borders */
+	--color-border-subtle: rgb(226 232 240 / 60%);
+	--color-border-light: #E2E8F0;
+	--color-border-input: #CBD5E1;
+	--color-border-header: #F1F5F9;
+
+	/* Typography */
+	--font-sans: "Plus Jakarta Sans", sans-serif;
+
+	--text-hero: 60px;
+	--text-section-heading: 48px;
+	--text-category-heading: 30px;
+	--text-card-heading: 20px;
+	--text-body: 18px;
+	--text-body-compact: 16px;
+	--text-navigation: 15px;
+	--text-small: 14px;
+	--text-eyebrow: 12px;
+
+	/* Layout */
+	--content-max-width: 1280px;
+	--page-padding: 24px;
+	--section-padding-y: 96px;
+	--header-height: 80px;
+	--hero-min-height: 580px;
+
+	/* Spacing */
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-6: 24px;
+	--space-8: 32px;
+	--space-10: 40px;
+	--space-16: 64px;
+
+	/* Radius */
+	--radius-pill: 9999px;
+	--radius-card: 32px;
+	--radius-category-card: 40px;
+	--radius-icon: 16px;
+}
