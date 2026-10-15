@@ -1,0 +1,34 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 16px;
+	max-width: 760px;
+	margin-bottom: 40px;
+}
+
+.left {
+	text-align: left;
+}
+
+.center {
+	align-items: center;
+	margin-inline: auto;
+	text-align: center;
+}
+
+.eyebrow {
+	margin: 0;
+}
+
+.title {
+	margin: 0;
+	max-width: 100%;
+	text-wrap: balance;
+}
+
+.description {
+	max-width: 62ch;
+	margin: 0;
+	text-wrap: pretty;
+}

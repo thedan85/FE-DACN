@@ -1,0 +1,105 @@
+.modal {
+	--dialog-surface: var(--color-surface);
+	--dialog-text: var(--color-text-heading);
+	--dialog-muted: var(--color-text-body);
+	--dialog-border: var(--color-border-light);
+	--dialog-primary: var(--color-brand-primary);
+	--dialog-primary-hover: var(--color-brand-deep);
+	--dialog-radius: 16px;
+}
+
+/* Modal container */
+.modal :global(.ant-modal-content) {
+	padding: var(--space-6);
+	border: 1px solid var(--dialog-border);
+	border-radius: var(--dialog-radius);
+	background: var(--dialog-surface);
+	box-shadow: 0 16px 48px rgb(15 23 42 / 12%);
+}
+
+/* Title */
+.modal :global(.ant-modal-header) {
+	margin-bottom: var(--space-3);
+	background: transparent;
+}
+
+.modal :global(.ant-modal-title) {
+	color: var(--dialog-text);
+	font-family: var(--font-family-sans);
+	font-size: var(--font-size-card-heading);
+	line-height: var(--line-height-card-heading);
+	font-weight: 700;
+}
+
+/* Description */
+.description {
+	color: var(--dialog-muted);
+	font-family: var(--font-family-sans);
+	font-size: var(--font-size-body-compact);
+	line-height: var(--line-height-body-compact);
+}
+
+/* Footer and action buttons */
+.modal :global(.ant-modal-footer) {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--space-3);
+	margin-top: var(--space-6);
+}
+
+.modal :global(.ant-modal-footer .ant-btn) {
+	height: 40px;
+	padding-inline: var(--space-4);
+	border-radius: var(--radius-pill);
+	font-family: var(--font-family-sans);
+	font-size: var(--font-size-small);
+	font-weight: 600;
+	box-shadow: none;
+}
+
+/* Confirm button */
+.modal :global(.ant-modal-footer .ant-btn-primary) {
+	border-color: var(--dialog-primary);
+	/* background: var(--dialog-primary); */
+	color: var(--color-text-heading);
+}
+
+.modal :global(.ant-modal-footer .ant-btn-primary:hover:not(:disabled)) {
+	border-color: var(--dialog-primary-hover);
+	/* background: var(--dialog-primary-hover); */
+	color: var(--color-text-white);
+}
+
+/* Cancel button */
+.modal :global(.ant-modal-footer .ant-btn-default) {
+	border-color: var(--dialog-border);
+	background: var(--dialog-surface);
+	color: var(--dialog-text);
+}
+
+.modal :global(.ant-modal-footer .ant-btn-default:hover:not(:disabled)) {
+	border-color: var(--dialog-primary);
+	color: var(--dialog-primary-hover);
+}
+
+/* Close button */
+.modal :global(.ant-modal-close) {
+	color: var(--color-text-muted);
+	border-radius: var(--radius-pill);
+}
+
+.modal :global(.ant-modal-close:hover) {
+	background: var(--color-surface-icon);
+	color: var(--dialog-text);
+}
+
+/* Small screens */
+@media (max-width: 480px) {
+	.modal :global(.ant-modal-content) {
+		padding: var(--space-4);
+	}
+
+	.modal :global(.ant-modal-footer) {
+		gap: var(--space-3);
+	}
+}
