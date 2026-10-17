@@ -3,8 +3,12 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Button } from "antd";
-import { ConfirmDialog } from "@/components/feedback/confirm-dialog";
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { useState } from "react";
+import { EmptyState } from "@/components/feedback/empty-state";
+import { ErrorState } from "@/components/feedback/error-state";
+import { LoadingState } from "@/components/feedback/loading-state";
+import { FeedbackDialog } from "@/components/dialogs/feedback-dialog";
 
 export default function Page() {
 	const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,7 +31,7 @@ export default function Page() {
 					Test Modal
 				</Button>
 
-				<ConfirmDialog
+				{/* <ConfirmDialog
 					open={isModalOpen}
 					title="Confirm Action"
 					description="Are you sure you want to proceed with this action?"
@@ -39,6 +43,20 @@ export default function Page() {
 						setIsModalOpen(false);
 					}}
 					onCancel={() => setIsModalOpen(false)}
+				/> */}
+
+				<EmptyState />
+				<ErrorState />
+				<LoadingState rows={1} title={false} />
+				<FeedbackDialog
+					open={isModalOpen}
+					variant="info"
+					title="Login Required"
+					description="Sign in to continue."
+					redirectUrl="/login"
+					redirectText="Sign In"
+					onClose={() => setIsModalOpen(false)}
+					showCloseButton={true}
 				/>
 
 				<SiteFooter />

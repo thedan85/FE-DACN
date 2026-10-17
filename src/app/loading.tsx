@@ -1,14 +1,13 @@
-
-import { Skeleton } from "antd";
+import { Spin } from "antd";
 
 export default function Loading() {
 	return (
 		<main
-			className="page-container"
+			className="page-container loading-container"
 			aria-label="Loading page"
 			aria-busy="true"
 		>
-			<Skeleton active paragraph={{ rows: 4 }} />
+			<Spin size="large" />
 		</main>
 	);
 }

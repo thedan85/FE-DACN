@@ -125,6 +125,13 @@ p {
 	margin-inline: auto;
 }
 
+.loading-container {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 100vh;
+}
+
 .section {
 	padding-block: var(--section-padding-y);
 }
