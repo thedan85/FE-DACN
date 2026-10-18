@@ -2,11 +2,11 @@
 import { z } from "zod";
 
 const publicEnvSchema = z.object({
-	NEXT_PUBLIC_API_BASE_URL: z
-		.url("NEXT_PUBLIC_API_BASE_URL must be a valid URL")
+	PUBLIC_BACKEND_API_URL: z
+		.url("PUBLIC_BACKEND_API_URL must be a valid URL")
 		.refine(
 			(value) => ["http:", "https:"].includes(new URL(value).protocol),
-			"NEXT_PUBLIC_API_BASE_URL must use HTTP or HTTPS",
+			"PUBLIC_BACKEND_API_URL must use HTTP or HTTPS",
 		),
 });
 
@@ -14,7 +14,7 @@ export type PublicEnv = z.infer<typeof publicEnvSchema>;
 
 export function getPublicEnv(): PublicEnv {
 	const result = publicEnvSchema.safeParse({
-		NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+		PUBLIC_BACKEND_API_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
 	});
 
 	if (!result.success) {
