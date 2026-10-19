@@ -10,8 +10,8 @@ const footerColumns = [
 		links: [
 			{ label: "All Products", href: "/products" },
 			{ label: "Fish", href: "/products?category=fish" },
-			{ label: "Plants", href: "/products?category=plants" },
-			{ label: "Equipment", href: "/products?category=equipment" },
+			{ label: "Plants", href: "/products?category=aquatic-plants" },
+			{ label: "Equipment", href: "/products?category=equipments" },
 		],
 	},
 	{

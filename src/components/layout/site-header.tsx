@@ -11,8 +11,8 @@ import { useMobile } from "@/hooks/use-mobile";
 const navigation = [
 	{ label: "Shop", href: "/products" },
 	{ label: "Fish", href: "/products?category=fish" },
-	{ label: "Plants", href: "/products?category=plants" },
-	{ label: "Equipment", href: "/products?category=equipment" },
+	{ label: "Plants", href: "/products?category=aquatic-plants" },
+	{ label: "Equipment", href: "/products?category=equipments" },
 	{ label: "Consumables", href: "/products?category=consumables" },
 ];
 
