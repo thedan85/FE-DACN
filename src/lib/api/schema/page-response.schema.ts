@@ -11,11 +11,3 @@ export const createPageResponseSchema = <T extends z.ZodType>(
 		totalElements: z.number().int().nonnegative(),
 		totalPages: z.number().int().nonnegative(),
 	});
-
-export interface PageResponse<T> {
-	content: T[];
-	page: number;
-	size: number;
-	totalElements: number;
-	totalPages: number;
-}

@@ -134,6 +134,7 @@ Do not upgrade major framework versions or replace libraries without checking co
 | `@ant-design/nextjs-registry` | Ant Design integration with Next.js server rendering and style registration |
 | `@ant-design/icons` | Ant Design icon components |
 | `zod` | Runtime validation of environment variables, API responses, and other untrusted data where appropriate |
+| `zustand` | Lightweight state management for shared client-side state |
 
 #### Development Dependencies
 
@@ -169,32 +170,21 @@ The current application uses the `src/` directory and Next.js App Router.
 
 ```text
 src/
-├── app/
-│   ├── api/
-│   │   └── health/
-│   ├── features/
-│   ├── error.tsx
-│   ├── global-error.tsx
-│   ├── globals.css
-│   ├── layout.tsx
-│   ├── loading.tsx
-│   ├── not-found.tsx
-│   ├── page.tsx
-│   └── providers.tsx
-├── components/
-│   ├── feedback/
-│   └── ui/
-├── hooks/
-├── lib/
-│   ├── api/
-│   │   └── client.ts
-│   ├── utils/
-│   ├── design-tokens.ts
-│   └── env.ts
-├── stores/
-├── styles/
-│   └── tokens.css
-└── types/
+├───app
+├───components
+│   ├───dialogs
+│   ├───feedback
+│   ├───layout
+│   └───ui
+├───features
+├───hooks
+├───lib
+│   ├───api
+│   ├───constants
+│   └───utils
+├───stores
+├───styles
+└───types
 ```
 
 Follow the existing directory structure unless there is a clear architectural reason to change it.
@@ -202,7 +192,6 @@ Follow the existing directory structure unless there is a clear architectural re
 ### Directory Responsibilities
 
 - `src/app/`: App Router pages, layouts, route-level loading and error boundaries, and frontend-owned route handlers.
-- `src/app/features/`: Feature-specific routes or feature entry points, following the established routing convention.
 - `src/components/ui/`: Reusable, domain-independent UI components.
 - `src/components/feedback/`: Shared feedback UI such as loading indicators, empty states, error displays, and notifications.
 - `src/hooks/`: Reusable React hooks that are not exclusively owned by a particular feature.
@@ -250,7 +239,6 @@ Use Ant Design as the established UI component library.
 The shared styling foundations include:
 
 - `src/app/globals.css`
-- `src/styles/tokens.css`
 - `src/lib/design-tokens.ts`
 
 These files must remain consistent.
@@ -480,7 +468,6 @@ Treat the following files as shared infrastructure:
 - `src/app/layout.tsx`
 - `src/app/providers.tsx`
 - `src/app/globals.css`
-- `src/styles/tokens.css`
 - `src/lib/design-tokens.ts`
 - `src/lib/env.ts`
 - `src/lib/api/client.ts`
@@ -558,6 +545,7 @@ Team-specific branch naming, review requirements, and merge strategy:
 - Prefer type-safe function interfaces and predictable return values.
 - Avoid unnecessary type assertions and non-null assertions.
 - Use Zod when runtime validation provides meaningful protection at untrusted boundaries.
+- Use Zustand when shared client state is genuinely cross-component; otherwise, prefer local React state.
 - Do not duplicate types that can be imported from a shared contract module.
 - Avoid circular imports and unclear module dependencies.
 - Keep functions and components focused on a single responsibility.
