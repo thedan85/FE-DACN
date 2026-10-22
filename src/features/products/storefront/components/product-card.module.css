@@ -1,0 +1,121 @@
+/* antd Card owns chrome (border, radius, shadow); this module owns content
+   geometry, token colors, and the D10-③ bounce-up hover. */
+
+.card {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	transition:
+		transform 0.2s ease,
+		box-shadow 0.2s ease;
+}
+
+.card:hover,
+.card:focus-within {
+	transform: translateY(-4px);
+	box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.card {
+		transition: none;
+	}
+
+	.card:hover,
+	.card:focus-within {
+		transform: none;
+	}
+}
+
+.imageBox {
+	position: relative;
+	aspect-ratio: 4 / 3;
+	background: var(--color-surface-icon);
+}
+
+.image {
+	object-fit: cover;
+}
+
+.placeholder {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--color-text-placeholder);
+}
+
+.stockTag {
+	position: absolute;
+	top: 12px;
+	left: 12px;
+	margin-inline-end: 0;
+	border: none;
+	background: var(--color-surface-badge);
+	color: var(--color-text-white);
+	font-size: var(--font-size-small);
+	line-height: var(--line-height-small);
+}
+
+.badge {
+	margin-inline-end: 0;
+	border: none;
+	background: var(--color-surface-icon);
+	color: var(--color-brand-deep-teal);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.6px;
+	text-transform: uppercase;
+}
+
+.name {
+	margin: 0;
+	color: var(--color-text-heading);
+	font-size: var(--font-size-body);
+	line-height: var(--line-height-body);
+	font-weight: 700;
+
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	white-space: normal;
+}
+
+.nameLink {
+	color: inherit;
+	text-decoration: none;
+}
+
+.nameLink:hover {
+	color: var(--color-brand-deep-teal);
+}
+
+.nameLink:focus-visible {
+	outline: 2px solid var(--color-brand-teal);
+	outline-offset: 2px;
+}
+
+.price {
+	margin: 0;
+	margin-top: auto;
+	color: var(--color-brand-deep-teal);
+	font-size: var(--font-size-body);
+	line-height: var(--line-height-body);
+	font-weight: 700;
+}
+
+.priceUnavailable {
+	margin: 0;
+	margin-top: auto;
+	color: var(--color-text-muted);
+	font-size: var(--font-size-small);
+	line-height: var(--line-height-small);
+}
+
+.outOfStock .image {
+	filter: grayscale(0.7);
+	opacity: 0.55;
+}
