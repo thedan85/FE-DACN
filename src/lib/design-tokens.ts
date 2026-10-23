@@ -37,6 +37,8 @@ const colors = {
 
 	overlayImageDarkStart: "rgba(9, 38, 35, 0.25)",
 	overlayImageDarkEnd: "rgba(9, 38, 35, 0.95)",
+
+	danger: "#B42318",
 } as const;
 
 const typography = {
@@ -132,6 +134,7 @@ const radius = {
 	card: 32,
 	categoryCard: 40,
 	icon: 16,
+	control: 12,
 } as const;
 
 const layout = {
@@ -190,6 +193,8 @@ const cssVariableValues = {
 	"--overlay-image-dark-start": colors.overlayImageDarkStart,
 	"--overlay-image-dark-end": colors.overlayImageDarkEnd,
 
+	"--color-danger": colors.danger,
+
 	"--font-family-sans": typography.fontFamily,
 
 	"--font-size-hero": `${typography.hero.fontSize}px`,
@@ -238,6 +243,7 @@ const cssVariableValues = {
 	"--radius-card": `${radius.card}px`,
 	"--radius-category-card": `${radius.categoryCard}px`,
 	"--radius-icon": `${radius.icon}px`,
+	"--radius-control": `${radius.control}px`,
 
 	"--content-max-width": `${layout.contentMaxWidth}px`,
 	"--page-padding": `${layout.pagePadding}px`,

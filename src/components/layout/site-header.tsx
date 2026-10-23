@@ -85,7 +85,7 @@ export function SiteHeader() {
 							<Button
 								type="primary"
 								className={styles.signupButton}
-								href="/signup"
+								href="/register"
 							>
 								Sign Up
 							</Button>
@@ -114,7 +114,7 @@ export function SiteHeader() {
 				placement="right"
 				open={mobileMenuOpen}
 				onClose={closeMobileMenu}
-				width={320}
+				size={320}
 			>
 				<nav className={styles.mobileNav} aria-label="Mobile navigation">
 					{navigation.map((item) => (
@@ -148,7 +148,7 @@ export function SiteHeader() {
 					</Link>
 
 					<Link
-						href="/signup"
+						href="/register"
 						className={styles.mobileNavLink}
 						onClick={closeMobileMenu}
 					>

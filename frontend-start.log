@@ -1,0 +1,14 @@
+
+> fe-dacn@0.1.0 dev
+> next dev
+
+▲ Next.js 16.4.2 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.103:3000
+- Environments: .env.local
+✓ Ready in 590ms
+✓ Running next.config.ts took 42ms
+
+ GET /login 200 in 1134ms (next.js: 214ms, application-code: 920ms)
+ GET /register 200 in 73ms (next.js: 8ms, application-code: 65ms)
+ GET /login 200 in 61ms (next.js: 4ms, application-code: 57ms)
