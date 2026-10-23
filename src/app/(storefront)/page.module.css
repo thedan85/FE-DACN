@@ -8,18 +8,39 @@
 .hero {
 	position: relative;
 	min-height: var(--hero-min-height);
-	background:
-		linear-gradient(180deg, rgba(9, 38, 35, 0.2), rgba(9, 38, 35, 0.82)),
-		url("/images/hero_background.jpg") center / cover;
+	overflow: hidden;
+	background: var(--color-surface-dark);
 	color: var(--color-text-white);
 }
 
+.hero::before {
+	position: absolute;
+	inset: -3%;
+	background:
+		linear-gradient(180deg, rgba(9, 38, 35, 0.2), rgba(9, 38, 35, 0.82)),
+		url("/images/hero_background.jpg") center / cover;
+	content: "";
+	animation: heroDrift 26s ease-in-out infinite alternate;
+	will-change: transform;
+}
+
 .heroInner {
+	position: relative;
+	z-index: 1;
 	display: flex;
 	min-height: var(--hero-min-height);
 	flex-direction: column;
 	justify-content: space-between;
 	padding-block: 64px 28px;
+}
+
+@keyframes heroDrift {
+	from {
+		transform: scale(1) translate3d(0, 0, 0);
+	}
+	to {
+		transform: scale(1.06) translate3d(0, -1%, 0);
+	}
 }
 
 .heroCopy {
@@ -30,6 +51,51 @@
 	justify-content: center;
 	padding-bottom: clamp(48px, 8vh, 96px);
 	text-align: center;
+}
+
+.heroCopy > * {
+	opacity: 0;
+	animation: heroRise 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.heroCopy > :nth-child(1) {
+	animation-delay: 0.05s;
+}
+
+.heroCopy > :nth-child(2) {
+	animation-delay: 0.15s;
+}
+
+.heroCopy > :nth-child(3) {
+	animation-delay: 0.25s;
+}
+
+.heroCopy > :nth-child(4) {
+	animation-delay: 0.35s;
+}
+
+@keyframes heroRise {
+	from {
+		opacity: 0;
+		transform: translateY(14px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.reveal {
+	opacity: 0;
+	transform: translateY(16px);
+	transition:
+		opacity 0.6s ease,
+		transform 0.6s ease;
+}
+
+.revealed {
+	opacity: 1;
+	transform: none;
 }
 
 .heroEyebrow {
@@ -99,6 +165,8 @@
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
 	gap: 16px;
+	opacity: 0;
+	animation: heroRise 0.7s ease 0.45s forwards;
 }
 
 .heroBenefits > div {
@@ -187,6 +255,27 @@
 	background-position: center;
 	background-size: cover;
 	color: var(--color-text-white);
+	transition:
+		transform 0.35s ease,
+		box-shadow 0.35s ease;
+}
+
+.categoryCard:hover {
+	transform: translateY(-6px);
+	box-shadow: 0 24px 48px rgb(9 38 35 / 22%);
+}
+
+.categoryCard::after {
+	position: absolute;
+	inset: 0;
+	background: rgb(9 38 35 / 30%);
+	content: "";
+	opacity: 0;
+	transition: opacity 0.35s ease;
+}
+
+.categoryCard:hover::after {
+	opacity: 1;
 }
 
 .categoryCard::before {
@@ -203,6 +292,7 @@
 
 .categoryCard > * {
 	position: relative;
+	z-index: 1;
 }
 
 .livestock { background-image: url("/images/Livestock.png"); }
@@ -241,8 +331,24 @@
 .featureCard {
 	min-height: 210px;
 	padding: 24px;
+	border: 1px solid transparent;
 	border-radius: var(--radius-card);
 	background: var(--color-surface-white);
+	transition:
+		transform 0.3s ease,
+		box-shadow 0.3s ease,
+		border-color 0.3s ease;
+}
+
+.featureCard:hover {
+	transform: translateY(-4px);
+	border-color: var(--color-brand-aqua);
+	box-shadow: 0 16px 32px rgb(15 23 42 / 8%);
+}
+
+.featureCard:hover .featureIcon {
+	background: var(--color-brand-teal);
+	color: var(--color-surface-dark);
 }
 
 .featureIcon {
@@ -255,6 +361,9 @@
 	background: var(--color-surface-icon);
 	color: var(--color-brand-deep-teal);
 	font-size: 20px;
+	transition:
+		background-color 0.3s ease,
+		color 0.3s ease;
 }
 
 .featureCard h3 {
@@ -311,5 +420,28 @@
 
 	.features {
 		padding-block: 64px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.hero::before,
+	.heroCopy > *,
+	.heroBenefits {
+		animation: none;
+	}
+
+	.heroCopy > *,
+	.heroBenefits,
+	.reveal {
+		opacity: 1;
+		transform: none;
+	}
+
+	.reveal,
+	.categoryCard,
+	.categoryCard::after,
+	.featureCard,
+	.featureIcon {
+		transition: none;
 	}
 }

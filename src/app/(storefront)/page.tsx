@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import {
 	CustomerServiceOutlined,
@@ -13,6 +14,31 @@ import {
 import styles from "./page.module.css";
 
 export default function Page() {
+	useEffect(() => {
+		const items = document.querySelectorAll<HTMLElement>("[data-reveal]");
+
+		if (!("IntersectionObserver" in window)) {
+			items.forEach((item) => item.classList.add(styles.revealed));
+			return;
+		}
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (!entry.isIntersecting) continue;
+
+					entry.target.classList.add(styles.revealed);
+					observer.unobserve(entry.target);
+				}
+			},
+			{ threshold: 0.15, rootMargin: "0px 0px -8% 0px" },
+		);
+
+		items.forEach((item) => observer.observe(item));
+
+		return () => observer.disconnect();
+	}, []);
+
 	return (
 		<div className={styles.home}>
 			<section className={styles.hero} aria-labelledby="hero-title">
@@ -56,12 +82,12 @@ export default function Page() {
 
 			<section className={`${styles.categories}`} aria-labelledby="categories-title">
 				<div className="page-container">
-					<div className={styles.sectionIntro}>
+					<div className={`${styles.sectionIntro} ${styles.reveal}`} data-reveal>
 						<h2 id="categories-title">Shop by category</h2>
 						<Link href="/products" className={styles.sectionLink}>Shop Now <span aria-hidden="true">→</span></Link>
 					</div>
 
-					<div className={styles.categoryGrid}>
+					<div className={`${styles.categoryGrid} ${styles.reveal}`} data-reveal>
 						<article className={`${styles.categoryCard} ${styles.livestock}`}>
 							<div>
 								<h3>Livestock</h3>
@@ -86,11 +112,11 @@ export default function Page() {
 
 			<section className={styles.features} aria-labelledby="features-title">
 				<div className="page-container">
-					<div className={styles.featureIntro}>
+					<div className={`${styles.featureIntro} ${styles.reveal}`} data-reveal>
 						<p className={`eyebrow ${styles.featureEyebrow}`}>Why choose us</p>
 						<h2 id="features-title">Built for hobbyists, by hobbyists</h2>
 					</div>
-					<div className={styles.featureGrid}>
+					<div className={`${styles.featureGrid} ${styles.reveal}`} data-reveal>
 							<div className={styles.featureCard}>
 								<span className={styles.featureIcon}><SafetyCertificateOutlined /></span>
 								<h3>Quarantined Livestock</h3>

@@ -24,12 +24,22 @@ export function SiteHeader() {
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const [logoutOpen, setLogoutOpen] = useState(false);
 	const [loginRequiredOpen, setLoginRequiredOpen] = useState(false);
+	const [scrolled, setScrolled] = useState(false);
 
 	const signedIn = status === "authenticated" && user !== null;
 
 	useEffect(() => {
 		void hydrate();
 	}, [hydrate]);
+
+	useEffect(() => {
+		const onScroll = () => setScrolled(window.scrollY > 8);
+
+		onScroll();
+		window.addEventListener("scroll", onScroll, { passive: true });
+
+		return () => window.removeEventListener("scroll", onScroll);
+	}, []);
 
 	function closeMobileMenu() {
 		setMobileMenuOpen(false);
@@ -52,7 +62,7 @@ export function SiteHeader() {
 
 	return (
 		<>
-			<header className={styles.header}>
+			<header className={`${styles.header} ${scrolled ? styles.scrolled : ""}`}>
 				<div className={styles.container}>
 					<div className={styles.left}>
 						<Link

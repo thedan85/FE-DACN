@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import styles from "./auth-layout.module.css";
 
@@ -18,6 +19,9 @@ export function AuthLayout({
 	return (
 		<div className={styles.root}>
 			<main className={styles.formPanel}>
+				<Link href="/" className={styles.backLink}>
+					<span aria-hidden="true">←</span> Go back to the store
+				</Link>
 				<div className={styles.formContent}>{children}</div>
 			</main>
 

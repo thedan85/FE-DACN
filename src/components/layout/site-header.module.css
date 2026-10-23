@@ -5,6 +5,15 @@
 	width: 100%;
 	background: var(--color-surface-white);
 	border-bottom: 1px solid var(--color-border-header);
+	transition:
+		box-shadow 0.25s ease,
+		background-color 0.25s ease;
+}
+
+.scrolled {
+	background: rgb(255 255 255 / 92%);
+	box-shadow: 0 8px 24px rgb(15 23 42 / 8%);
+	backdrop-filter: blur(8px);
 }
 
 .container {
@@ -240,6 +249,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.header,
 	.navLink,
 	.loginLink {
 		transition: none;

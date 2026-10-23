@@ -19,6 +19,23 @@
 	margin: auto;
 }
 
+.backLink {
+	position: absolute;
+	top: 32px;
+	left: 40px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--color-text-body);
+	font-size: var(--font-size-small);
+	font-weight: 600;
+	transition: color 0.16s ease;
+}
+
+.backLink:hover {
+	color: var(--color-brand-deep-teal);
+}
+
 .imagePanel {
 	position: relative;
 	min-height: 100dvh;
@@ -92,10 +109,19 @@
 	.formPanel {
 		padding: 48px 24px;
 	}
+
+	.backLink {
+		left: 24px;
+	}
 }
 
 @media (max-width: 480px) {
 	.formPanel {
 		padding: 32px 20px;
+	}
+
+	.backLink {
+		top: 24px;
+		left: 20px;
 	}
 }
