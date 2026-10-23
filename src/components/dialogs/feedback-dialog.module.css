@@ -1,19 +1,12 @@
-.modalRoot {
-	--feedback-success: #16a34a;
-	--feedback-error: #dc2626;
-	--feedback-warning: #d97706;
-	--feedback-info: #0d9488;
-}
-
 .modal {
 	max-width: calc(100vw - 32px);
 }
 
 .modal :global(.ant-modal-content) {
 	overflow: hidden;
-	padding: 36px 32px 32px;
+	padding: 32px 24px 24px;
 	border: 1px solid var(--color-border, #e2e8f0);
-	border-radius: 32px;
+	border-radius: 24px;
 	background: var(--color-surface, #ffffff);
 	box-shadow: 0 24px 64px rgb(15 23 42 / 16%);
 }
@@ -31,36 +24,36 @@
 
 .iconBadge {
 	display: grid;
-	width: 72px;
-	height: 72px;
+	width: 64px;
+	height: 64px;
 	flex: 0 0 auto;
 	place-items: center;
-	margin-bottom: 20px;
+	margin-bottom: 18px;
 	border-radius: 50%;
 }
 
 .icon {
-	font-size: 36px;
+	font-size: 30px;
 }
 
 .content[data-variant="success"] .iconBadge {
-	color: var(--feedback-success);
-	background: #dcfce7;
+	color: #0e443e;
+	background: #e3f4ef;
 }
 
 .content[data-variant="error"] .iconBadge {
-	color: var(--feedback-error);
-	background: #fee2e2;
+	color: #c81e1e;
+	background: #fde8e8;
 }
 
 .content[data-variant="warning"] .iconBadge {
-	color: var(--feedback-warning);
-	background: #fef3c7;
+	color: #475569;
+	background: #eef0fb;
 }
 
 .content[data-variant="info"] .iconBadge {
-	color: var(--feedback-info);
-	background: #ccfbf1;
+	color: #115e59;
+	background: #e3f4ef;
 }
 
 .eyebrow {
@@ -76,17 +69,17 @@
 .title {
 	margin: 0;
 	color: var(--color-text-primary, #0f172a);
-	font-size: 24px;
+	font-size: 22px;
 	font-weight: 700;
 	line-height: 1.35;
 	overflow-wrap: anywhere;
 }
 
 .description {
-	margin-top: 12px;
+	margin-top: 10px;
 	color: var(--color-text-secondary, #64748b);
-	font-size: 15px;
-	line-height: 1.7;
+	font-size: 14.5px;
+	line-height: 1.6;
 	overflow-wrap: anywhere;
 }
 
@@ -94,15 +87,15 @@
 	display: flex;
 	width: 100%;
 	flex-direction: column;
-	gap: 12px;
-	margin-top: 28px;
+	gap: 10px;
+	margin-top: 24px;
 }
 
 .actions :global(.ant-btn) {
-	min-height: 44px;
+	min-height: 46px;
 	height: auto;
 	padding: 10px 20px;
-	border-radius: 9999px;
+	border-radius: 10px;
 	font-size: 15px;
 	font-weight: 600;
 	line-height: 1.4;
@@ -116,38 +109,38 @@
 
 .primaryButton {
 	color: #ffffff !important;
-	border-color: #1bc5bd !important;
-	background: #1bc5bd !important;
+	border-color: #0e443e !important;
+	background: #0e443e !important;
 }
 
 .primaryButton:hover:not(:disabled) {
 	color: #ffffff !important;
-	border-color: #0f9f98 !important;
-	background: #0f9f98 !important;
+	border-color: #115e59 !important;
+	background: #115e59 !important;
 }
 
 .secondaryButton {
-	color: #115e59 !important;
-	border-color: #99f6e4 !important;
-	background: #f0fdfa !important;
+	color: #0f172a !important;
+	border-color: #dbe3ea !important;
+	background: #dbe3ea !important;
 }
 
 .secondaryButton:hover:not(:disabled) {
-	color: #115e59 !important;
-	border-color: #5eead4 !important;
-	background: #ccfbf1 !important;
+	color: #0f172a !important;
+	border-color: #cbd5e1 !important;
+	background: #cbd5e1 !important;
 }
 
 .dangerButton {
 	color: #ffffff !important;
-	border-color: #dc2626 !important;
-	background: #dc2626 !important;
+	border-color: #c81e1e !important;
+	background: #c81e1e !important;
 }
 
 .dangerButton:hover:not(:disabled) {
 	color: #ffffff !important;
-	border-color: #b91c1c !important;
-	background: #b91c1c !important;
+	border-color: #a51818 !important;
+	background: #a51818 !important;
 }
 
 .actions :global(.ant-btn:focus-visible) {

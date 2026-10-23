@@ -11,8 +11,9 @@ import {
 import { PasswordField } from "@/components/auth/password-field";
 import { TextField } from "@/components/auth/text-field";
 import { ApiError } from "@/lib/api/client";
-import { getAuthErrorMessage, login } from "./api";
+import { getAuthErrorMessage, getMe, login } from "./api";
 import { setAccessToken } from "./session";
+import { useAuthStore } from "@/stores/auth-store";
 import { validateEmail, validateRequired } from "./validation";
 import styles from "./auth-form.module.css";
 
@@ -60,6 +61,14 @@ export function LoginForm() {
 		try {
 			const data = await login({ email, password });
 			setAccessToken(data.accessToken);
+
+			try {
+				const user = await getMe();
+				useAuthStore.setState({ user, status: "authenticated" });
+			} catch {
+				useAuthStore.setState({ user: null, status: "loading" });
+			}
+
 			router.replace("/");
 		} catch (submitError) {
 			if (submitError instanceof ApiError && submitError.status === 404) {

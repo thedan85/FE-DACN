@@ -1,9 +1,6 @@
 /**
  * Access token lives in memory only. The refresh token is an HttpOnly cookie,
- * so a reload can restore the session via `refreshSession()` later.
- *
- * ponytail: no auto-restore yet — add it when a protected route or auth-aware
- * header exists, otherwise it is a request on every page load for no visible UI.
+ * so a reload restores the session through `refreshSession()` in the auth store.
  */
 let accessToken: string | null = null;
 

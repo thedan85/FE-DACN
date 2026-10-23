@@ -1,5 +1,10 @@
 import { ApiError, apiFetch } from "@/lib/api/client";
-import { loginResponseSchema, registerResponseSchema } from "./schemas";
+import { getAuthHeaders } from "./session";
+import {
+	loginResponseSchema,
+	meResponseSchema,
+	registerResponseSchema,
+} from "./schemas";
 
 /**
  * Network/transport failures (status 0) stay generic; only HTTP responses may
@@ -53,6 +58,14 @@ export async function refreshSession() {
 	});
 
 	return loginResponseSchema.parse(payload).data;
+}
+
+export async function getMe() {
+	const payload = await apiFetch<unknown>("auth/me", {
+		headers: getAuthHeaders(),
+	});
+
+	return meResponseSchema.parse(payload).data;
 }
 
 export async function logout() {

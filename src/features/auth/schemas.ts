@@ -9,6 +9,17 @@ export const loginDataSchema = z.object({
 
 export const loginResponseSchema = createApiResponseSchema(loginDataSchema);
 
+export const meDataSchema = z.object({
+	userId: z.string(),
+	email: z.string(),
+	name: z.string(),
+	roleCode: z.string(),
+	roleName: z.string(),
+	permissions: z.array(z.string()),
+});
+
+export const meResponseSchema = createApiResponseSchema(meDataSchema);
+
 export const registerDataSchema = z.object({
 	userId: z.string(),
 	email: z.string(),
@@ -19,3 +30,4 @@ export const registerResponseSchema =
 
 export type LoginData = z.infer<typeof loginDataSchema>;
 export type RegisterData = z.infer<typeof registerDataSchema>;
+export type MeData = z.infer<typeof meDataSchema>;

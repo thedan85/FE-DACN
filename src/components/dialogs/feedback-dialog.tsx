@@ -36,6 +36,7 @@ export type FeedbackDialogProps = {
 	variant: FeedbackDialogVariant;
 	title: string;
 	description?: ReactNode;
+	icon?: ReactNode;
 	actions?: FeedbackDialogAction[];
 	redirectUrl?: string;
 	redirectText?: string;
@@ -43,6 +44,7 @@ export type FeedbackDialogProps = {
 	closeOnMaskClick?: boolean;
 	closeOnEscape?: boolean;
 	showCloseButton?: boolean;
+	showEyebrow?: boolean;
 };
 
 const variantConfig = {
@@ -72,6 +74,7 @@ export function FeedbackDialog({
 	variant,
 	title,
 	description,
+	icon,
 	actions = [],
 	redirectUrl,
 	redirectText = "Continue",
@@ -79,6 +82,7 @@ export function FeedbackDialog({
 	closeOnMaskClick = false,
 	closeOnEscape = true,
 	showCloseButton = false,
+	showEyebrow = false,
 }: FeedbackDialogProps) {
 	const router = useRouter();
 
@@ -147,10 +151,14 @@ export function FeedbackDialog({
 				}
 			>
 				<div className={styles.iconBadge} aria-hidden="true">
-					<Icon className={styles.icon} />
+					{icon ? (
+						<span className={styles.icon}>{icon}</span>
+					) : (
+						<Icon className={styles.icon} />
+					)}
 				</div>
 
-				<p className={styles.eyebrow}>{label}</p>
+				{showEyebrow && <p className={styles.eyebrow}>{label}</p>}
 
 				<h2 id="feedback-dialog-title" className={styles.title}>
 					{title}
