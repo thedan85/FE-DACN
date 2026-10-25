@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { App, Button, Drawer } from "antd";
 import { MenuOutlined, ShoppingOutlined } from "@ant-design/icons";
 import { LoginRequiredDialog, LogoutDialog } from "@/components/dialogs/store-dialogs";
+import { getInitials } from "@/lib/utils/initials";
 import { useAuthStore } from "@/stores/auth-store";
 import styles from "./site-header.module.css";
 
@@ -103,7 +104,16 @@ export function SiteHeader() {
 
 						{signedIn && (
 							<div className={styles.account}>
-								<span className={styles.userName}>{user.name}</span>
+								<Link
+									href="/account"
+									className={styles.accountLink}
+									aria-label="Open my account"
+								>
+									<span className={styles.avatar} aria-hidden="true">
+										{getInitials(user.name)}
+									</span>
+									<span className={styles.userName}>{user.name}</span>
+								</Link>
 								<button
 									type="button"
 									className={styles.loginLink}
@@ -178,7 +188,13 @@ export function SiteHeader() {
 
 					{signedIn && (
 						<>
-							<span className={styles.mobileName}>{user.name}</span>
+							<Link
+								href="/account"
+								className={styles.mobileName}
+								onClick={closeMobileMenu}
+							>
+								{user.name}
+							</Link>
 							<button
 								type="button"
 								className={styles.mobileNavLink}

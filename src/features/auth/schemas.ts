@@ -13,6 +13,8 @@ export const meDataSchema = z.object({
 	userId: z.string(),
 	email: z.string(),
 	name: z.string(),
+	phone: z.string().nullable(),
+	address: z.string().nullable(),
 	roleCode: z.string(),
 	roleName: z.string(),
 	permissions: z.array(z.string()),

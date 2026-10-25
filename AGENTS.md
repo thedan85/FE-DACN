@@ -64,7 +64,7 @@ Headless E-commerce with Product Information Management (PIM) and Touchless Fulf
 ### Project Purpose
 
 This repository contains the frontend storefront for a headless e-commerce system developed as a university coursework project.
-
+                                                                                                                                                                                                                                                                                                                                                            
 The frontend is responsible for presenting the storefront UI, managing client-side interactions, consuming backend APIs, and integrating with external services where appropriate.
 
 The project follows a headless architecture:

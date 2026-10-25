@@ -124,6 +124,34 @@
 	gap: 24px;
 }
 
+.accountLink {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	padding: 4px 10px 4px 4px;
+	border-radius: var(--radius-pill);
+	transition: background-color 160ms ease;
+}
+
+.accountLink:hover {
+	background: var(--color-surface-icon);
+}
+
+.avatar {
+	display: inline-flex;
+	width: 34px;
+	height: 34px;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background: linear-gradient(135deg, var(--color-brand-aqua-light), var(--color-brand-deep-teal));
+	color: var(--color-text-white);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.4px;
+}
+
 .userName {
 	max-width: 200px;
 	overflow: hidden;
@@ -181,9 +209,14 @@
 }
 
 .mobileName {
+	display: block;
 	padding: 12px 8px 4px;
 	color: var(--color-brand-deep-teal);
 	font-weight: 600;
+}
+
+.mobileName:hover {
+	text-decoration: underline;
 }
 
 @media (max-width: 1100px) {
@@ -250,6 +283,7 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.header,
+	.accountLink,
 	.navLink,
 	.loginLink {
 		transition: none;

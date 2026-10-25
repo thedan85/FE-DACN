@@ -13,7 +13,7 @@ import {
 export function getAuthErrorMessage(error: unknown): string {
 	return error instanceof ApiError && error.status > 0
 		? error.message
-		: "Internal error";
+		: "Unable to reach the server. Please check your connection and try again.";
 }
 
 export type LoginInput = {
@@ -66,6 +66,36 @@ export async function getMe() {
 	});
 
 	return meResponseSchema.parse(payload).data;
+}
+
+export type ProfileInput = {
+	name: string;
+	phone: string;
+	address: string;
+};
+
+export async function updateProfile(input: ProfileInput) {
+	const payload = await apiFetch<unknown>("auth/me", {
+		method: "PATCH",
+		headers: getAuthHeaders(),
+		body: JSON.stringify(input),
+	});
+
+	return meResponseSchema.parse(payload).data;
+}
+
+export type ChangePasswordInput = {
+	currentPassword: string;
+	newPassword: string;
+};
+
+export async function changePassword(input: ChangePasswordInput) {
+	await apiFetch<unknown>("auth/change-password", {
+		method: "POST",
+		headers: getAuthHeaders(),
+		body: JSON.stringify(input),
+		credentials: "include",
+	});
 }
 
 export async function logout() {

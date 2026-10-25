@@ -11,6 +11,7 @@ type AuthState = {
 	user: MeData | null;
 	status: AuthStatus;
 	hydrate: () => Promise<void>;
+	setUser: (user: MeData) => void;
 	signOut: () => Promise<void>;
 };
 
@@ -49,5 +50,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 		await logout();
 		clearSession();
 		set({ user: null, status: "anonymous" });
+	},
+
+	setUser: (user) => {
+		set({ user, status: "authenticated" });
 	},
 }));
