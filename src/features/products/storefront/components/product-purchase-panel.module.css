@@ -1,0 +1,66 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+	padding: var(--space-4);
+	background: var(--color-surface-icon);
+	border-radius: var(--radius-icon);
+}
+
+.controls {
+	display: flex;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	gap: var(--space-4);
+}
+
+.quantity {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.quantityLabel {
+	color: var(--color-text-muted);
+	font-size: var(--font-size-small);
+	line-height: var(--line-height-small);
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.6px;
+}
+
+.quantityInput {
+	inline-size: 140px;
+}
+
+.addButton {
+	min-inline-size: 190px;
+}
+
+.soldOut {
+	margin: 0;
+	color: var(--color-text-heading);
+	font-size: var(--font-size-body-compact);
+	line-height: var(--line-height-body-compact);
+	font-weight: 700;
+}
+
+.notice {
+	width: 100%;
+}
+
+.signInLink {
+	font-weight: 700;
+}
+
+@media (max-width: 480px) {
+	.controls {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.quantityInput,
+	.addButton {
+		inline-size: 100%;
+	}
+}

@@ -1,0 +1,151 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+}
+
+.heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-4);
+}
+
+.title {
+	margin: 0;
+	color: var(--color-text-heading);
+	font-size: var(--font-size-card-heading);
+	line-height: var(--line-height-card-heading);
+	font-weight: 700;
+}
+
+.arrows {
+	display: flex;
+	gap: 8px;
+}
+
+/* Native horizontal scroller with snap; the scrollbar is hidden because the
+   arrow buttons and keyboard stepping are the advertised controls. */
+.viewport {
+	overflow-x: auto;
+	scroll-snap-type: x mandatory;
+	scrollbar-width: none;
+	overscroll-behavior-x: contain;
+}
+
+.viewport::-webkit-scrollbar {
+	display: none;
+}
+
+.track {
+	display: flex;
+	gap: var(--space-3);
+	margin: 0;
+	padding: 2px;
+	list-style: none;
+}
+
+.slideItem {
+	flex: 0 0 auto;
+	scroll-snap-align: start;
+}
+
+.slide {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	inline-size: 220px;
+	padding: 10px;
+	background: var(--color-surface-white);
+	border: 2px solid var(--color-border-light);
+	border-radius: var(--radius-icon);
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+	transition:
+		border-color 0.15s ease,
+		background-color 0.15s ease;
+}
+
+.slide:hover {
+	border-color: var(--color-border-input);
+}
+
+.slide:focus-visible {
+	outline: 2px solid var(--color-brand-teal);
+	outline-offset: 2px;
+}
+
+.slideActive,
+.slideActive:hover {
+	background: var(--color-surface-icon);
+	border-color: var(--color-brand-teal);
+}
+
+.slideImage {
+	position: relative;
+	display: block;
+	aspect-ratio: 4 / 3;
+	overflow: hidden;
+	background: var(--color-surface-icon);
+	border-radius: 8px;
+}
+
+.image {
+	object-fit: cover;
+}
+
+.slidePlaceholder {
+	position: absolute;
+	inset: 0;
+	min-height: 0;
+	padding: 0;
+	border-radius: 0;
+}
+
+.slideSku {
+	color: var(--color-text-muted);
+	font-size: 12px;
+	line-height: 1.4;
+	font-weight: 600;
+	letter-spacing: 0.4px;
+	text-transform: uppercase;
+	overflow-wrap: anywhere;
+}
+
+.slidePrice {
+	color: var(--color-brand-deep-teal);
+	font-size: var(--font-size-body-compact);
+	line-height: var(--line-height-body-compact);
+	font-weight: 700;
+}
+
+.stock {
+	color: var(--color-text-body);
+	font-size: var(--font-size-small);
+	line-height: var(--line-height-small);
+}
+
+/* Colour is never the only signal — the label itself reads "Out of stock". */
+.stockOut {
+	color: var(--color-text-heading);
+	font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.slide {
+		transition: none;
+	}
+
+	.viewport {
+		scroll-behavior: auto;
+	}
+}
+
+@media (max-width: 767px) {
+	.slide {
+		inline-size: 64vw;
+		max-inline-size: 220px;
+	}
+}

@@ -1,0 +1,45 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-8);
+	padding-block: clamp(2.5rem, 6vw, var(--space-16));
+}
+
+.toolbar {
+	min-height: 44px;
+}
+
+/* D20: the page is a vertical stack of cards. */
+.stack {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-8);
+}
+
+.notFoundLink {
+	display: inline-block;
+	padding: 10px 24px;
+	background: var(--color-brand-teal);
+	border-radius: var(--radius-pill);
+	color: var(--color-text-white);
+	font-size: var(--font-size-body-compact);
+	line-height: var(--line-height-body-compact);
+	font-weight: 600;
+	text-decoration: none;
+	transition: background-color 0.15s ease;
+}
+
+.notFoundLink:hover {
+	background: var(--color-brand-deep-teal);
+}
+
+.notFoundLink:focus-visible {
+	outline: 2px solid var(--color-brand-deep-teal);
+	outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.notFoundLink {
+		transition: none;
+	}
+}

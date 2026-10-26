@@ -4,12 +4,22 @@ import {
 	createPageResponseSchema,
 } from "@/lib/api/schema";
 
-import { CategorySchema, ProductSchema } from "../schema/catalog.schema";
-import type { Category, CategoryPage, ProductPage } from "../types";
+import {
+	CategorySchema,
+	ProductDetailSchema,
+	ProductSchema,
+} from "../schema/catalog.schema";
+import type {
+	Category,
+	CategoryPage,
+	ProductDetail,
+	ProductPage,
+} from "../types";
 
 /**
  * Storefront catalog API (read-only), verified against the live backend
- * (`/api/v1`, controller + DTO refs) on 2026-10-22.
+ * (`/api/v1`, controller + DTO refs) on 2026-10-22; the product-detail
+ * contract re-verified against backend `dev` @ `f758bae` on 2026-10-26.
  *
  * All requests go through `apiFetch`; payloads are validated with zod —
  * a 200 with an unexpected shape is treated as an error.
@@ -21,6 +31,10 @@ const productsResponseSchema = createApiResponseSchema(
 
 const categoriesResponseSchema = createApiResponseSchema(
 	createPageResponseSchema(CategorySchema),
+);
+
+const productDetailResponseSchema = createApiResponseSchema(
+	ProductDetailSchema,
 );
 
 const CATEGORIES_PAGE_SIZE = 100;
@@ -79,6 +93,59 @@ export async function listProducts(
 	if (!parsed.success) {
 		throw new ApiError(
 			"The product list response did not match the expected contract.",
+			500,
+			payload,
+		);
+	}
+
+	return parsed.data.data;
+}
+
+/** Paging options for the aggregate's `reviews` field (backend defect N8). */
+export interface ProductDetailParams {
+	/** 0-based review page index; applies to reviews only. */
+	reviewPage?: number;
+	/**
+	 * Review page size. The backend defaults to 20 and caps the value at
+	 * 100 — values above the cap are clamped server-side, not rejected.
+	 */
+	reviewSize?: number;
+}
+
+/**
+ * Fetches the product-detail aggregate — the detail page's single data
+ * source (decision D16): product, product attributes, all variants (with
+ * their attributes and media) and the first page of reviews in one call.
+ *
+ * A 404 reaches the caller as `ApiError` with `status === 404` (unknown or
+ * non-ACTIVE slug), which the route turns into `notFound()`.
+ */
+export async function getProductDetailBySlug(
+	slug: string,
+	params: ProductDetailParams = {},
+): Promise<ProductDetail> {
+	const search = new URLSearchParams();
+
+	if (params.reviewPage != null) {
+		search.set("page", String(params.reviewPage));
+	}
+
+	if (params.reviewSize != null) {
+		search.set("size", String(params.reviewSize));
+	}
+
+	const query = search.toString();
+	// `encodeURIComponent` keeps a malformed segment from altering the path.
+	const path = `products/${encodeURIComponent(slug)}${
+		query ? `?${query}` : ""
+	}`;
+
+	const payload = await apiFetch<unknown>(path);
+	const parsed = productDetailResponseSchema.safeParse(payload);
+
+	if (!parsed.success) {
+		throw new ApiError(
+			"The product detail response did not match the expected contract.",
 			500,
 			payload,
 		);

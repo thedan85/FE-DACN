@@ -1,0 +1,83 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-8);
+	padding-block: clamp(2.5rem, 6vw, var(--space-16));
+}
+
+/* Visible focus/announcement text that takes no layout space. */
+.srOnly {
+	position: absolute;
+	inline-size: 1px;
+	block-size: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
+.toolbar {
+	min-height: 44px;
+}
+
+.card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+	padding: var(--space-6);
+	background: var(--color-surface-white);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-category-card);
+	box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
+}
+
+.slides {
+	display: flex;
+	gap: var(--space-3);
+	overflow: hidden;
+}
+
+.slide {
+	display: flex;
+	flex: 0 0 220px;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.node {
+	inline-size: 100% !important;
+	block-size: auto !important;
+	aspect-ratio: 4 / 3;
+	border-radius: var(--radius-icon);
+}
+
+.detailGrid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	align-items: start;
+	gap: var(--space-6);
+}
+
+.imageBox {
+	display: flex;
+}
+
+.detailColumn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+}
+
+@media (max-width: 991px) {
+	.detailGrid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+@media (max-width: 767px) {
+	.slide {
+		flex-basis: 64vw;
+	}
+}

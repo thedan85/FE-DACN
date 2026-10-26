@@ -1,0 +1,94 @@
+.card {
+	width: 100%;
+}
+
+.header {
+	margin: 0;
+	color: var(--color-text-heading);
+	font-size: var(--font-size-card-heading);
+	line-height: var(--line-height-card-heading);
+	font-weight: 700;
+}
+
+.content {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-6);
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* Nested tiles: antd supplies the radius, this module supplies the surface
+   so the reviews read as a list rather than as boxes inside a box. */
+.reviewCard {
+	width: 100%;
+	background: var(--color-surface-page);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-icon);
+}
+
+.reviewHead {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: var(--space-3);
+}
+
+.reviewIdentity {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.reviewStars {
+	font-size: 16px;
+}
+
+.reviewer {
+	margin: 0;
+	color: var(--color-text-heading);
+	font-size: var(--font-size-body-compact);
+	line-height: var(--line-height-body-compact);
+	font-weight: 700;
+}
+
+.reviewMeta {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--space-3);
+}
+
+.verifiedTag {
+	margin-inline-end: 0;
+	border: none;
+	background: var(--color-surface-icon);
+	color: var(--color-brand-deep-teal);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	text-transform: uppercase;
+}
+
+.date {
+	color: var(--color-text-muted);
+	font-size: var(--font-size-small);
+	line-height: var(--line-height-small);
+}
+
+.comment {
+	margin: var(--space-3) 0 0;
+	color: var(--color-text-body);
+	font-size: var(--font-size-body-compact);
+	line-height: 1.7;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
