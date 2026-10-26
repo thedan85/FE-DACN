@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
 import {
 	CustomerServiceOutlined,
@@ -11,36 +10,12 @@ import {
 	SafetyCertificateOutlined,
 	TeamOutlined,
 } from "@ant-design/icons";
+import { RevealGroup } from "@/components/ui/reveal";
 import styles from "./page.module.css";
 
 export default function Page() {
-	useEffect(() => {
-		const items = document.querySelectorAll<HTMLElement>("[data-reveal]");
-
-		if (!("IntersectionObserver" in window)) {
-			items.forEach((item) => item.classList.add(styles.revealed));
-			return;
-		}
-
-		const observer = new IntersectionObserver(
-			(entries) => {
-				for (const entry of entries) {
-					if (!entry.isIntersecting) continue;
-
-					entry.target.classList.add(styles.revealed);
-					observer.unobserve(entry.target);
-				}
-			},
-			{ threshold: 0.15, rootMargin: "0px 0px -8% 0px" },
-		);
-
-		items.forEach((item) => observer.observe(item));
-
-		return () => observer.disconnect();
-	}, []);
-
 	return (
-		<div className={styles.home}>
+		<RevealGroup className={styles.home} revealedClassName={styles.revealed}>
 			<section className={styles.hero} aria-labelledby="hero-title">
 				<div className={`${styles.heroInner} page-container`}>
 					<div className={styles.heroCopy}>
@@ -80,30 +55,44 @@ export default function Page() {
 				</div>
 			</section>
 
-			<section className={`${styles.categories}`} aria-labelledby="categories-title">
+			<section className={styles.categories} aria-labelledby="categories-title">
 				<div className="page-container">
 					<div className={`${styles.sectionIntro} ${styles.reveal}`} data-reveal>
 						<h2 id="categories-title">Shop by category</h2>
-						<Link href="/products" className={styles.sectionLink}>Shop Now <span aria-hidden="true">→</span></Link>
+						<Link href="/products" className={styles.sectionLink}>
+							Shop Now <span aria-hidden="true">→</span>
+						</Link>
 					</div>
 
-					<div className={`${styles.categoryGrid} ${styles.reveal}`} data-reveal>
-						<article className={`${styles.categoryCard} ${styles.livestock}`}>
+					<div className={styles.categoryGrid}>
+						<article
+							className={`${styles.categoryCard} ${styles.livestock} ${styles.reveal}`}
+							data-reveal
+						>
+							<span className={styles.categoryMedia} aria-hidden="true" />
 							<div>
 								<h3>Livestock</h3>
 								<p>Fish, shrimp, snails &amp; plants</p>
 							</div>
 						</article>
-						<article className={`${styles.categoryCard} ${styles.consumables}`}>
+						<article
+							className={`${styles.categoryCard} ${styles.consumables} ${styles.reveal}`}
+							data-reveal
+						>
+							<span className={styles.categoryMedia} aria-hidden="true" />
 							<div>
-							<h3>Consumables</h3>
-							<p>Food, fertilizers &amp; medications for daily care</p>
+								<h3>Consumables</h3>
+								<p>Food, fertilizers &amp; medications for daily care</p>
 							</div>
 						</article>
-						<article className={`${styles.categoryCard} ${styles.equipment}`}>
+						<article
+							className={`${styles.categoryCard} ${styles.equipment} ${styles.reveal}`}
+							data-reveal
+						>
+							<span className={styles.categoryMedia} aria-hidden="true" />
 							<div>
-							<h3>Equipment</h3>
-							<p>Filters, lights, tanks &amp; tools for every setup</p>
+								<h3>Equipment</h3>
+								<p>Filters, lights, tanks &amp; tools for every setup</p>
 							</div>
 						</article>
 					</div>
@@ -116,31 +105,50 @@ export default function Page() {
 						<p className={`eyebrow ${styles.featureEyebrow}`}>Why choose us</p>
 						<h2 id="features-title">Built for hobbyists, by hobbyists</h2>
 					</div>
-					<div className={`${styles.featureGrid} ${styles.reveal}`} data-reveal>
-							<div className={styles.featureCard}>
-								<span className={styles.featureIcon}><SafetyCertificateOutlined /></span>
-								<h3>Quarantined Livestock</h3>
-								<p>Every fish, shrimp, and plant goes through a 14-day quarantine before being listed.</p>
-							</div>
-							<div className={styles.featureCard}>
-								<span className={styles.featureIcon}><DropboxOutlined /></span>
-								<h3>Safe Delivery Guarantee</h3>
-								<p>Climate-controlled packaging with a live-arrival guarantee on all livestock orders.</p>
-							</div>
-							<div className={styles.featureCard}>
-								<span className={styles.featureIcon}><MessageOutlined /></span>
-								<h3>Expert Support</h3>
-								<p>Our aquascaping team answers questions within 24 hours — even on weekends.</p>
-							</div>
-							<div className={styles.featureCard}>
-								<span className={styles.featureIcon}><TeamOutlined /></span>
-								<h3>Active Community</h3>
-								<p>Join 12,000+ hobbyists sharing tips, tank journals, and aquascaping inspiration.</p>
-							</div>
+					<div className={styles.featureGrid}>
+						<div className={`${styles.featureCard} ${styles.reveal}`} data-reveal>
+							<span className={styles.featureIcon}>
+								<SafetyCertificateOutlined />
+							</span>
+							<h3>Quarantined Livestock</h3>
+							<p>
+								Every fish, shrimp, and plant goes through a 14-day quarantine
+								before being listed.
+							</p>
+						</div>
+						<div className={`${styles.featureCard} ${styles.reveal}`} data-reveal>
+							<span className={styles.featureIcon}>
+								<DropboxOutlined />
+							</span>
+							<h3>Safe Delivery Guarantee</h3>
+							<p>
+								Climate-controlled packaging with a live-arrival guarantee on
+								all livestock orders.
+							</p>
+						</div>
+						<div className={`${styles.featureCard} ${styles.reveal}`} data-reveal>
+							<span className={styles.featureIcon}>
+								<MessageOutlined />
+							</span>
+							<h3>Expert Support</h3>
+							<p>
+								Our aquascaping team answers questions within 24 hours — even on
+								weekends.
+							</p>
+						</div>
+						<div className={`${styles.featureCard} ${styles.reveal}`} data-reveal>
+							<span className={styles.featureIcon}>
+								<TeamOutlined />
+							</span>
+							<h3>Active Community</h3>
+							<p>
+								Join 12,000+ hobbyists sharing tips, tank journals, and
+								aquascaping inspiration.
+							</p>
+						</div>
 					</div>
 				</div>
 			</section>
-
-		</div>
+		</RevealGroup>
 	);
 }

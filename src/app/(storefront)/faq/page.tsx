@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SectionHeading } from "@/components/ui/section-heading";
+import { RevealGroup } from "@/components/ui/reveal";
 import styles from "../info-page.module.css";
 
 export const metadata: Metadata = {
@@ -74,52 +74,78 @@ const faqGroups = [
 
 export default function FaqPage() {
 	return (
-		<div className={styles.page}>
-			<section className={`${styles.hero} page-container`}>
-				<SectionHeading
-					id="faq-title"
-					level={1}
-					align="center"
-					eyebrow="Support"
-					title="Frequently asked questions"
-					description="Everything you need to know about ordering, shipping, livestock care, and your account."
-				/>
-			</section>
-
-			<section className={`${styles.section} page-container`} aria-labelledby="faq-title">
-				<div className={styles.sectionNarrow}>
-					{faqGroups.map((group) => (
-						<div className={styles.group} key={group.title}>
-							<h2 className={styles.groupTitle}>{group.title}</h2>
-
-							<div className={styles.faqList}>
-								{group.items.map((item) => (
-									<details className={styles.faqItem} key={item.question}>
-										<summary className={styles.faqQuestion}>
-											{item.question}
-											<span className={styles.faqToggle} aria-hidden="true">
-												+
-											</span>
-										</summary>
-										<p className={styles.faqAnswer}>{item.answer}</p>
-									</details>
-								))}
-							</div>
+		<RevealGroup className={styles.page} revealedClassName={styles.revealed}>
+			<section className={`${styles.faqHero} page-container`} aria-labelledby="faq-title">
+				<div className={styles.faqLayout}>
+					<aside className={styles.faqAside}>
+						<div className={`${styles.asideIntro} ${styles.reveal}`} data-reveal>
+							<p className="eyebrow">Support</p>
+							<h1 id="faq-title">Frequently asked questions</h1>
+							<p className={styles.lede}>
+								Everything you need to know about ordering, shipping, livestock
+								care, and your account.
+							</p>
+							<dl className={styles.asideMeta}>
+								<div>
+									<dt>Reply time</dt>
+									<dd>Under 24 hours</dd>
+								</div>
+								<div>
+									<dt>Support days</dt>
+									<dd>7 days a week</dd>
+								</div>
+							</dl>
 						</div>
-					))}
 
-					<div className={styles.cta}>
-						<h2>Still have questions?</h2>
-						<p>
-							Our team answers within 24 hours, even on weekends. Send us your
-							tank details and we will point you in the right direction.
-						</p>
-						<Link href="/contact" className={styles.ctaButton}>
-							Contact us
-						</Link>
+						<div className={`${styles.supportCard} ${styles.reveal}`} data-reveal>
+							<span className={styles.supportIcon} aria-hidden="true">
+								?
+							</span>
+							<h2>Still have questions?</h2>
+							<p>
+								Send us your tank details and we will point you in the right
+								direction.
+							</p>
+							<Link href="/contact" className={styles.supportButton}>
+								Contact us <span aria-hidden="true">→</span>
+							</Link>
+						</div>
+					</aside>
+
+					<div className={styles.faqMain}>
+						{faqGroups.map((group, groupIndex) => (
+							<section
+								className={styles.faqGroup}
+								key={group.title}
+								aria-labelledby={`faq-group-${groupIndex}`}
+							>
+								<div className={`${styles.groupHeader} ${styles.reveal}`} data-reveal>
+									<h2 id={`faq-group-${groupIndex}`}>{group.title}</h2>
+									<span>{group.items.length} questions</span>
+								</div>
+
+								<div className={styles.faqList}>
+									{group.items.map((item) => (
+										<details
+											className={`${styles.faqItem} ${styles.reveal}`}
+											key={item.question}
+											data-reveal
+										>
+											<summary className={styles.faqQuestion}>
+												<span>{item.question}</span>
+												<span className={styles.faqToggle} aria-hidden="true">
+													+
+												</span>
+											</summary>
+											<p className={styles.faqAnswer}>{item.answer}</p>
+										</details>
+									))}
+								</div>
+							</section>
+						))}
 					</div>
 				</div>
 			</section>
-		</div>
+		</RevealGroup>
 	);
 }
