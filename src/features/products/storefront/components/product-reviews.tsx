@@ -58,7 +58,7 @@ function ReviewCard({ review }: ReviewCardProps) {
 	const date = formatDate(review.createdAt);
 
 	return (
-		<Card className={styles.reviewCard} bordered={false}>
+		<Card className={styles.reviewCard} variant="borderless">
 			<div className={styles.reviewHead}>
 				<div className={styles.reviewIdentity}>
 					<Rate
@@ -73,7 +73,7 @@ function ReviewCard({ review }: ReviewCardProps) {
 				</div>
 
 				<div className={styles.reviewMeta}>
-					{review.orderItemId != null && (
+					{review.verifiedPurchase && (
 						<Tag className={styles.verifiedTag}>Verified purchase</Tag>
 					)}
 					{date && <time className={styles.date}>{date}</time>}

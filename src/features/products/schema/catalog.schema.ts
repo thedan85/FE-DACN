@@ -6,7 +6,7 @@ import { createPageResponseSchema, ProductStatusSchema } from "@/lib/api/schema"
  * Catalog DTO schemas, mirroring the backend response records
  * (`.opencode/refs/backend/dto/response/*` + live `/v3/api-docs`, verified
  * 2026-10-22; the product-detail DTOs re-verified against backend `dev` @
- * `f758bae` on 2026-10-26).
+ * `49b698e` on 2026-10-28).
  *
  * Unknown keys are stripped by default, so newly added backend fields
  * (e.g. a future stock signal on ProductResponse) do not break parsing.
@@ -83,7 +83,7 @@ export const ProductAttributeValueSchema = z.object({
 /**
  * `GET /api/v1/products/{slug}` → `ProductDetailResponse`
  * (`{ product, attributes[], variants[], reviews }`), backend `dev` @
- * `f758bae`, verified live 2026-10-26. This is the detail page's single data
+ * `49b698e`, verified live 2026-10-28. This is the detail page's single data
  * source — no sub-resource endpoints are called (D16).
  */
 
@@ -110,16 +110,17 @@ export const VariantDetailSchema = z.object({
 
 /**
  * `ReviewResponse` as shipped to storefront callers: `customerId` is
- * staff-only (`@JsonInclude(NON_NULL)`) and `customerName` is present instead
- * (backend defect N7, fixed in `f758bae`).
+ * staff-only (`@JsonInclude(NON_NULL)`) and `customerName` is present instead.
+ * `verifiedPurchase` replaces the old `orderItemId` so database ids are no
+ * longer exposed (backend `dev` @ `49b698e`, 2026-10-28).
  */
 export const ReviewSchema = z.object({
 	reviewId: z.string(),
 	variantId: z.string(),
 	customerName: z.string().nullable(),
-	/** Null for reviews not tied to an order item → no "Verified purchase" tag. */
-	orderItemId: z.number().int().nullable(),
-	/** DB CHECK `chk_reviews_rating` constrains this to 1–5. */
+	/** True when the review is tied to a purchased order item. */
+	verifiedPurchase: z.boolean(),
+	/** DB CHECK `chk_reviews_rating` constrains this to 1-5. */
 	rating: z.number().int().min(1).max(5),
 	comment: z.string(),
 	createdAt: z.string(),

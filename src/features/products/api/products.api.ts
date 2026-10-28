@@ -19,7 +19,7 @@ import type {
 /**
  * Storefront catalog API (read-only), verified against the live backend
  * (`/api/v1`, controller + DTO refs) on 2026-10-22; the product-detail
- * contract re-verified against backend `dev` @ `f758bae` on 2026-10-26.
+ * contract re-verified against backend `dev` @ `49b698e` on 2026-10-28.
  *
  * All requests go through `apiFetch`; payloads are validated with zod —
  * a 200 with an unexpected shape is treated as an error.
