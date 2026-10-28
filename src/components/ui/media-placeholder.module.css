@@ -1,0 +1,43 @@
+/* Generic media placeholder (D17). Owns only its own box: colors come from
+   design tokens, geometry adapts to whatever parent it is placed in. */
+
+.root {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+
+	/* Fill the parent's box; the floor keeps it visible in auto-height
+	   parents, where `height: 100%` resolves to `auto`. */
+	width: 100%;
+	height: 100%;
+	min-height: 96px;
+	padding: 16px;
+	box-sizing: border-box;
+
+	background: var(--color-surface-icon);
+	/* Adopt the parent's corners so it drops into an image frame cleanly. */
+	border-radius: inherit;
+	color: var(--color-text-placeholder);
+	text-align: center;
+}
+
+.icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	/* Ant Design icons size from inherited `font-size` (their SVG is 1em),
+	   so this one value scales both the default glyph and any icon passed
+	   in via the `icon` prop. */
+	font-size: 32px;
+	line-height: 1;
+}
+
+.text {
+	max-width: 100%;
+	color: var(--color-text-muted);
+	font-size: var(--font-size-small);
+	line-height: var(--line-height-small);
+	overflow-wrap: anywhere;
+}

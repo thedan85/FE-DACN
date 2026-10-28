@@ -1,0 +1,39 @@
+.price {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	margin-top: var(--space-6);
+	padding-top: var(--space-6);
+	border-top: 1px solid var(--color-border-light);
+}
+
+.title {
+	margin: 0;
+	color: var(--color-text-heading);
+	font-size: var(--font-size-navigation);
+	line-height: var(--line-height-navigation);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.8px;
+}
+
+.inputs {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+}
+
+.input {
+	flex: 1;
+	min-width: 0;
+}
+
+.dash {
+	color: var(--color-text-muted);
+}
+
+.actions {
+	display: flex;
+	gap: var(--space-3);
+	flex-wrap: wrap;
+}

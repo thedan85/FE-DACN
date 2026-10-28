@@ -1,0 +1,73 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	min-width: 0;
+}
+
+/* The main image box: `aspect-ratio` gives it height, `MediaPlaceholder`
+   fills it (100% x 100%) when there is nothing to show. */
+.main {
+	position: relative;
+	aspect-ratio: 4 / 3;
+	overflow: hidden;
+	background: var(--color-surface-icon);
+	border-radius: var(--radius-icon);
+}
+
+.image {
+	object-fit: cover;
+}
+
+.placeholder {
+	position: absolute;
+	inset: 0;
+}
+
+.thumbs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-3);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.thumb {
+	position: relative;
+	display: block;
+	width: 72px;
+	height: 56px;
+	padding: 0;
+	overflow: hidden;
+	background: var(--color-surface-icon);
+	border: 2px solid transparent;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: border-color 0.15s ease;
+}
+
+.thumb:hover {
+	border-color: var(--color-border-input);
+}
+
+.thumb:focus-visible {
+	outline: 2px solid var(--color-brand-teal);
+	outline-offset: 2px;
+}
+
+.thumbActive {
+	border-color: var(--color-brand-teal);
+}
+
+.thumbPlaceholder {
+	min-height: 0;
+	padding: 0;
+	border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.thumb {
+		transition: none;
+	}
+}

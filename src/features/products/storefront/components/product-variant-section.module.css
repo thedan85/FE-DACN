@@ -1,0 +1,40 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-6);
+}
+
+/* Gallery on the left, information + purchase on the right — stacks on
+   narrow viewports. */
+.detail {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	align-items: start;
+	gap: var(--space-6);
+}
+
+.gallery,
+.info {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+	min-width: 0;
+}
+
+.noVariants {
+	margin: 0;
+	padding: var(--space-6);
+	background: var(--color-surface-white);
+	border: 1px dashed var(--color-border-light);
+	border-radius: var(--radius-icon);
+	color: var(--color-text-muted);
+	font-size: var(--font-size-body-compact);
+	line-height: var(--line-height-body-compact);
+	text-align: center;
+}
+
+@media (max-width: 991px) {
+	.detail {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}

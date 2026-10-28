@@ -1,0 +1,17 @@
+.toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--space-4);
+	flex-wrap: nowrap;
+}
+
+.search {
+	flex: 1 1 auto;
+	max-width: 100%;
+}
+
+.sort {
+	flex: 1 1 auto;
+	max-width: 100%;
+	min-width: 200px;
+}
