@@ -41,8 +41,18 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Private .opencode files
-.opencode
+# Private AI files
+.opencode/
+.agents/
+.claude/
 
 # Powershell
 *.ps1
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
