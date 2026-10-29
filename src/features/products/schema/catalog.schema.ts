@@ -16,8 +16,21 @@ export const ProductSchema = z.object({
 	productId: z.string(),
 	slug: z.string(),
 	name: z.string(),
-	description: z.string(),
-	detailDescription: z.string(),
+	/**
+	 * Both description fields are `nullish` with a `""` fallback: the DTO
+	 * records can carry `null` (and older payloads may omit them), but every
+	 * consumer treats them as plain strings — `splitParagraphs` splits and
+	 * `ProductCareGuide` returns `null` on an empty heading, so normalising
+	 * to `""` here keeps downstream types unchanged and rendering safe.
+	 */
+	description: z
+		.string()
+		.nullish()
+		.transform((value) => value ?? ""),
+	detailDescription: z
+		.string()
+		.nullish()
+		.transform((value) => value ?? ""),
 	thumbnail: z.string().nullable(),
 	thumbnailMediaId: z.string().nullable(),
 	status: ProductStatusSchema,
@@ -42,19 +55,6 @@ export const CategorySchema = z.object({
 	name: z.string(),
 	slug: z.string(),
 	parentCategoryId: z.string().nullable(),
-	deleted: z.boolean().nullable(),
-	createdAt: z.string(),
-	updatedAt: z.string(),
-});
-
-export const VariantSchema = z.object({
-	id: z.number().int(),
-	variantId: z.string(),
-	sku: z.string(),
-	price: z.number(),
-	stock: z.number().int(),
-	productId: z.string(),
-	productName: z.string(),
 	deleted: z.boolean().nullable(),
 	createdAt: z.string(),
 	updatedAt: z.string(),

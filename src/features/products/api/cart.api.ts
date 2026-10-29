@@ -1,3 +1,4 @@
+import { getAuthHeaders } from "@/features/auth/session";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { createApiResponseSchema } from "@/lib/api/schema";
 
@@ -13,10 +14,10 @@ import type { CartItem } from "../types";
  * can offer an honest "Sign in to purchase" prompt instead of faking a
  * successful add.
  *
- * The `Authorization: Bearer <jwt>` header belongs to the centralized
- * `apiFetch` once the auth feature lands — this module deliberately carries
- * no token handling of its own. Until then every call is anonymous and
- * honestly resolves to `auth-required`.
+ * Each call attaches `Authorization: Bearer <jwt>` from the in-memory auth
+ * session when one exists (`getAuthHeaders` returns an empty set otherwise,
+ * so anonymous callers still reach the honest 401 path). The token itself
+ * is never persisted here.
  *
  * Nothing here throws: every failure is returned as a typed outcome so the
  * UI can render it rather than swallow it.
@@ -60,6 +61,7 @@ export async function addToCart(
 	try {
 		payload = await apiFetch<unknown>("cart/items", {
 			method: "POST",
+			headers: getAuthHeaders(),
 			body: JSON.stringify({
 				variantId,
 				quantity: input.quantity,
