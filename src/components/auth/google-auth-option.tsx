@@ -67,8 +67,16 @@ function GoogleAuthOptionInner({
 		try {
 			const data = await loginWithGoogle(response.credential);
 			setAccessToken(data.accessToken);
-			const user = await getMe();
-			useAuthStore.getState().setUser(user);
+
+			try {
+				const user = await getMe();
+				useAuthStore.getState().setUser(user);
+			} catch {
+				// The session cookie is already issued; let the store hydrate
+				// on the next page instead of reporting a failed login.
+				useAuthStore.setState({ user: null, status: "loading" });
+			}
+
 			router.replace("/");
 		} catch (error) {
 			onError(getAuthErrorMessage(error));
@@ -104,6 +112,7 @@ function GoogleAuthOptionInner({
 				ref={buttonRef}
 				className={styles.wrapper}
 				aria-busy={pending || disabled}
+				inert={pending || disabled}
 			/>
 			<Script
 				src="https://accounts.google.com/gsi/client"
