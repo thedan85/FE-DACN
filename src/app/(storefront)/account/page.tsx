@@ -268,9 +268,12 @@ export default function AccountPage() {
 	return (
 		<section className={styles.accountPage}>
 			<div className="page-container">
-				<header className={styles.pageIntro}>
-					<h1>My Account</h1>
-					<p>Manage your profile, orders, and preferences.</p>
+				<header className={`${styles.pageIntro} ${styles.pageIntroWithAction}`}>
+					<div>
+						<h1>My Account</h1>
+						<p>Manage your profile, orders, and preferences.</p>
+					</div>
+					<Button href="/account/orders">Order History</Button>
 				</header>
 
 				<form

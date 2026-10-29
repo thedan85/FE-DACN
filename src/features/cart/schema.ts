@@ -3,14 +3,13 @@ import { z } from "zod";
 /**
  * Cart DTO schemas, mirroring the backend response records under
  * `dto/response/cart/*` (verified against backend `dev` @ `f758bae` on
- * 2026-10-26). Kept separate from `catalog.schema.ts` so each schema file
- * mirrors one backend package.
+ * 2026-10-26).
  *
  * Unknown keys are stripped by default, so newly added backend fields do not
  * break parsing.
  */
 
-/** `CartItemResponse` — what `POST /api/v1/cart/items` returns on success. */
+/** `CartItemResponse` — one line in the cart. */
 export const CartItemSchema = z.object({
 	cartItemId: z.string(),
 	cartId: z.string(),
@@ -23,7 +22,22 @@ export const CartItemSchema = z.object({
 	productId: z.string(),
 	productName: z.string(),
 	thumbnail: z.string().nullable(),
-	stock: z.number().int(),
+	stock: z.number().int().nonnegative(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 });
+
+/** `CartDetailResponse` — the customer's whole cart. */
+export const CartDetailSchema = z.object({
+	cartId: z.string(),
+	customerId: z.string(),
+	customerName: z.string(),
+	items: z.array(CartItemSchema),
+	totalQuantity: z.number().int().nonnegative(),
+	totalAmount: z.number(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+});
+
+export type CartItem = z.infer<typeof CartItemSchema>;
+export type Cart = z.infer<typeof CartDetailSchema>;

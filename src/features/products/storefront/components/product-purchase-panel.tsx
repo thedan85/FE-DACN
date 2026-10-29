@@ -5,8 +5,7 @@ import Link from "next/link";
 import { App, Alert } from "antd";
 
 import { useAuthStore } from "@/stores/auth-store";
-
-import { addToCart } from "../../api/cart.api";
+import { addToCart } from "@/features/cart/api";
 import type { VariantDetail } from "../../types";
 import { formatVndPrice } from "../model/product-format";
 import { variantSoldOut } from "../model/product-stock";

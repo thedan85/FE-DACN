@@ -9,6 +9,14 @@
 	margin-bottom: 28px;
 }
 
+.pageIntroWithAction {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 16px;
+}
+
 .pageIntro h1 {
 	margin: 0 0 8px;
 	color: var(--color-brand-dark-teal);
