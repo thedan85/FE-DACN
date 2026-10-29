@@ -1,6 +1,5 @@
 .wrapper {
-	display: flex;
-	justify-content: center;
+	position: relative;
 	width: 100%;
 	min-height: 48px;
 }
@@ -8,4 +7,58 @@
 .wrapper[aria-busy="true"] {
 	pointer-events: none;
 	opacity: 0.6;
+}
+
+.button {
+	display: inline-flex;
+	width: 100%;
+	min-height: 48px;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	padding: 0 24px;
+	border: 1px solid var(--color-border-input);
+	border-radius: var(--radius-pill);
+	background: var(--color-surface-white);
+	color: var(--color-text-heading);
+	font-size: var(--font-size-body-compact);
+	font-weight: 600;
+	transition: background 160ms ease, border-color 160ms ease;
+}
+
+.button:hover {
+	border-color: var(--color-brand-teal);
+	background: var(--color-surface-icon);
+}
+
+.button:disabled {
+	opacity: 0.6;
+}
+
+.button:focus-visible {
+	outline: 2px solid var(--color-brand-deep-teal);
+	outline-offset: 2px;
+}
+
+/* Invisible real GIS button on top of the custom one, so clicking opens
+   the Google consent popup without giving up the site's visual style. */
+.gsi {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	display: flex;
+	justify-content: center;
+	overflow: hidden;
+	border-radius: var(--radius-pill);
+	opacity: 0;
+}
+
+.gsi > div {
+	width: 100% !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.button {
+		transition: none;
+	}
 }
