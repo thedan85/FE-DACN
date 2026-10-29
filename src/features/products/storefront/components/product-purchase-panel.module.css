@@ -1,66 +1,142 @@
 .root {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-4);
-	padding: var(--space-4);
-	background: var(--color-surface-icon);
-	border-radius: var(--radius-icon);
+	gap: 16px;
 }
 
-.controls {
+.price {
+	margin: 0;
+	color: var(--pd-heading, #142d2d);
+	font-family: var(--pd-font-heading, Georgia, serif);
+	font-size: 32px;
+	line-height: 1.15;
+	font-weight: 900;
+	font-variation-settings:
+		"SOFT" 0,
+		"WONK" 1;
+}
+
+.actions {
 	display: flex;
-	align-items: flex-end;
-	flex-wrap: wrap;
-	gap: var(--space-4);
+	align-items: center;
+	gap: 16px;
+}
+
+/* Native ± buttons so the control is keyboard and screen-reader usable;
+   the design's plain "− 1 +" box is preserved visually. */
+.stepper {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 16px;
+	padding: 10px 12px;
+	background: var(--pd-white, #ffffff);
+	border: 1px solid var(--pd-border, #d8e0dc);
+	border-radius: 12px;
+}
+
+.stepButton {
+	padding: 0 2px;
+	background: none;
+	border: 0;
+	color: var(--pd-body, #455e5e);
+	font-family: var(--pd-font-body, "Segoe UI", sans-serif);
+	font-size: 16px;
+	line-height: 1;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.stepButton:hover:not(:disabled) {
+	color: var(--pd-heading, #142d2d);
+}
+
+.stepButton:focus-visible {
+	outline: 2px solid var(--pd-teal, #2a9d8f);
+	outline-offset: 3px;
+	border-radius: 2px;
+}
+
+.stepButton:disabled {
+	color: var(--pd-placeholder, #94a3b8);
+	cursor: not-allowed;
 }
 
 .quantity {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-}
-
-.quantityLabel {
-	color: var(--color-text-muted);
-	font-size: var(--font-size-small);
-	line-height: var(--line-height-small);
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.6px;
-}
-
-.quantityInput {
-	inline-size: 140px;
+	min-inline-size: 1.2em;
+	color: var(--pd-heading, #142d2d);
+	font-family: var(--pd-font-body, "Segoe UI", sans-serif);
+	font-size: 16px;
+	line-height: 1;
+	font-weight: 700;
+	text-align: center;
 }
 
 .addButton {
-	min-inline-size: 190px;
+	flex: 1 1 auto;
+	min-inline-size: 0;
+	padding: 14px 20px;
+	background: var(--pd-teal, #2a9d8f);
+	border: 0;
+	border-radius: 12px;
+	color: #ffffff;
+	font-family: var(--pd-font-body, "Segoe UI", sans-serif);
+	font-size: 16px;
+	line-height: 1.4;
+	font-weight: 700;
+	letter-spacing: 0.4px;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.addButton:hover:not(:disabled) {
+	background: var(--pd-teal-dark, #23867b);
+}
+
+.addButton:focus-visible {
+	outline: 2px solid var(--pd-heading, #142d2d);
+	outline-offset: 2px;
+}
+
+.addButton:disabled {
+	background: var(--pd-border, #d8e0dc);
+	color: var(--pd-body, #455e5e);
+	cursor: not-allowed;
 }
 
 .soldOut {
 	margin: 0;
-	color: var(--color-text-heading);
-	font-size: var(--font-size-body-compact);
-	line-height: var(--line-height-body-compact);
-	font-weight: 700;
+	color: var(--color-danger, #b42318);
+	font-size: 13px;
+	line-height: 1.5;
 }
 
 .notice {
-	width: 100%;
+	inline-size: 100%;
 }
 
 .signInLink {
-	font-weight: 700;
+	font-weight: 600;
+	text-decoration: underline;
 }
 
 @media (max-width: 480px) {
-	.controls {
+	.actions {
 		flex-direction: column;
 		align-items: stretch;
 	}
 
-	.quantityInput,
+	.stepper {
+		justify-content: center;
+	}
+
 	.addButton {
 		inline-size: 100%;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.addButton {
+		transition: none;
 	}
 }

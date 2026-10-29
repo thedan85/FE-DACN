@@ -99,7 +99,7 @@ export function ProductVariantGallery({
 											src={url}
 											alt=""
 											fill
-											sizes="72px"
+											sizes="(max-width: 767px) 22vw, 130px"
 											className={styles.image}
 											onError={() => markFailed(index)}
 										/>

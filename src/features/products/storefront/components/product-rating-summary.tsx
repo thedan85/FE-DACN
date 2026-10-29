@@ -1,7 +1,7 @@
-import { Rate } from "antd";
-
 import type { ReviewSummary } from "../model/review-summary";
 import { summaryScopeLabel } from "../model/review-summary";
+import { StarSlashIcon } from "./product-detail-icons";
+import { RatingStars } from "./rating-stars";
 
 import styles from "./product-rating-summary.module.css";
 
@@ -12,9 +12,7 @@ type ProductRatingSummaryProps = {
 const STAR_LEVELS = [5, 4, 3, 2, 1] as const;
 
 /**
- * Section 4 score block — average, total count and per-star 5→1 counts with
- * proportional bar meters (antd has no rating-bar primitive, so the meters
- * are plain CSS).
+ * The reference's 340px score card — big average, stars and per-star bars.
  *
  * Every figure is derived from the **loaded** review page. When the backend
  * reports more reviews than were loaded, the block is labelled accordingly
@@ -27,26 +25,14 @@ export function ProductRatingSummary({ summary }: ProductRatingSummaryProps) {
 	return (
 		<div className={styles.root}>
 			<div className={styles.score}>
-				<span className={styles.average}>
+				<p className={styles.average}>
 					{average != null ? average.toFixed(1) : "—"}
-				</span>
-
-				<div className={styles.scoreMeta}>
-					<Rate
-						className={styles.stars}
-						value={average ?? 0}
-						allowHalf
-						disabled
-						aria-label={
-							average != null
-								? `Average rating ${average.toFixed(1)} out of 5`
-								: "No rating yet"
-						}
-					/>
-					<p className={styles.total}>
-						{summary.total} {summary.total === 1 ? "review" : "reviews"}
-					</p>
-				</div>
+				</p>
+				<RatingStars value={average ?? 0} />
+				<p className={styles.total}>
+					Based on {summary.total}{" "}
+					{summary.total === 1 ? "review" : "reviews"}
+				</p>
 			</div>
 
 			<ul className={styles.bars}>
@@ -58,6 +44,10 @@ export function ProductRatingSummary({ summary }: ProductRatingSummaryProps) {
 					return (
 						<li key={level} className={styles.barRow}>
 							<span className={styles.barLabel}>{level}</span>
+							<StarSlashIcon
+								className={styles.barStar}
+								size={10}
+							/>
 							<span
 								className={styles.barTrack}
 								role="img"

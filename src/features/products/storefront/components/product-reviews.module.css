@@ -1,94 +1,129 @@
-.card {
-	width: 100%;
-}
-
-.header {
-	margin: 0;
-	color: var(--color-text-heading);
-	font-size: var(--font-size-card-heading);
-	line-height: var(--line-height-card-heading);
-	font-weight: 700;
-}
-
-.content {
+.root {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-6);
+	gap: 24px;
+}
+
+.heading {
+	margin: 0;
+	color: var(--pd-heading, #142d2d);
+	font-family: var(--pd-font-heading, Georgia, serif);
+	font-size: 24px;
+	line-height: 1.25;
+	font-weight: 600;
+	font-variation-settings:
+		"SOFT" 0,
+		"WONK" 1;
+}
+
+.split {
+	display: flex;
+	align-items: flex-start;
+	gap: 48px;
 }
 
 .list {
 	display: flex;
+	flex: 1 1 0;
 	flex-direction: column;
-	gap: var(--space-4);
+	gap: 16px;
+	min-inline-size: 0;
 	margin: 0;
 	padding: 0;
 	list-style: none;
 }
 
-/* Nested tiles: antd supplies the radius, this module supplies the surface
-   so the reviews read as a list rather than as boxes inside a box. */
-.reviewCard {
-	width: 100%;
-	background: var(--color-surface-page);
-	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-icon);
+.card {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 24px;
+	background: var(--pd-white, #ffffff);
+	border: 1px solid var(--pd-border, #d8e0dc);
+	border-radius: 16px;
 }
 
-.reviewHead {
+.cardHead {
 	display: flex;
 	align-items: flex-start;
 	justify-content: space-between;
-	flex-wrap: wrap;
-	gap: var(--space-3);
+	gap: 16px;
 }
 
-.reviewIdentity {
+.identity {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
 }
 
-.reviewStars {
-	font-size: 16px;
+.nameRow {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
 }
 
 .reviewer {
 	margin: 0;
-	color: var(--color-text-heading);
-	font-size: var(--font-size-body-compact);
-	line-height: var(--line-height-body-compact);
+	color: var(--pd-heading, #142d2d);
+	font-size: 16px;
+	line-height: 1.4;
 	font-weight: 700;
 }
 
-.reviewMeta {
-	display: flex;
+.verified {
+	display: inline-flex;
 	align-items: center;
-	flex-wrap: wrap;
-	gap: var(--space-3);
-}
-
-.verifiedTag {
-	margin-inline-end: 0;
-	border: none;
-	background: var(--color-surface-icon);
-	color: var(--color-brand-deep-teal);
+	gap: 4px;
+	padding: 2px 8px;
+	background: var(--pd-selected, #ebf6f4);
+	border-radius: 100px;
+	color: var(--pd-teal, #2a9d8f);
 	font-size: 11px;
-	font-weight: 700;
-	letter-spacing: 0.5px;
-	text-transform: uppercase;
+	line-height: 1.4;
+	font-weight: 600;
 }
 
 .date {
-	color: var(--color-text-muted);
-	font-size: var(--font-size-small);
-	line-height: var(--line-height-small);
+	flex: 0 0 auto;
+	color: var(--pd-body, #455e5e);
+	font-size: 13px;
+	line-height: 1.5;
+	white-space: nowrap;
 }
 
 .comment {
-	margin: var(--space-3) 0 0;
-	color: var(--color-text-body);
-	font-size: var(--font-size-body-compact);
-	line-height: 1.7;
-	white-space: pre-wrap;
-	overflow-wrap: anywhere;
+	margin: 0;
+	color: var(--pd-body, #455e5e);
+	font-size: 14px;
+	line-height: 1.6;
+}
+
+.empty {
+	padding: 24px;
+	background: var(--pd-white, #ffffff);
+	border: 1px solid var(--pd-border, #d8e0dc);
+	border-radius: 16px;
+}
+
+@media (max-width: 991px) {
+	.split {
+		flex-direction: column;
+		gap: 24px;
+	}
+
+	.list {
+		inline-size: 100%;
+	}
+}
+
+@media (max-width: 767px) {
+	.card {
+		padding: 20px;
+	}
+
+	.cardHead {
+		flex-wrap: wrap;
+		gap: 8px 16px;
+	}
 }

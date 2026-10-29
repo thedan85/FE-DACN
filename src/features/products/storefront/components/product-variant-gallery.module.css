@@ -1,18 +1,19 @@
 .root {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-3);
-	min-width: 0;
+	gap: 16px;
+	min-inline-size: 0;
 }
 
-/* The main image box: `aspect-ratio` gives it height, `MediaPlaceholder`
-   fills it (100% x 100%) when there is nothing to show. */
+/* The main image box: `aspect-ratio` matches the reference (560 × 400),
+   `MediaPlaceholder` fills it (100% × 100%) when there is nothing to show. */
 .main {
 	position: relative;
-	aspect-ratio: 4 / 3;
+	aspect-ratio: 7 / 5;
 	overflow: hidden;
-	background: var(--color-surface-icon);
-	border-radius: var(--radius-icon);
+	background: var(--pd-selected, #ebf6f4);
+	border: 1px solid var(--pd-border, #d8e0dc);
+	border-radius: 16px;
 }
 
 .image {
@@ -26,44 +27,48 @@
 
 .thumbs {
 	display: flex;
-	flex-wrap: wrap;
-	gap: var(--space-3);
+	gap: 16px;
 	margin: 0;
 	padding: 0;
 	list-style: none;
 }
 
+.thumbs > li {
+	flex: 1 1 0;
+	min-inline-size: 0;
+}
+
 .thumb {
 	position: relative;
 	display: block;
-	width: 72px;
-	height: 56px;
+	inline-size: 100%;
+	aspect-ratio: 1;
 	padding: 0;
 	overflow: hidden;
-	background: var(--color-surface-icon);
-	border: 2px solid transparent;
-	border-radius: 8px;
+	background: var(--pd-selected, #ebf6f4);
+	border: 1px solid var(--pd-border, #d8e0dc);
+	border-radius: 12px;
 	cursor: pointer;
 	transition: border-color 0.15s ease;
 }
 
 .thumb:hover {
-	border-color: var(--color-border-input);
+	border-color: var(--pd-teal, #2a9d8f);
 }
 
 .thumb:focus-visible {
-	outline: 2px solid var(--color-brand-teal);
+	outline: 2px solid var(--pd-teal, #2a9d8f);
 	outline-offset: 2px;
 }
 
 .thumbActive {
-	border-color: var(--color-brand-teal);
+	border: 2px solid var(--pd-teal, #2a9d8f);
 }
 
 .thumbPlaceholder {
-	min-height: 0;
+	min-block-size: 0;
 	padding: 0;
-	border-radius: 6px;
+	border-radius: 10px;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -4,11 +4,7 @@ import { cache } from "react";
 
 import { ApiError } from "@/lib/api/client";
 import { getProductDetailBySlug } from "@/features/products/api/products.api";
-import { ProductBackButton } from "@/features/products/storefront/components/product-back-button";
-import { ProductDescriptionCard } from "@/features/products/storefront/components/product-description-card";
-import { ProductInfoCard } from "@/features/products/storefront/components/product-info-card";
-import { ProductReviews } from "@/features/products/storefront/components/product-reviews";
-import { ProductVariantSection } from "@/features/products/storefront/components/product-variant-section";
+import { ProductDetailView } from "@/features/products/storefront/components/product-detail-view";
 import { parseProductSlug } from "@/features/products/storefront/model/product-detail-params";
 import type { ProductDetail } from "@/features/products/types";
 
@@ -99,25 +95,15 @@ export default async function ProductDetailPage(
 	const detail = await loadProductDetail(slug);
 
 	return (
-		<section className={`page-container ${styles.root}`}>
-			<div className={styles.toolbar}>
-				<ProductBackButton />
-			</div>
-
-			<div className={styles.stack}>
-				<ProductInfoCard product={detail.product} />
-
-				<ProductVariantSection
+		<div className={styles.page}>
+			<div className={`page-container ${styles.root}`}>
+				<ProductDetailView
 					product={detail.product}
+					attributes={detail.attributes}
 					variants={detail.variants}
+					reviews={detail.reviews}
 				/>
-
-				<ProductDescriptionCard
-					detailDescription={detail.product.detailDescription}
-				/>
-
-				<ProductReviews reviews={detail.reviews} />
 			</div>
-		</section>
+		</div>
 	);
 }

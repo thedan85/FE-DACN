@@ -1,15 +1,33 @@
+/*
+ * Page-scoped palette and type from the "scarlet-badis-product-page"
+ * reference. Kept local (--pd-*) so the storefront's global tokens stay
+ * untouched; every redesigned product-detail component reads these.
+ */
+.page {
+	--pd-bg: #f2f5f3;
+	--pd-heading: #142d2d;
+	--pd-body: #455e5e;
+	--pd-border: #d8e0dc;
+	--pd-white: #ffffff;
+	--pd-selected: #ebf6f4;
+	--pd-teal: #2a9d8f;
+	--pd-teal-dark: #23867b;
+	--pd-green: #2b9348;
+	--pd-gold: #e9c46a;
+	--pd-font-heading: var(--font-fraunces), Georgia, serif;
+	--pd-font-body: var(--font-manrope), "Segoe UI", sans-serif;
+
+	overflow: clip;
+	background: var(--pd-bg);
+	color: var(--pd-heading);
+	font-family: var(--pd-font-body);
+}
+
 .root {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-8);
-	padding-block: clamp(2.5rem, 6vw, var(--space-16));
+	padding-block: 32px 64px;
 }
 
-.toolbar {
-	min-height: 44px;
-}
-
-/* D20: the page is a vertical stack of cards. */
+/* D20: error / not-found states stay a vertical stack of cards. */
 .stack {
 	display: flex;
 	flex-direction: column;

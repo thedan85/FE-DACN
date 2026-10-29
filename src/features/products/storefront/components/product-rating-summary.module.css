@@ -1,50 +1,47 @@
 .root {
 	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--space-6);
-	padding: var(--space-4);
-	background: var(--color-surface-icon);
-	border-radius: var(--radius-icon);
+	flex: 0 0 340px;
+	flex-direction: column;
+	gap: 20px;
+	inline-size: 340px;
+	padding: 24px;
+	background: var(--pd-white, #ffffff);
+	border: 1px solid var(--pd-border, #d8e0dc);
+	border-radius: 16px;
 }
 
 .score {
 	display: flex;
+	flex-direction: column;
 	align-items: center;
-	gap: var(--space-4);
+	gap: 4px;
+	inline-size: 100%;
 }
 
 .average {
-	color: var(--color-text-heading);
+	margin: 0;
+	color: var(--pd-heading, #142d2d);
+	font-family: var(--pd-font-heading, Georgia, serif);
 	font-size: 48px;
-	line-height: 1;
-	font-weight: 800;
-	letter-spacing: -1.5px;
-}
-
-.scoreMeta {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
-.stars {
-	font-size: 20px;
+	line-height: 1.1;
+	font-weight: 900;
+	font-variation-settings:
+		"SOFT" 0,
+		"WONK" 1;
 }
 
 .total {
 	margin: 0;
-	color: var(--color-text-muted);
-	font-size: var(--font-size-small);
-	line-height: var(--line-height-small);
+	color: var(--pd-body, #455e5e);
+	font-size: 13px;
+	line-height: 1.5;
+	text-align: center;
 }
 
 .bars {
 	display: flex;
-	flex: 1 1 260px;
 	flex-direction: column;
-	gap: 6px;
-	min-width: 0;
+	gap: 8px;
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -52,64 +49,55 @@
 
 .barRow {
 	display: grid;
-	grid-template-columns: 14px minmax(0, 1fr) 32px;
+	grid-template-columns: 12px 10px minmax(0, 1fr) 20px;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 }
 
 .barLabel {
-	color: var(--color-text-body);
-	font-size: var(--font-size-small);
-	line-height: var(--line-height-small);
+	color: var(--pd-body, #455e5e);
+	font-size: 12px;
+	line-height: 1.4;
 	font-weight: 600;
+}
+
+.barStar {
+	color: var(--pd-body, #455e5e);
 }
 
 .barTrack {
 	display: block;
 	block-size: 8px;
 	overflow: hidden;
-	background: var(--color-surface-white);
-	border-radius: var(--radius-pill);
+	background: var(--pd-bg, #f2f5f3);
+	border-radius: 4px;
 }
 
 .barFill {
 	display: block;
 	block-size: 100%;
-	background: var(--color-brand-teal);
-	border-radius: var(--radius-pill);
-	transition: inline-size 0.2s ease;
+	background: var(--pd-gold, #e9c46a);
+	border-radius: 4px;
 }
 
 .barCount {
-	color: var(--color-text-muted);
-	font-size: var(--font-size-small);
-	line-height: var(--line-height-small);
+	color: var(--pd-body, #455e5e);
+	font-size: 12px;
+	line-height: 1.4;
 	text-align: end;
-	font-variant-numeric: tabular-nums;
 }
 
 .scope {
-	flex-basis: 100%;
 	margin: 0;
-	color: var(--color-text-muted);
+	color: var(--pd-body, #455e5e);
 	font-size: 12px;
 	line-height: 1.5;
-	font-style: italic;
+	text-align: center;
 }
 
-@media (prefers-reduced-motion: reduce) {
-	.barFill {
-		transition: none;
-	}
-}
-
-@media (max-width: 767px) {
+@media (max-width: 991px) {
 	.root {
-		flex-direction: column;
-		align-items: stretch;
-	}
-
-	.bars {
-		flex-basis: auto;
+		flex: 1 1 auto;
+		inline-size: 100%;
 	}
 }

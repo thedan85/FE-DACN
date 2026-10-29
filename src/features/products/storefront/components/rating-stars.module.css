@@ -1,0 +1,13 @@
+.root {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.filled {
+	color: var(--pd-gold, #e9c46a);
+}
+
+.empty {
+	color: var(--pd-border, #d8e0dc);
+}

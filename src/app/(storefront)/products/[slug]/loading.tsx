@@ -4,8 +4,10 @@ import styles from "./product-detail.module.css";
 
 export default function Loading() {
 	return (
-		<section className={`page-container ${styles.root}`}>
-			<ProductDetailSkeleton />
-		</section>
+		<div className={styles.page}>
+			<div className={`page-container ${styles.root}`}>
+				<ProductDetailSkeleton />
+			</div>
+		</div>
 	);
 }

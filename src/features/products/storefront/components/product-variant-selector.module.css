@@ -1,151 +1,111 @@
-.root {
+.cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 16px;
+}
+
+.card {
 	display: flex;
+	min-inline-size: 0;
 	flex-direction: column;
-	gap: var(--space-3);
-}
-
-.heading {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--space-4);
-}
-
-.title {
-	margin: 0;
-	color: var(--color-text-heading);
-	font-size: var(--font-size-card-heading);
-	line-height: var(--line-height-card-heading);
-	font-weight: 700;
-}
-
-.arrows {
-	display: flex;
+	align-items: stretch;
 	gap: 8px;
-}
-
-/* Native horizontal scroller with snap; the scrollbar is hidden because the
-   arrow buttons and keyboard stepping are the advertised controls. */
-.viewport {
-	overflow-x: auto;
-	scroll-snap-type: x mandatory;
-	scrollbar-width: none;
-	overscroll-behavior-x: contain;
-}
-
-.viewport::-webkit-scrollbar {
-	display: none;
-}
-
-.track {
-	display: flex;
-	gap: var(--space-3);
-	margin: 0;
-	padding: 2px;
-	list-style: none;
-}
-
-.slideItem {
-	flex: 0 0 auto;
-	scroll-snap-align: start;
-}
-
-.slide {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	inline-size: 220px;
-	padding: 10px;
-	background: var(--color-surface-white);
-	border: 2px solid var(--color-border-light);
-	border-radius: var(--radius-icon);
-	color: inherit;
-	font: inherit;
+	padding: 16px;
+	background: var(--pd-white, #ffffff);
+	border: 1px solid var(--pd-border, #d8e0dc);
+	border-radius: 12px;
+	color: var(--pd-heading, #142d2d);
+	font-family: var(--pd-font-body, "Segoe UI", sans-serif);
 	text-align: start;
 	cursor: pointer;
 	transition:
-		border-color 0.15s ease,
-		background-color 0.15s ease;
+		background-color 0.15s ease,
+		border-color 0.15s ease;
 }
 
-.slide:hover {
-	border-color: var(--color-border-input);
+.card:hover {
+	border-color: var(--pd-teal, #2a9d8f);
 }
 
-.slide:focus-visible {
-	outline: 2px solid var(--color-brand-teal);
+.card:focus-visible {
+	outline: 2px solid var(--pd-teal, #2a9d8f);
 	outline-offset: 2px;
 }
 
-.slideActive,
-.slideActive:hover {
-	background: var(--color-surface-icon);
-	border-color: var(--color-brand-teal);
+.cardSelected {
+	padding: 15px;
+	background: var(--pd-selected, #ebf6f4);
+	border: 2px solid var(--pd-teal, #2a9d8f);
 }
 
-.slideImage {
-	position: relative;
-	display: block;
-	aspect-ratio: 4 / 3;
-	overflow: hidden;
-	background: var(--color-surface-icon);
+.cardHead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.cardName {
+	overflow-wrap: anywhere;
+	font-size: 15px;
+	line-height: 1.4;
+	font-weight: 700;
+}
+
+.check {
+	flex: 0 0 auto;
+	color: var(--pd-teal, #2a9d8f);
+}
+
+.unselectedDot {
+	flex: 0 0 auto;
+	inline-size: 16px;
+	block-size: 16px;
+	border: 1.5px solid var(--pd-border, #d8e0dc);
 	border-radius: 8px;
 }
 
-.image {
-	object-fit: cover;
-}
-
-.slidePlaceholder {
-	position: absolute;
-	inset: 0;
-	min-height: 0;
-	padding: 0;
-	border-radius: 0;
-}
-
-.slideSku {
-	color: var(--color-text-muted);
-	font-size: 12px;
+.cardValue {
+	color: var(--pd-body, #455e5e);
+	font-size: 13px;
 	line-height: 1.4;
-	font-weight: 600;
-	letter-spacing: 0.4px;
-	text-transform: uppercase;
 	overflow-wrap: anywhere;
 }
 
-.slidePrice {
-	color: var(--color-brand-deep-teal);
-	font-size: var(--font-size-body-compact);
-	line-height: var(--line-height-body-compact);
-	font-weight: 700;
+.cardFoot {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-top: 8px;
+	padding-top: 8px;
 }
 
-.stock {
-	color: var(--color-text-body);
-	font-size: var(--font-size-small);
-	line-height: var(--line-height-small);
+.cardPrice {
+	color: var(--pd-heading, #142d2d);
+	font-size: 18px;
+	line-height: 1.3;
+	font-weight: 800;
 }
 
-/* Colour is never the only signal — the label itself reads "Out of stock". */
-.stockOut {
-	color: var(--color-text-heading);
-	font-weight: 700;
+.cardStock {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--pd-green, #2b9348);
+	font-size: 12px;
+	line-height: 1.4;
+	font-weight: 600;
 }
 
-@media (prefers-reduced-motion: reduce) {
-	.slide {
-		transition: none;
-	}
-
-	.viewport {
-		scroll-behavior: auto;
-	}
+.stockDot {
+	inline-size: 8px;
+	block-size: 8px;
+	background: currentColor;
+	border-radius: 4px;
 }
 
-@media (max-width: 767px) {
-	.slide {
-		inline-size: 64vw;
-		max-inline-size: 220px;
-	}
+.cardStockOut {
+	color: var(--pd-body, #455e5e);
 }
