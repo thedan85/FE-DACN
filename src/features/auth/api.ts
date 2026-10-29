@@ -38,6 +38,16 @@ export async function login(input: LoginInput) {
 	return loginResponseSchema.parse(payload).data;
 }
 
+export async function loginWithGoogle(idToken: string) {
+	const payload = await apiFetch<unknown>("auth/google", {
+		method: "POST",
+		body: JSON.stringify({ idToken }),
+		credentials: "include",
+	});
+
+	return loginResponseSchema.parse(payload).data;
+}
+
 export async function register(input: RegisterInput) {
 	const payload = await apiFetch<unknown>("auth/register", {
 		method: "POST",

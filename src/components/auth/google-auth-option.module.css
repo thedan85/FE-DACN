@@ -1,0 +1,11 @@
+.wrapper {
+	display: flex;
+	justify-content: center;
+	width: 100%;
+	min-height: 48px;
+}
+
+.wrapper[aria-busy="true"] {
+	pointer-events: none;
+	opacity: 0.6;
+}

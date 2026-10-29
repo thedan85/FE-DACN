@@ -384,29 +384,31 @@ export default function AccountPage() {
 						</div>
 					</section>
 
-					<section className={`${styles.formSection} ${styles.securitySection}`}>
-						<div className={styles.securityHeading}>
-							<div className={styles.sectionHeading}>
-								<h2>
-									<LockOutlined /> Account Security
-								</h2>
-								<p>Password</p>
+					{user?.hasPassword !== false && (
+						<section className={`${styles.formSection} ${styles.securitySection}`}>
+							<div className={styles.securityHeading}>
+								<div className={styles.sectionHeading}>
+									<h2>
+										<LockOutlined /> Account Security
+									</h2>
+									<p>Password</p>
+								</div>
+								<button
+									type="button"
+									className={styles.changePassword}
+									onClick={openPasswordModal}
+								>
+									Change Password
+								</button>
 							</div>
-							<button
-								type="button"
-								className={styles.changePassword}
-								onClick={openPasswordModal}
-							>
-								Change Password
-							</button>
-						</div>
-						<div className={styles.securityRow}>
-							<span aria-hidden="true">••••••••••••</span>
-							<span className={styles.verified}>
-								<CheckCircleOutlined /> Verified
-							</span>
-						</div>
-					</section>
+							<div className={styles.securityRow}>
+								<span aria-hidden="true">••••••••••••</span>
+								<span className={styles.verified}>
+									<CheckCircleOutlined /> Verified
+								</span>
+							</div>
+						</section>
+					)}
 
 					{formError != null && (
 						<p className={styles.formError} role="alert">

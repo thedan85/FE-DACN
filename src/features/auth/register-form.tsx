@@ -3,11 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-	Divider,
-	GoogleButton,
-	PrimaryButton,
-} from "@/components/auth/auth-controls";
+import { PrimaryButton } from "@/components/auth/auth-controls";
+import { GoogleAuthOption } from "@/components/auth/google-auth-option";
 import { PasswordField } from "@/components/auth/password-field";
 import { TextField } from "@/components/auth/text-field";
 import { ApiError } from "@/lib/api/client";
@@ -245,9 +242,11 @@ export function RegisterForm() {
 				{pending ? "Creating account..." : "Create Account"}
 			</PrimaryButton>
 
-			<Divider />
-
-			<GoogleButton>Sign up with Google</GoogleButton>
+			<GoogleAuthOption
+				text="signup_with"
+				onError={setError}
+				disabled={!agreed}
+			/>
 
 			<p className={styles.footer}>
 				Already have an account?{" "}

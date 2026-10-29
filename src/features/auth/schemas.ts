@@ -18,6 +18,7 @@ export const meDataSchema = z.object({
 	roleCode: z.string(),
 	roleName: z.string(),
 	permissions: z.array(z.string()),
+	hasPassword: z.boolean(),
 });
 
 export const meResponseSchema = createApiResponseSchema(meDataSchema);

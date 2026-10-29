@@ -3,11 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-	Divider,
-	GoogleButton,
-	PrimaryButton,
-} from "@/components/auth/auth-controls";
+import { PrimaryButton } from "@/components/auth/auth-controls";
+import { GoogleAuthOption } from "@/components/auth/google-auth-option";
 import { PasswordField } from "@/components/auth/password-field";
 import { TextField } from "@/components/auth/text-field";
 import { ApiError } from "@/lib/api/client";
@@ -146,9 +143,7 @@ export function LoginForm() {
 				{pending ? "Signing in..." : "Sign In"}
 			</PrimaryButton>
 
-			<Divider />
-
-			<GoogleButton>Sign in with Google</GoogleButton>
+			<GoogleAuthOption text="signin_with" onError={setError} />
 
 			<p className={styles.footer}>
 				Don&apos;t have an account?{" "}

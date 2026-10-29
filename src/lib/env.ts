@@ -8,6 +8,7 @@ const publicEnvSchema = z.object({
 			(value) => ["http:", "https:"].includes(new URL(value).protocol),
 			"NEXT_PUBLIC_API_BASE_URL must use HTTP or HTTPS",
 		),
+	NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
@@ -15,6 +16,7 @@ export type PublicEnv = z.infer<typeof publicEnvSchema>;
 export function getPublicEnv(): PublicEnv {
 	const result = publicEnvSchema.safeParse({
 		NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+		NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
 	});
 
 	if (!result.success) {
