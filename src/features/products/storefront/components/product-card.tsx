@@ -11,10 +11,10 @@ type ProductCardProps = {
 	/**
 	 * Listing-level stock signal.
 	 *
-	 * `ProductResponse` does not expose stock yet (defect N2). Until the
-	 * backend DTO gains the field, this stays `null` and no out-of-stock
-	 * treatment is rendered. When the field lands, wire it here
-	 * (`inStock={product.inStock}`) without touching the card internals.
+	 * `ProductResponse.stock` (backend defect N2, fixed 2026-10-22) is wired
+	 * by the grid: `null`/`undefined` means "unknown" and renders no
+	 * out-of-stock treatment; `false` renders the sold-out styling. The card
+	 * itself never reads the DTO directly, so the signal stays swappable.
 	 */
 	inStock?: boolean | null;
 };

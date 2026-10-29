@@ -9,7 +9,6 @@ import type {
 	VariantAttributeValueSchema,
 	VariantDetailSchema,
 	ProductSchema,
-	VariantSchema,
 } from "../schema/catalog.schema";
 import type { CartItemSchema } from "../schema/cart.schema";
 
@@ -17,7 +16,6 @@ import type { CartItemSchema } from "../schema/cart.schema";
 
 export type Product = z.infer<typeof ProductSchema>;
 export type Category = z.infer<typeof CategorySchema>;
-export type Variant = z.infer<typeof VariantSchema>;
 export type Media = z.infer<typeof MediaSchema>;
 export type ProductAttributeValue = z.infer<
 	typeof ProductAttributeValueSchema

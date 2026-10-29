@@ -17,7 +17,12 @@ export function ProductGrid({ products }: ProductGridProps) {
 		<Row gutter={[24, 24]}>
 			{products.map((product) => (
 				<Col key={product.productId} xs={24} sm={12} md={8}>
-					<ProductCard product={product} />
+					<ProductCard
+						product={product}
+						inStock={
+							product.stock == null ? null : product.stock > 0
+						}
+					/>
 				</Col>
 			))}
 		</Row>

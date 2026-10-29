@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { App, Alert } from "antd";
 
+import { useAuthStore } from "@/stores/auth-store";
+
 import { addToCart } from "../../api/cart.api";
 import type { VariantDetail } from "../../types";
 import { formatVndPrice } from "../model/product-format";
@@ -26,6 +28,12 @@ type Notice = { kind: "auth" } | { kind: "error"; text: string };
  * `/login` link instead of pretending the item was added. Every other failure
  * surfaces the backend's message. No fake success, no silent failure.
  *
+ * Auth handling is proactive but hydration-safe: while the auth session is
+ * still resolving (`status === "loading"`) the button is disabled so no
+ * premature request fires; once it resolves to `anonymous` a click shows the
+ * sign-in notice **without** a network request. The 401 fallback path stays
+ * for tokens that expire mid-session.
+ *
  * The parent keys this component on `variant.variantId`, so switching
  * variants remounts it and every piece of local state (quantity, notice,
  * in-flight flag) starts fresh — no effect-based resynchronisation needed.
@@ -34,13 +42,18 @@ export function ProductPurchasePanel({
 	variant,
 }: ProductPurchasePanelProps) {
 	const { message } = App.useApp();
+	const authStatus = useAuthStore((state) => state.status);
 
 	const [quantity, setQuantity] = useState(1);
 	const [submitting, setSubmitting] = useState(false);
 	const [notice, setNotice] = useState<Notice | null>(null);
 
 	const soldOut = variantSoldOut(variant);
-	const canSubmit = !soldOut && quantity >= 1 && !submitting;
+	const canSubmit =
+		!soldOut &&
+		quantity >= 1 &&
+		!submitting &&
+		authStatus !== "loading";
 
 	function decreaseQuantity() {
 		setQuantity((current) => Math.max(1, current - 1));
@@ -54,6 +67,13 @@ export function ProductPurchasePanel({
 
 	async function handleAddToCart() {
 		if (!canSubmit) {
+			return;
+		}
+
+		// Signed-out click: show the sign-in notice without a doomed request.
+		// The 401 fallback below still covers tokens that expire mid-session.
+		if (authStatus === "anonymous") {
+			setNotice({ kind: "auth" });
 			return;
 		}
 
