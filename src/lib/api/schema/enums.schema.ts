@@ -39,6 +39,7 @@ export const PaymentStatusSchema = z.enum([
 	"CONFIRMED",
 	"FAILED",
 	"REFUNDED",
+	"REFUND_REQUIRED",
 ]);
 
 // Product

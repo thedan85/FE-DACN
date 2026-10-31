@@ -1,10 +1,15 @@
 import { z } from "zod";
 
-import { OrderStatusSchema } from "@/lib/api/schema";
+import {
+	OrderStatusSchema,
+	PaymentMethodSchema,
+	PaymentStatusSchema,
+} from "@/lib/api/schema";
 
 /**
  * Order DTO schemas, mirroring the backend records under
- * `dto/response/order/*` (verified against backend `dev` @ `f758bae`).
+ * `dto/response/order/*`. Items and payment are enriched by the backend, so
+ * defaults keep older payloads readable during a rolling deploy.
  */
 export const OrderItemSchema = z.object({
 	orderId: z.string(),
@@ -13,6 +18,16 @@ export const OrderItemSchema = z.object({
 	quantity: z.number().int().positive(),
 	unitPrice: z.number(),
 	createdAt: z.string(),
+	productName: z.string().nullable().default(null),
+	thumbnail: z.string().nullable().default(null),
+	attributes: z.array(z.string()).default([]),
+});
+
+export const OrderPaymentSchema = z.object({
+	method: PaymentMethodSchema,
+	status: PaymentStatusSchema,
+	transactionId: z.string().nullable(),
+	paidAt: z.string().nullable(),
 });
 
 export const OrderSchema = z.object({
@@ -27,7 +42,10 @@ export const OrderSchema = z.object({
 	items: z.array(OrderItemSchema),
 	createdAt: z.string(),
 	updatedAt: z.string(),
+	payment: OrderPaymentSchema.nullable().default(null),
 });
 
 export type OrderItem = z.infer<typeof OrderItemSchema>;
 export type Order = z.infer<typeof OrderSchema>;
+export type OrderPayment = z.infer<typeof OrderPaymentSchema>;
+export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;

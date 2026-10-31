@@ -57,6 +57,7 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
 	CONFIRMED: "Confirmed",
 	FAILED: "Failed",
 	REFUNDED: "Refunded",
+	REFUND_REQUIRED: "Refund required",
 };
 
 // Product
