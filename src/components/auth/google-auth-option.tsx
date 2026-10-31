@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { Divider } from "@/components/auth/auth-controls";
-import { getAuthErrorMessage, getMe, loginWithGoogle } from "@/features/auth/api";
+import { getAuthErrorMessage, getMe, loginWithGoogle } from "@/features/auth/api/auth.api";
 import { setAccessToken } from "@/features/auth/session";
 import { getPublicEnv } from "@/lib/env";
 import { useAuthStore } from "@/stores/auth-store";

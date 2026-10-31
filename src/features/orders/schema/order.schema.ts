@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+	createPageResponseSchema,
 	OrderStatusSchema,
 	PaymentMethodSchema,
 	PaymentStatusSchema,
@@ -45,7 +46,6 @@ export const OrderSchema = z.object({
 	payment: OrderPaymentSchema.nullable().default(null),
 });
 
-export type OrderItem = z.infer<typeof OrderItemSchema>;
-export type Order = z.infer<typeof OrderSchema>;
-export type OrderPayment = z.infer<typeof OrderPaymentSchema>;
-export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
+export const OrderPageSchema = createPageResponseSchema(OrderSchema);
+
+export { PaymentStatusSchema };

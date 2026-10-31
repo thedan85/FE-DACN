@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { OrderHistoryView } from "@/features/orders/components/order-history-view";
+import { OrderHistoryView } from "@/features/orders/storefront/components/order-history-view";
 
 export const metadata: Metadata = {
 	title: "Order History",

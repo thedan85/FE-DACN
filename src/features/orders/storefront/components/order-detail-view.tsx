@@ -18,7 +18,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
-import { getAuthErrorMessage } from "@/features/auth/api";
+import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import {
 	formatDate,
 	formatVndPrice,
@@ -27,8 +27,8 @@ import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import type { OrderStatus } from "@/types";
 
-import { getOrder } from "../api";
-import type { OrderPayment, OrderView } from "../api";
+import { getOrder } from "../../api/orders.api";
+import type { OrderPayment, OrderView } from "../../types";
 import {
 	ORDER_STATUS_COPY,
 	PAYMENT_STATUS_COPY,

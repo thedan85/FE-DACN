@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AuthLayout } from "@/components/auth/auth-layout";
-import { LoginForm } from "@/features/auth/login-form";
+import { LoginForm } from "@/features/auth/storefront/components/login-form";
 
 export const metadata: Metadata = {
 	title: "Sign In",

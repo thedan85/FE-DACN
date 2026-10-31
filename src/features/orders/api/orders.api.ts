@@ -1,14 +1,9 @@
-import { z } from "zod";
-
 import { getAuthHeaders } from "@/features/auth/session";
 import { ApiError, apiFetch } from "@/lib/api/client";
-import {
-	createApiResponseSchema,
-	createPageResponseSchema,
-} from "@/lib/api/schema";
+import { createApiResponseSchema } from "@/lib/api/schema";
 
-import { OrderSchema } from "./schema";
-import type { Order, OrderPayment, PaymentStatus } from "./schema";
+import { OrderPageSchema, OrderSchema } from "../schema/order.schema";
+import type { OrderPage, OrderView } from "../types";
 
 /**
  * Storefront order API, verified against the backend `OrderController`.
@@ -22,14 +17,8 @@ import type { Order, OrderPayment, PaymentStatus } from "./schema";
  * or an order page can hold hundreds of rows.
  */
 
-const orderPageSchema = createPageResponseSchema(OrderSchema);
-const ordersResponseSchema = createApiResponseSchema(orderPageSchema);
+const ordersResponseSchema = createApiResponseSchema(OrderPageSchema);
 const orderResponseSchema = createApiResponseSchema(OrderSchema);
-
-export type { OrderPayment, PaymentStatus };
-export type OrderItemView = Order["items"][number];
-export type OrderView = Order;
-export type OrderPage = z.infer<typeof orderPageSchema>;
 
 async function fetchOrderPage(page: number, size: number): Promise<OrderPage> {
 	const payload = await apiFetch<unknown>(

@@ -38,6 +38,3 @@ export const CartDetailSchema = z.object({
 	createdAt: z.string(),
 	updatedAt: z.string(),
 });
-
-export type CartItem = z.infer<typeof CartItemSchema>;
-export type Cart = z.infer<typeof CartDetailSchema>;

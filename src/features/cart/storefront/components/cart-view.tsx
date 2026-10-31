@@ -18,12 +18,12 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
-import { getAuthErrorMessage } from "@/features/auth/api";
+import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import { formatVndPrice } from "@/features/products/storefront/model/product-format";
 
-import { removeCartItem, updateCartItem } from "../api";
-import type { Cart, CartItem } from "../schema";
-import { useCart } from "../use-cart";
+import { removeCartItem, updateCartItem } from "../../api/cart.api";
+import type { Cart, CartItem } from "../../types";
+import { useCart } from "../hooks/use-cart";
 import styles from "./cart-view.module.css";
 
 function replaceItem(cart: Cart, updated: CartItem): Cart {

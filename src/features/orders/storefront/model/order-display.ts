@@ -1,7 +1,7 @@
 import { PAYMENT_METHOD_LABELS } from "@/lib/constants/labels";
 import type { OrderStatus } from "@/types";
 
-import type { OrderPayment, PaymentStatus } from "../api";
+import type { OrderPayment, PaymentStatus } from "../../types";
 
 /** Design labels differ from the backend enum names. */
 export const ORDER_STATUS_COPY: Record<OrderStatus, string> = {

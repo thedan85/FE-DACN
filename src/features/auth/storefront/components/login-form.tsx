@@ -8,10 +8,10 @@ import { GoogleAuthOption } from "@/components/auth/google-auth-option";
 import { PasswordField } from "@/components/auth/password-field";
 import { TextField } from "@/components/auth/text-field";
 import { ApiError } from "@/lib/api/client";
-import { getAuthErrorMessage, getMe, login } from "./api";
-import { setAccessToken } from "./session";
+import { getAuthErrorMessage, getMe, login } from "../../api/auth.api";
+import { setAccessToken } from "../../session";
 import { useAuthStore } from "@/stores/auth-store";
-import { validateEmail, validateRequired } from "./validation";
+import { validateEmail, validateRequired } from "../model/validation";
 import styles from "./auth-form.module.css";
 
 type LoginFieldErrors = {

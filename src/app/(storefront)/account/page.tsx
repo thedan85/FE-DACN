@@ -13,8 +13,8 @@ import {
 	changePassword,
 	getAuthErrorMessage,
 	updateProfile,
-} from "@/features/auth/api";
-import type { MeData } from "@/features/auth/schemas";
+} from "@/features/auth/api/auth.api";
+import type { MeData } from "@/features/auth/types";
 import { ApiError } from "@/lib/api/client";
 import { getInitials } from "@/lib/utils/initials";
 import { useAuthStore } from "@/stores/auth-store";

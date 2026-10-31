@@ -30,7 +30,3 @@ export const registerDataSchema = z.object({
 
 export const registerResponseSchema =
 	createApiResponseSchema(registerDataSchema);
-
-export type LoginData = z.infer<typeof loginDataSchema>;
-export type RegisterData = z.infer<typeof registerDataSchema>;
-export type MeData = z.infer<typeof meDataSchema>;
