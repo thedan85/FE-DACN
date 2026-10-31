@@ -37,8 +37,6 @@ export function ConfirmDialog({
 			okText={confirmText}
 			cancelText={cancelText}
 			confirmLoading={confirmLoading}
-			okButtonProps={{ className: styles.confirmButton }}
-			cancelButtonProps={{ className: styles.cancelButton }}
 			closable={!confirmLoading}
 			mask={{ closable: false }}
 			keyboard={!confirmLoading}

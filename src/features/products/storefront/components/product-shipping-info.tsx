@@ -28,7 +28,7 @@ export function ProductShippingInfo() {
 
 			<ul className={styles.list}>
 				{SHIPPING_POINTS.map((point) => (
-					<li key={point} className={styles.point}>
+					<li key={point}>
 						{point}
 					</li>
 				))}
