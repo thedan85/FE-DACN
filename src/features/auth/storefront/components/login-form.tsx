@@ -11,7 +11,7 @@ import { ApiError } from "@/lib/api/client";
 import { getAuthErrorMessage, getMe, login } from "../../api/auth.api";
 import { setAccessToken } from "../../session";
 import { useAuthStore } from "@/stores/auth-store";
-import { validateEmail, validateRequired } from "../model/validation";
+import { validateEmail, validateRequired } from "../../model/validation";
 import styles from "./auth-form.module.css";
 
 type LoginFieldErrors = {
