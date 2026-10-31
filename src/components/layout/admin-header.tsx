@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Input } from "antd";
+import { Input, Skeleton } from "antd";
 import { getInitials } from "@/lib/utils/initials";
 import styles from "./admin-header.module.css";
 
@@ -79,13 +79,12 @@ export function AdminHeader({ currentPage, identity }: AdminHeaderProps) {
 							</>
 						) : (
 							<>
-								<span
-									className={`${styles.skeleton} ${styles.skeletonName}`}
-									aria-hidden="true"
-								/>
-								<span
-									className={`${styles.skeleton} ${styles.skeletonRole}`}
-									aria-hidden="true"
+								<Skeleton
+									className={styles.identitySkeleton}
+									active
+									avatar={{ size: 34 }}
+									title={false}
+									paragraph={{ rows: 2, width: [84, 110] }}
 								/>
 								<span className={styles.visuallyHidden}>
 									Loading account details

@@ -133,6 +133,42 @@ button.footerAction:hover {
 	color: var(--color-text-white);
 }
 
+/* antd Button (collapse control): the global theme's Button tokens
+   (44px control height, pill radius, semibold) are neutralized locally so the
+   control holds the design's 42px icon+label row on the dark surface.
+   The co-selectors out-specify antd's injected .ant-btn rules. */
+.sidebar button.footerAction:global(.ant-btn) {
+	display: flex;
+	height: 42px;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 10px;
+	padding-block: 0;
+	padding-inline: 12px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--color-admin-sidebar-text);
+	font-size: 13px;
+	font-weight: 400;
+	line-height: 1.2;
+	letter-spacing: -0.26px;
+	text-align: left;
+}
+
+.sidebar button.footerAction:global(.ant-btn) :global(.ant-btn-icon) {
+	margin-inline-end: 0;
+}
+
+.sidebar button.footerAction:global(.ant-btn):hover {
+	background: rgb(255 255 255 / 6%);
+	color: var(--color-text-white);
+}
+
+.sidebar button.footerAction:global(.ant-btn):focus-visible {
+	outline-color: var(--color-brand-aqua);
+}
+
 .footerLabel {
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -153,6 +189,13 @@ button.footerAction:hover {
 
 .collapsed .navLink,
 .collapsed .footerAction {
+	justify-content: center;
+	padding-inline: 0;
+}
+
+/* The antd collapse button carries stronger base rules — repeat the centered
+   collapsed state at matching specificity. */
+.collapsed button.footerAction:global(.ant-btn) {
 	justify-content: center;
 	padding-inline: 0;
 }

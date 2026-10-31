@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Button } from "antd";
 import styles from "./admin-sidebar.module.css";
 
 type AdminSidebarProps = {
@@ -107,26 +108,29 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: AdminSidebarProps)
 
 				<span className={styles.footerDivider} aria-hidden="true" />
 
-				<button
-					type="button"
+				<Button
+					type="text"
+					block
 					className={styles.footerAction}
+					icon={
+						<Image
+							src="/images/admin/nav/panel-left-close.svg"
+							alt=""
+							width={18}
+							height={18}
+							unoptimized
+							className={styles.navIcon}
+						/>
+					}
 					aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					aria-controls="admin-sidebar"
 					aria-expanded={!collapsed}
 					onClick={onToggleCollapse}
 				>
-					<Image
-						src="/images/admin/nav/panel-left-close.svg"
-						alt=""
-						width={18}
-						height={18}
-						unoptimized
-						className={styles.navIcon}
-					/>
 					<span className={styles.footerLabel}>
 						{collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					</span>
-				</button>
+				</Button>
 			</div>
 		</aside>
 	);
