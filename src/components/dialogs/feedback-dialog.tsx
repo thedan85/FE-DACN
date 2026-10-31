@@ -140,7 +140,6 @@ export function FeedbackDialog({
 			keyboard={closeOnEscape && !isActionLoading}
 			destroyOnHidden
 			className={styles.modal}
-			rootClassName={styles.modalRoot}
 		>
 			<section
 				className={styles.content}

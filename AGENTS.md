@@ -8,6 +8,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked as local markdown files under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
 ## Development Environment and Command Execution
 
 ### Windows PowerShell Execution Policy
@@ -157,6 +167,8 @@ Prefer the existing stack unless a concrete requirement justifies another depend
 - `npm run build` — create a production build.
 - `npm run start` — start the production server after a successful build.
 - `npm run lint` — run ESLint.
+- `npm run typecheck` — run `tsc --noEmit`.
+- `npm run check` — run lint, typecheck, and the CSS-module reference check. This is the gate run before a PR; `.githooks/pre-commit` runs the CSS check, ESLint on the staged files, and the typecheck on every commit.
 
 Run the relevant checks after implementation. If a check fails, distinguish new failures from pre-existing issues and report the actual result.
 
@@ -228,6 +240,9 @@ Feature-specific implementation should remain cohesive. Promote code into shared
 Use Ant Design as the established UI component library.
 
 - Prefer existing Ant Design components over introducing a competing component library.
+- In `"use client"` components, anything interactive or stateful is the Ant Design primitive (button, input, select, form, modal, table, tabs, alert, skeleton), with raw elements reserved for design-supplied content and static layout. The reviewer's test and the exception criteria live in `CODING_STANDARDS.md`.
+- Working from a design screenshot: map the design to existing primitives first, then spend custom CSS only on the values antd cannot carry (colours, spacing, radii). Token and override reference: `docs/antd.md`.
+- Query antd v6 APIs offline before writing them — `antd info <Component>`, `antd semantic`, `antd token`, `antd lint` (the `antd` skill). Do not write antd props or class names from memory.
 - Wrap frequently reused components in project-specific components when this provides consistent behavior, styling, or interfaces.
 - Keep domain-independent components separate from business-specific feature components.
 - Avoid unnecessary abstraction for components used only once.

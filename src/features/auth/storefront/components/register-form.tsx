@@ -9,7 +9,7 @@ import { PasswordField } from "@/components/auth/password-field";
 import { TextField } from "@/components/auth/text-field";
 import { ApiError } from "@/lib/api/client";
 import { getAuthErrorMessage, register } from "../../api/auth.api";
-import { validateEmail, validateRequired } from "../model/validation";
+import { validateEmail, validateRequired } from "../../model/validation";
 import styles from "./auth-form.module.css";
 
 const PHONE_PATTERN = /^\+?[0-9]{10,15}$/;

@@ -388,7 +388,7 @@ export default function AccountPage() {
 					</section>
 
 					{user?.hasPassword !== false && (
-						<section className={`${styles.formSection} ${styles.securitySection}`}>
+						<section className={styles.formSection}>
 							<div className={styles.securityHeading}>
 								<div className={styles.sectionHeading}>
 									<h2>

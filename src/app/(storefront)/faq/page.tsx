@@ -115,7 +115,6 @@ export default function FaqPage() {
 					<div className={styles.faqMain}>
 						{faqGroups.map((group, groupIndex) => (
 							<section
-								className={styles.faqGroup}
 								key={group.title}
 								aria-labelledby={`faq-group-${groupIndex}`}
 							>

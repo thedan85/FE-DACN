@@ -39,6 +39,19 @@ const colors = {
 	overlayImageDarkEnd: "rgba(9, 38, 35, 0.95)",
 
 	danger: "#B42318",
+
+	// Admin portal surfaces (Figma: Admin Dashboard frame 5445-2495).
+	admin: {
+		sidebarSurface: "#0C3532",
+		sidebarActiveSurface: "#1A5650",
+		sidebarText: "#B8CDCA",
+		sidebarSubtitle: "#8AB6AE",
+		sidebarDivider: "#28504B",
+		panelBorder: "#DFE8E4",
+		panelTextMuted: "#687D7B",
+		panelTextStrong: "#142D2D",
+		avatarSurface: "#E9F5F1",
+	},
 } as const;
 
 const typography = {
@@ -194,6 +207,16 @@ const cssVariableValues = {
 	"--overlay-image-dark-end": colors.overlayImageDarkEnd,
 
 	"--color-danger": colors.danger,
+
+	"--color-admin-sidebar-surface": colors.admin.sidebarSurface,
+	"--color-admin-sidebar-active": colors.admin.sidebarActiveSurface,
+	"--color-admin-sidebar-text": colors.admin.sidebarText,
+	"--color-admin-sidebar-subtitle": colors.admin.sidebarSubtitle,
+	"--color-admin-sidebar-divider": colors.admin.sidebarDivider,
+	"--color-admin-panel-border": colors.admin.panelBorder,
+	"--color-admin-panel-text-muted": colors.admin.panelTextMuted,
+	"--color-admin-panel-text-strong": colors.admin.panelTextStrong,
+	"--color-admin-avatar-surface": colors.admin.avatarSurface,
 
 	"--font-family-sans": typography.fontFamily,
 

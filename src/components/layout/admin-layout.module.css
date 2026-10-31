@@ -1,0 +1,17 @@
+.shell {
+	display: flex;
+	min-height: 100vh;
+	background: var(--color-surface-page);
+}
+
+.workspace {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	flex-direction: column;
+}
+
+.main {
+	flex: 1;
+	padding: 28px;
+}

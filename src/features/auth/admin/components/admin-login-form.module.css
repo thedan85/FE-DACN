@@ -1,0 +1,61 @@
+.form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-6);
+}
+
+.header {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-bottom: 8px;
+}
+
+.title:global(.ant-typography) {
+	margin: 0;
+	color: var(--color-text-heading);
+	font-size: 36px;
+	line-height: 1.15;
+	letter-spacing: -0.9px;
+	font-weight: 800;
+}
+
+.subtitle:global(.ant-typography) {
+	max-width: 34ch;
+	margin: 0;
+	color: var(--color-text-muted);
+	font-size: var(--font-size-body-compact);
+	line-height: 1.55;
+}
+
+/* The design shows placeholder-only inputs, but the label stays in the
+   accessible tree — the form is unusable by screen readers without it. */
+.visuallyHidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	border: 0;
+	white-space: nowrap;
+	clip: rect(0 0 0 0);
+}
+
+/* The design's inline error is plain text, not a tinted panel: strip the
+   Alert box that antd draws around it. antd wraps its rules in `:where()`,
+   so the co-selector below out-ranks them without `!important`. */
+.error:global(.ant-alert) {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--color-danger);
+	font-size: var(--font-size-small);
+	line-height: var(--line-height-small);
+}
+
+/* antd spaces form items with its own margin; the design's 12px comes from
+   the Flex gap above instead, so the margin must go. */
+.form :global(.ant-form-item) {
+	margin-bottom: 0;
+}

@@ -45,6 +45,7 @@ next-env.d.ts
 .opencode/
 .agents/
 .claude/
+.scratch/
 
 # Powershell
 *.ps1
