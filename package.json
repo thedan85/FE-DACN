@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit --incremental false",
+    "check:css": "node scripts/check-css-modules.mjs",
+    "check": "npm run lint && npm run typecheck && npm run check:css"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",

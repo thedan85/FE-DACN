@@ -1,0 +1,22 @@
+#!/bin/sh
+# Local guardrail: block a commit that breaks lint, types, or a CSS-module reference.
+# Enable once per clone:  git config core.hooksPath .githooks
+# Bypass for a known-good emergency only:  git commit --no-verify
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs')
+
+if [ -z "$staged" ]; then
+	exit 0
+fi
+
+echo "pre-commit: checking staged source files"
+
+npm run --silent check:css
+
+# Lint only what is being committed; the full lint runs in `npm run check`.
+echo "$staged" | tr '\n' '\0' | xargs -0 npx --no-install eslint
+
+npm run --silent typecheck
+
+echo "pre-commit: ok"
