@@ -8,8 +8,12 @@ import {
 	createPageResponseSchema,
 } from "@/lib/api/schema";
 
-import { OrderSchema } from "./schema";
-import type { Order, OrderItem } from "./schema";
+import {
+	OrderPageSchema,
+	OrderSchema,
+	PaymentStatusSchema,
+} from "../schema/order.schema";
+import type { Order, OrderPage, OrderPayment, OrderView } from "../types";
 
 /**
  * Storefront order API, verified against the backend `OrderController`,
@@ -28,8 +32,7 @@ import type { Order, OrderItem } from "./schema";
  * order page can hold hundreds of rows.
  */
 
-const orderPageSchema = createPageResponseSchema(OrderSchema);
-const ordersResponseSchema = createApiResponseSchema(orderPageSchema);
+const ordersResponseSchema = createApiResponseSchema(OrderPageSchema);
 const orderResponseSchema = createApiResponseSchema(OrderSchema);
 const variantResponseSchema = createApiResponseSchema(
 	z.object({
@@ -56,41 +59,11 @@ const attributesResponseSchema = createApiResponseSchema(
 const paymentResponseSchema = createApiResponseSchema(
 	z.object({
 		method: PaymentMethodSchema,
-		status: z.enum([
-			"PENDING",
-			"CONFIRMED",
-			"FAILED",
-			"REFUNDED",
-			"REFUND_REQUIRED",
-		]),
+		status: PaymentStatusSchema,
 		transactionId: z.string().nullable(),
 		paidAt: z.string().nullable(),
 	}),
 );
-
-export type PaymentStatus = z.infer<
-	typeof paymentResponseSchema
->["data"]["status"];
-
-export type OrderPayment = {
-	method: z.infer<typeof PaymentMethodSchema>;
-	status: PaymentStatus;
-	transactionId: string | null;
-	paidAt: string | null;
-};
-
-export type OrderItemView = OrderItem & {
-	productName: string | null;
-	thumbnail: string | null;
-	attributes: string[];
-};
-
-export type OrderView = Omit<Order, "items"> & {
-	items: OrderItemView[];
-	payment: OrderPayment | null;
-};
-
-export type OrderPage = z.infer<typeof orderPageSchema>;
 
 type VariantSummary = {
 	productName: string | null;

@@ -18,8 +18,8 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
-import { getAuthErrorMessage } from "@/features/auth/api";
-import { addToCart } from "@/features/cart/api";
+import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
+import { addToCart } from "@/features/cart/api/cart.api";
 import {
 	formatDate,
 	formatVndPrice,
@@ -27,8 +27,8 @@ import {
 import { useAuthStore } from "@/stores/auth-store";
 import type { OrderStatus } from "@/types";
 
-import { listOrders } from "../api";
-import type { OrderView } from "../api";
+import { listOrders } from "../../api/orders.api";
+import type { OrderView } from "../../types";
 import { ORDER_STATUS_COPY, paymentLabel } from "../model/order-display";
 import styles from "./order-history-view.module.css";
 

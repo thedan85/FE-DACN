@@ -1,8 +1,8 @@
 "use client";
 
 import { create } from "zustand";
-import { getMe, logout, refreshSession } from "@/features/auth/api";
-import type { MeData } from "@/features/auth/schemas";
+import { getMe, logout, refreshSession } from "@/features/auth/api/auth.api";
+import type { MeData } from "@/features/auth/types";
 import { clearSession, setAccessToken } from "@/features/auth/session";
 
 type AuthStatus = "loading" | "authenticated" | "anonymous";

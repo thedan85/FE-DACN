@@ -4,11 +4,11 @@ import { getAuthHeaders } from "@/features/auth/session";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { createApiResponseSchema } from "@/lib/api/schema";
 
-import { OrderSchema } from "@/features/orders/schema";
-import type { Order } from "@/features/orders/schema";
+import { OrderSchema } from "@/features/orders/schema/order.schema";
+import type { Order } from "@/features/orders/types";
 
-import { CartDetailSchema, CartItemSchema } from "./schema";
-import type { Cart, CartItem } from "./schema";
+import { CartDetailSchema, CartItemSchema } from "../schema/cart.schema";
+import type { Cart, CartItem } from "../types";
 
 /**
  * Storefront cart API.

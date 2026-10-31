@@ -8,8 +8,8 @@ import { GoogleAuthOption } from "@/components/auth/google-auth-option";
 import { PasswordField } from "@/components/auth/password-field";
 import { TextField } from "@/components/auth/text-field";
 import { ApiError } from "@/lib/api/client";
-import { getAuthErrorMessage, register } from "./api";
-import { validateEmail, validateRequired } from "./validation";
+import { getAuthErrorMessage, register } from "../../api/auth.api";
+import { validateEmail, validateRequired } from "../model/validation";
 import styles from "./auth-form.module.css";
 
 const PHONE_PATTERN = /^\+?[0-9]{10,15}$/;

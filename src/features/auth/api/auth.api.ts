@@ -1,10 +1,10 @@
 import { ApiError, apiFetch } from "@/lib/api/client";
-import { getAuthHeaders } from "./session";
+import { getAuthHeaders } from "../session";
 import {
 	loginResponseSchema,
 	meResponseSchema,
 	registerResponseSchema,
-} from "./schemas";
+} from "../schema/auth.schema";
 
 /**
  * Network/transport failures (status 0) stay generic; only HTTP responses may

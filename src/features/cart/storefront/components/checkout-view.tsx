@@ -16,13 +16,13 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
-import { getAuthErrorMessage } from "@/features/auth/api";
-import type { MeData } from "@/features/auth/schemas";
+import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
+import type { MeData } from "@/features/auth/types";
 import { formatVndPrice } from "@/features/products/storefront/model/product-format";
 import { useAuthStore } from "@/stores/auth-store";
 
-import { checkoutCart, createVnpayPaymentUrl } from "../api";
-import { useCart } from "../use-cart";
+import { checkoutCart, createVnpayPaymentUrl } from "../../api/cart.api";
+import { useCart } from "../hooks/use-cart";
 import styles from "./checkout-view.module.css";
 
 const PHONE_PATTERN = /^\+?[0-9]{10,15}$/;

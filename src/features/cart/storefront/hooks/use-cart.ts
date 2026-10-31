@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { getAuthErrorMessage } from "@/features/auth/api";
+import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import { useAuthStore } from "@/stores/auth-store";
 
-import { getCart } from "./api";
-import type { Cart } from "./schema";
+import { getCart } from "../../api/cart.api";
+import type { Cart } from "../../types";
 
 type LoadState =
 	| { status: "loading" }

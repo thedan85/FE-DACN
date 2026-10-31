@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { OrderStatusSchema } from "@/lib/api/schema";
+import {
+	createPageResponseSchema,
+	OrderStatusSchema,
+} from "@/lib/api/schema";
 
 /**
  * Order DTO schemas, mirroring the backend records under
@@ -29,5 +32,13 @@ export const OrderSchema = z.object({
 	updatedAt: z.string(),
 });
 
-export type OrderItem = z.infer<typeof OrderItemSchema>;
-export type Order = z.infer<typeof OrderSchema>;
+export const OrderPageSchema = createPageResponseSchema(OrderSchema);
+
+/** The payment DTO adds `REFUND_REQUIRED` to the shared status enum. */
+export const PaymentStatusSchema = z.enum([
+	"PENDING",
+	"CONFIRMED",
+	"FAILED",
+	"REFUNDED",
+	"REFUND_REQUIRED",
+]);
