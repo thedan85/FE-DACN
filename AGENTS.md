@@ -241,7 +241,8 @@ Use Ant Design as the established UI component library.
 
 - Prefer existing Ant Design components over introducing a competing component library.
 - In `"use client"` components, anything interactive or stateful is the Ant Design primitive (button, input, select, form, modal, table, tabs, alert, skeleton), with raw elements reserved for design-supplied content and static layout. The reviewer's test and the exception criteria live in `CODING_STANDARDS.md`.
-- Query antd v6 APIs offline before writing them — `antd info <Component> --version 6.6.5`, `antd semantic`, `antd lint` (the `antd` skill). Do not write antd props from memory.
+- Working from a design screenshot: map the design to existing primitives first, then spend custom CSS only on the values antd cannot carry (colours, spacing, radii). Token and override reference: `docs/antd.md`.
+- Query antd v6 APIs offline before writing them — `antd info <Component>`, `antd semantic`, `antd token`, `antd lint` (the `antd` skill). Do not write antd props or class names from memory.
 - Wrap frequently reused components in project-specific components when this provides consistent behavior, styling, or interfaces.
 - Keep domain-independent components separate from business-specific feature components.
 - Avoid unnecessary abstraction for components used only once.
