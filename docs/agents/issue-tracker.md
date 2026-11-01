@@ -9,6 +9,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
 - Triage state is recorded as a `Status:` line near the top of each issue file (e.g. `Status: open`, `Status: in-progress`, `Status: done`)
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
+- Acceptance criteria name **the check or the measurement** that settles them: a command (`npm run check`), an observable behaviour ("customer credentials land back on `/admin/login` with an error"), or a value from `docs/design.md` § Measured surfaces. A criterion reading "visually matches frame X" cannot be settled by an agent without image input and invites a guess; cite the metrics instead.
 
 ## When a skill says "publish to the issue tracker"
 
