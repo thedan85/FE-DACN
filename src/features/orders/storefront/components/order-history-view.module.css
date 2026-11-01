@@ -438,17 +438,12 @@
 	text-decoration: none;
 }
 
-.listEnd {
+.pagination {
 	display: flex;
-	align-items: center;
 	justify-content: center;
 	min-block-size: 52px;
 	margin: 0;
-	padding: 0 24px;
-	color: var(--order-muted);
-	font-size: 12px;
-	line-height: 1.55;
-	text-align: center;
+	padding: 12px 24px;
 }
 
 .filteredEmpty {
@@ -773,10 +768,9 @@
 		text-decoration: none;
 	}
 
-	.listEnd {
+	.pagination {
 		min-block-size: 0;
 		padding: 18px 0 0;
-		font-size: 11px;
 	}
 
 	.emptyState {

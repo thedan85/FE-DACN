@@ -1,6 +1,7 @@
 import { getAuthHeaders } from "@/features/auth/session";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { createApiResponseSchema } from "@/lib/api/schema";
+import type { OrderStatus } from "@/types";
 
 import { OrderPageSchema, OrderSchema } from "../schema/order.schema";
 import type { OrderPage, OrderView } from "../types";
@@ -11,20 +12,33 @@ import type { OrderPage, OrderView } from "../types";
  * `OrderResponse` already carries the item display fields (product name,
  * thumbnail, attributes) and the order payment, so one request per page is
  * enough. No follow-up enrichment requests are needed.
- *
- * shortcut: fetch every page (100 per request) so status/search/date filters
- * can run client-side. Revisit when the backend exposes customer-side filtering
- * or an order page can hold hundreds of rows.
  */
 
 const ordersResponseSchema = createApiResponseSchema(OrderPageSchema);
 const orderResponseSchema = createApiResponseSchema(OrderSchema);
 
-async function fetchOrderPage(page: number, size: number): Promise<OrderPage> {
-	const payload = await apiFetch<unknown>(
-		`orders?page=${page}&size=${size}`,
-		{ headers: getAuthHeaders() },
-	);
+export type OrderListQuery = {
+	/** 0-based, matching Spring Data. */
+	page: number;
+	size: number;
+	status?: OrderStatus;
+	q?: string;
+	/** ISO-8601 instant, inclusive. */
+	createdAfter?: string;
+};
+
+export async function listOrders(query: OrderListQuery): Promise<OrderPage> {
+	const params = new URLSearchParams({
+		page: String(query.page),
+		size: String(query.size),
+	});
+	if (query.status) params.set("status", query.status);
+	if (query.q) params.set("q", query.q);
+	if (query.createdAfter) params.set("createdAfter", query.createdAfter);
+
+	const payload = await apiFetch<unknown>(`orders?${params.toString()}`, {
+		headers: getAuthHeaders(),
+	});
 	const parsed = ordersResponseSchema.safeParse(payload);
 
 	if (!parsed.success) {
@@ -36,24 +50,6 @@ async function fetchOrderPage(page: number, size: number): Promise<OrderPage> {
 	}
 
 	return parsed.data.data;
-}
-
-export async function listOrders(): Promise<OrderView[]> {
-	const pageSize = 100;
-	const firstPage = await fetchOrderPage(0, pageSize);
-	const remainingPages = await Promise.all(
-		Array.from({ length: Math.max(0, firstPage.totalPages - 1) }, (_, index) =>
-			fetchOrderPage(index + 1, pageSize),
-		),
-	);
-
-	return [firstPage, ...remainingPages]
-		.flatMap((page) => page.content)
-		.sort(
-			(left, right) =>
-				left.createdAt.localeCompare(right.createdAt) ||
-				left.orderId.localeCompare(right.orderId),
-		);
 }
 
 export async function getOrder(orderId: string): Promise<OrderView> {

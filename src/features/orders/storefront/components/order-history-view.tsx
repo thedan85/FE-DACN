@@ -10,7 +10,7 @@ import {
 	QuestionCircleOutlined,
 	SearchOutlined,
 } from "@ant-design/icons";
-import { App, Button } from "antd";
+import { App, Button, Pagination } from "antd";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -27,7 +27,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import type { OrderStatus } from "@/types";
 
 import { listOrders } from "../../api/orders.api";
-import type { OrderView } from "../../types";
+import type { OrderPage, OrderView } from "../../types";
 import { ORDER_STATUS_COPY, paymentLabel } from "../model/order-display";
 import { OrderHistorySkeleton } from "./order-history-skeleton";
 import styles from "./order-history-view.module.css";
@@ -47,13 +47,13 @@ const STATUS_FILTERS: ReadonlyArray<{
 	{ value: "CANCELLED", label: "Cancelled" },
 ];
 
-/** Stable per page load so the date filter stays pure during render. */
-const PAGE_LOADED_AT = Date.now();
+const ORDER_PAGE_SIZE = 10;
+const SEARCH_DEBOUNCE_MS = 300;
 
 type OrdersState =
 	| { status: "loading" }
 	| { status: "error"; message: string }
-	| { status: "ready"; orders: OrderView[] };
+	| { status: "ready"; page: OrderPage; requestKey: string };
 
 function orderCount(count: number): string {
 	return `${count} ${count === 1 ? "order" : "orders"}`;
@@ -129,11 +129,25 @@ export function OrderHistoryView() {
 	const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 	const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 	const [query, setQuery] = useState("");
+	const [page, setPage] = useState(0);
+	const [debouncedQuery, setDebouncedQuery] = useState("");
 	const [buyingOrderId, setBuyingOrderId] = useState<string | null>(null);
+	const requestKey = JSON.stringify([status, page, statusFilter, dateFilter, debouncedQuery, reloadKey]);
+	const isFetching = state.status === "loading" ||
+		(state.status === "ready" && state.requestKey !== requestKey);
 
 	useEffect(() => {
 		void hydrate();
 	}, [hydrate]);
+
+	useEffect(() => {
+		if (query.trim() === debouncedQuery) return;
+		const timer = window.setTimeout(() => {
+			setDebouncedQuery(query.trim());
+			setPage(0);
+		}, SEARCH_DEBOUNCE_MS);
+		return () => window.clearTimeout(timer);
+	}, [query, debouncedQuery]);
 
 	useEffect(() => {
 		if (status !== "authenticated") {
@@ -141,11 +155,20 @@ export function OrderHistoryView() {
 		}
 
 		let active = true;
+		const createdAfter = dateFilter === "all"
+			? undefined
+			: new Date(Date.now() - Number(dateFilter) * 24 * 60 * 60 * 1000).toISOString();
 
-		listOrders()
-			.then((orders) => {
+		listOrders({
+			page,
+			size: ORDER_PAGE_SIZE,
+			status: statusFilter === "ALL" ? undefined : statusFilter,
+			q: debouncedQuery || undefined,
+			createdAfter,
+		})
+			.then((data) => {
 				if (active) {
-					setState({ status: "ready", orders });
+					setState({ status: "ready", page: data, requestKey });
 				}
 			})
 			.catch((error: unknown) => {
@@ -160,12 +183,24 @@ export function OrderHistoryView() {
 		return () => {
 			active = false;
 		};
-	}, [status, reloadKey]);
+	}, [status, page, statusFilter, dateFilter, debouncedQuery, reloadKey, requestKey]);
+
+	function changeStatusFilter(value: StatusFilter) {
+		setStatusFilter(value);
+		setPage(0);
+	}
+
+	function changeDateFilter(value: DateFilter) {
+		setDateFilter(value);
+		setPage(0);
+	}
 
 	function resetFilters() {
 		setStatusFilter("ALL");
 		setDateFilter("all");
 		setQuery("");
+		setDebouncedQuery("");
+		setPage(0);
 	}
 
 	function retry() {
@@ -265,41 +300,17 @@ export function OrderHistoryView() {
 		);
 	}
 
-	const { orders } = state;
+	const { page: pageData } = state;
+	const orders = pageData.content;
+	const hasFilters = statusFilter !== "ALL" || dateFilter !== "all" || debouncedQuery !== "";
 
-	if (orders.length === 0) {
+	if (pageData.totalElements === 0 && !hasFilters) {
 		return (
 			<PageFrame>
 				<EmptyOrdersState />
 			</PageFrame>
 		);
 	}
-
-	const days = dateFilter === "all" ? null : Number(dateFilter);
-	const cutoff =
-		days == null ? null : PAGE_LOADED_AT - days * 24 * 60 * 60 * 1000;
-	const normalizedQuery = query.trim().toLowerCase();
-	const filteredOrders = orders.filter((order) => {
-		if (statusFilter !== "ALL" && order.status !== statusFilter) {
-			return false;
-		}
-
-		if (
-			cutoff != null &&
-			new Date(order.createdAt).getTime() < cutoff
-		) {
-			return false;
-		}
-
-		if (
-			normalizedQuery &&
-			!order.orderId.toLowerCase().includes(normalizedQuery)
-		) {
-			return false;
-		}
-
-		return true;
-	});
 
 	return (
 		<PageFrame>
@@ -315,7 +326,7 @@ export function OrderHistoryView() {
 							type="button"
 							className={styles.filterPill}
 							aria-pressed={statusFilter === option.value}
-							onClick={() => setStatusFilter(option.value)}
+							onClick={() => changeStatusFilter(option.value)}
 						>
 							{option.label}
 						</button>
@@ -344,7 +355,7 @@ export function OrderHistoryView() {
 							className={styles.dateSelect}
 							value={dateFilter}
 							onChange={(event) =>
-								setDateFilter(event.target.value as DateFilter)
+								changeDateFilter(event.target.value as DateFilter)
 							}
 							aria-label="Filter orders by date"
 						>
@@ -358,18 +369,18 @@ export function OrderHistoryView() {
 				</div>
 			</div>
 
-			<div className={styles.ordersCard}>
+			<div className={styles.ordersCard} aria-busy={isFetching}>
 				<div className={styles.listHeading}>
 					<p className={styles.count} aria-live="polite">
-						{orderCount(filteredOrders.length)}
+						{orderCount(pageData.totalElements)}
 					</p>
 					<p className={styles.sort}>
 						<span className={styles.sortPrefix}>Order date · </span>
-						Oldest first
+						Newest first
 					</p>
 				</div>
 
-				{filteredOrders.length === 0 ? (
+				{orders.length === 0 && hasFilters ? (
 					<div className={styles.filteredEmpty}>
 						<h2 className={styles.emptyTitle}>No orders found</h2>
 						<p className={styles.emptyText}>
@@ -386,7 +397,7 @@ export function OrderHistoryView() {
 				) : (
 					<>
 						<ul className={styles.list}>
-							{filteredOrders.map((order) => {
+							{orders.map((order) => {
 								const firstItem = order.items[0];
 
 								return (
@@ -480,10 +491,19 @@ export function OrderHistoryView() {
 							})}
 						</ul>
 
-						<p className={styles.listEnd}>
-							You&apos;re all caught up · {filteredOrders.length} of{" "}
-							{orders.length} orders
-						</p>
+						{pageData.totalPages > 1 && (
+							<div className={styles.pagination}>
+								<Pagination
+									aria-label="Order pages"
+									current={page + 1}
+									pageSize={ORDER_PAGE_SIZE}
+									total={pageData.totalElements}
+									showSizeChanger={false}
+									disabled={isFetching}
+									onChange={(nextPage) => setPage(nextPage - 1)}
+								/>
+							</div>
+						)}
 					</>
 				)}
 			</div>
