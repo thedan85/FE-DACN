@@ -1,0 +1,9 @@
+/* The shell must not paint before the session resolves, so the gate owns the
+   page background itself — otherwise the redirect would flash white. */
+.gate {
+	display: flex;
+	min-height: 100vh;
+	align-items: center;
+	justify-content: center;
+	background: var(--color-surface-page);
+}
