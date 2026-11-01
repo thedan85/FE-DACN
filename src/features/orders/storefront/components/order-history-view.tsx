@@ -128,11 +128,12 @@ export function OrderHistoryView() {
 	const [reloadKey, setReloadKey] = useState(0);
 	const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 	const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+	const [createdAfter, setCreatedAfter] = useState<string>();
 	const [query, setQuery] = useState("");
 	const [page, setPage] = useState(0);
 	const [debouncedQuery, setDebouncedQuery] = useState("");
 	const [buyingOrderId, setBuyingOrderId] = useState<string | null>(null);
-	const requestKey = JSON.stringify([status, page, statusFilter, dateFilter, debouncedQuery, reloadKey]);
+	const requestKey = JSON.stringify([status, page, statusFilter, createdAfter, debouncedQuery, reloadKey]);
 	const isFetching = state.status === "loading" ||
 		(state.status === "ready" && state.requestKey !== requestKey);
 
@@ -155,9 +156,6 @@ export function OrderHistoryView() {
 		}
 
 		let active = true;
-		const createdAfter = dateFilter === "all"
-			? undefined
-			: new Date(Date.now() - Number(dateFilter) * 24 * 60 * 60 * 1000).toISOString();
 
 		listOrders({
 			page,
@@ -168,6 +166,11 @@ export function OrderHistoryView() {
 		})
 			.then((data) => {
 				if (active) {
+					const lastPage = Math.max(0, data.totalPages - 1);
+					if (page > lastPage) {
+						setPage(lastPage);
+						return;
+					}
 					setState({ status: "ready", page: data, requestKey });
 				}
 			})
@@ -183,7 +186,7 @@ export function OrderHistoryView() {
 		return () => {
 			active = false;
 		};
-	}, [status, page, statusFilter, dateFilter, debouncedQuery, reloadKey, requestKey]);
+	}, [status, page, statusFilter, dateFilter, debouncedQuery, createdAfter, reloadKey, requestKey]);
 
 	function changeStatusFilter(value: StatusFilter) {
 		setStatusFilter(value);
@@ -192,12 +195,15 @@ export function OrderHistoryView() {
 
 	function changeDateFilter(value: DateFilter) {
 		setDateFilter(value);
+		setCreatedAfter(value === "all" ? undefined
+			: new Date(Date.now() - Number(value) * 24 * 60 * 60 * 1000).toISOString());
 		setPage(0);
 	}
 
 	function resetFilters() {
 		setStatusFilter("ALL");
 		setDateFilter("all");
+		setCreatedAfter(undefined);
 		setQuery("");
 		setDebouncedQuery("");
 		setPage(0);
@@ -304,7 +310,7 @@ export function OrderHistoryView() {
 	const orders = pageData.content;
 	const hasFilters = statusFilter !== "ALL" || dateFilter !== "all" || debouncedQuery !== "";
 
-	if (pageData.totalElements === 0 && !hasFilters) {
+	if (pageData.totalElements === 0 && !hasFilters && !isFetching) {
 		return (
 			<PageFrame>
 				<EmptyOrdersState />

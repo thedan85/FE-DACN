@@ -112,6 +112,39 @@ it("does not reset a selected page when the initial empty-search timer expires",
 	expect(listOrders).not.toHaveBeenCalled();
 });
 
+it("keeps the selected date cutoff stable across page requests", async () => {
+	await mount();
+	fireEvent.change(screen.getByLabelText("Filter orders by date"), { target: { value: "7" } });
+	await flush();
+	const cutoff = vi.mocked(listOrders).mock.calls.at(-1)?.[0].createdAfter;
+	await act(async () => { vi.advanceTimersByTime(120000); });
+	fireEvent.click(screen.getByTitle("2"));
+	await flush();
+	expect(vi.mocked(listOrders).mock.calls.at(-1)?.[0].createdAfter).toBe(cutoff);
+});
+
+it("keeps controls visible while clearing a filtered-empty result", async () => {
+	await mount();
+	vi.mocked(listOrders).mockResolvedValueOnce({ content: [], page: 0, size: 10, totalElements: 0, totalPages: 0 });
+	fireEvent.click(screen.getByRole("button", { name: "Pending" }));
+	await flush();
+	vi.mocked(listOrders).mockImplementationOnce(() => new Promise(() => {}));
+	fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+	expect(screen.queryByText("No orders yet")).toBeNull();
+	expect(screen.getByRole("searchbox")).toBeTruthy();
+});
+
+it("recovers to the last available page when totals shrink", async () => {
+	await mount();
+	vi.mocked(listOrders)
+		.mockResolvedValueOnce({ content: [], page: 2, size: 10, totalElements: 10, totalPages: 1 })
+		.mockResolvedValueOnce({ ...page("ORD_REMAINING"), totalElements: 10, totalPages: 1 });
+	fireEvent.click(screen.getByTitle("3"));
+	await flush();
+	expect(listOrders).toHaveBeenLastCalledWith({ page: 0, size: 10 });
+	expect(screen.getByText("#ORD_REMAINING")).toBeTruthy();
+});
+
 it("distinguishes filtered-empty from no history and clears filters", async () => {
 	await mount();
 	const empty: OrderPage = { content: [], page: 0, size: 10, totalElements: 0, totalPages: 0 };
