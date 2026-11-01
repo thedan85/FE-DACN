@@ -19,4 +19,6 @@ echo "$staged" | tr '\n' '\0' | xargs -0 npx --no-install eslint
 
 npm run --silent typecheck
 
+npm run --silent test
+
 echo "pre-commit: ok"

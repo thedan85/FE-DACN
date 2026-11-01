@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { App } from "antd";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
 import { listOrders } from "../../api/orders.api";
@@ -86,6 +87,48 @@ it("debounces and trims order-ID search then resets the page", async () => {
 	await act(async () => { vi.advanceTimersByTime(1); });
 	await flush();
 	expect(listOrders).toHaveBeenCalledExactlyOnceWith({ page: 0, size: 10, q: "beta" });
+});
+
+it("keeps an oversized search editable until corrected without requesting it", async () => {
+	await mount();
+	fireEvent.click(screen.getByTitle("3"));
+	await flush();
+	vi.mocked(listOrders).mockClear().mockImplementation(async ({ q, page: pageNumber }) => {
+		if (q && q.length > 100) throw new ApiError("Order search is too long", 400);
+		return page(q === "ORD_FIXED" ? "ORD_FIXED" : "ORD_NEWEST", pageNumber);
+	});
+	const search = screen.getByRole("searchbox");
+	fireEvent.change(search, { target: { value: "x".repeat(101) } });
+	await act(async () => { vi.advanceTimersByTime(300); });
+	await flush();
+
+	expect(screen.getByRole("searchbox")).toBe(search);
+	expect(search.getAttribute("aria-invalid")).toBe("true");
+	const error = screen.getByRole("alert");
+	expect(error.textContent).toContain("100");
+	expect(search.getAttribute("aria-describedby")).toBe(error.id);
+	expect(screen.getByText("#ORD_NEWEST")).toBeTruthy();
+	expect(listOrders).not.toHaveBeenCalled();
+
+	fireEvent.change(search, { target: { value: "  ORD_FIXED  " } });
+	await act(async () => { vi.advanceTimersByTime(300); });
+	await flush();
+	expect(listOrders).toHaveBeenCalledExactlyOnceWith({ page: 0, size: 10, q: "ORD_FIXED" });
+	expect(screen.getByText("#ORD_FIXED")).toBeTruthy();
+	expect(screen.queryByRole("alert")).toBeNull();
+	expect(search.getAttribute("aria-invalid")).not.toBe("true");
+});
+
+it("accepts a 100-character order-ID search after trimming", async () => {
+	await mount();
+	vi.mocked(listOrders).mockClear();
+	fireEvent.change(screen.getByRole("searchbox"), {
+		target: { value: `  ${"x".repeat(100)}  ` },
+	});
+	await act(async () => { vi.advanceTimersByTime(300); });
+	await flush();
+	expect(listOrders).toHaveBeenCalledExactlyOnceWith({ page: 0, size: 10, q: "x".repeat(100) });
+	expect(screen.queryByRole("alert")).toBeNull();
 });
 
 it("ignores an older response while keeping the previous list visible during fetch", async () => {

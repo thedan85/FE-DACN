@@ -10,7 +10,7 @@ import {
 	QuestionCircleOutlined,
 	SearchOutlined,
 } from "@ant-design/icons";
-import { App, Button, Pagination } from "antd";
+import { Alert, App, Button, Pagination } from "antd";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -49,6 +49,7 @@ const STATUS_FILTERS: ReadonlyArray<{
 
 const ORDER_PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
+const MAX_ORDER_SEARCH_LENGTH = 100;
 
 type OrdersState =
 	| { status: "loading" }
@@ -133,6 +134,7 @@ export function OrderHistoryView() {
 	const [page, setPage] = useState(0);
 	const [debouncedQuery, setDebouncedQuery] = useState("");
 	const [buyingOrderId, setBuyingOrderId] = useState<string | null>(null);
+	const queryTooLong = query.trim().length > MAX_ORDER_SEARCH_LENGTH;
 	const requestKey = JSON.stringify([status, page, statusFilter, createdAfter, debouncedQuery, reloadKey]);
 	const isFetching = state.status === "loading" ||
 		(state.status === "ready" && state.requestKey !== requestKey);
@@ -142,13 +144,13 @@ export function OrderHistoryView() {
 	}, [hydrate]);
 
 	useEffect(() => {
-		if (query.trim() === debouncedQuery) return;
+		if (queryTooLong || query.trim() === debouncedQuery) return;
 		const timer = window.setTimeout(() => {
 			setDebouncedQuery(query.trim());
 			setPage(0);
 		}, SEARCH_DEBOUNCE_MS);
 		return () => window.clearTimeout(timer);
-	}, [query, debouncedQuery]);
+	}, [query, debouncedQuery, queryTooLong]);
 
 	useEffect(() => {
 		if (status !== "authenticated") {
@@ -308,7 +310,7 @@ export function OrderHistoryView() {
 
 	const { page: pageData } = state;
 	const orders = pageData.content;
-	const hasFilters = statusFilter !== "ALL" || dateFilter !== "all" || debouncedQuery !== "";
+	const hasFilters = statusFilter !== "ALL" || dateFilter !== "all" || debouncedQuery !== "" || queryTooLong;
 
 	if (pageData.totalElements === 0 && !hasFilters && !isFetching) {
 		return (
@@ -349,6 +351,8 @@ export function OrderHistoryView() {
 							onChange={(event) => setQuery(event.target.value)}
 							placeholder="Search by order ID"
 							aria-label="Search by order ID"
+							aria-invalid={queryTooLong}
+							aria-describedby={queryTooLong ? "order-search-error" : undefined}
 						/>
 					</label>
 
@@ -373,6 +377,13 @@ export function OrderHistoryView() {
 						<DownOutlined className={styles.chevron} aria-hidden="true" />
 					</label>
 				</div>
+				{queryTooLong ? (
+					<Alert
+						id="order-search-error"
+						type="error"
+						title={`Order ID search must be at most ${MAX_ORDER_SEARCH_LENGTH} characters. Shorten your search to continue.`}
+					/>
+				) : null}
 			</div>
 
 			<div className={styles.ordersCard} aria-busy={isFetching}>
