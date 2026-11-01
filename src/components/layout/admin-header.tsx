@@ -1,8 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
-import { Input, Skeleton } from "antd";
+import { App, Dropdown, Input } from "antd";
+import type { MenuProps } from "antd";
+import { LogoutOutlined } from "@ant-design/icons";
 import { getInitials } from "@/lib/utils/initials";
+import { useAuthStore } from "@/stores/auth-store";
 import styles from "./admin-header.module.css";
 
 export type AdminHeaderIdentity = {
@@ -13,11 +17,50 @@ export type AdminHeaderIdentity = {
 type AdminHeaderProps = {
 	/** Breadcrumb tail — the page currently shown in the shell. */
 	currentPage: string;
-	/** Signed-in identity once resolved; renders a loading placeholder while absent. */
-	identity?: AdminHeaderIdentity | null;
+	/** Signed-in identity. The guard resolves the session before the shell mounts. */
+	identity: AdminHeaderIdentity;
 };
 
 export function AdminHeader({ currentPage, identity }: AdminHeaderProps) {
+	const { message } = App.useApp();
+	const signOut = useAuthStore((state) => state.signOut);
+	const [menuOpen, setMenuOpen] = useState(false);
+	const [signingOut, setSigningOut] = useState(false);
+
+	async function handleSignOut() {
+		if (signingOut) {
+			return;
+		}
+
+		setSigningOut(true);
+
+		try {
+			// Ending the session is all this does: the portal guard watches the
+			// store and returns to /admin/login, so the destination lives in one
+			// place instead of being repeated here.
+			await signOut();
+		} catch {
+			message.error("Could not log out. Please try again.");
+			setSigningOut(false);
+		}
+	}
+
+	const accountMenu: MenuProps = {
+		items: [
+			{
+				key: "logout",
+				label: signingOut ? "Logging out…" : "Log out",
+				icon: <LogoutOutlined />,
+				disabled: signingOut,
+			},
+		],
+		onClick: ({ key }) => {
+			if (key === "logout") {
+				void handleSignOut();
+			}
+		},
+	};
+
 	return (
 		<header className={styles.header}>
 			<div className={styles.bar}>
@@ -64,35 +107,42 @@ export function AdminHeader({ currentPage, identity }: AdminHeaderProps) {
 
 				<span className={styles.divider} aria-hidden="true" />
 
-				<div
-					className={styles.identity}
-					aria-busy={identity ? undefined : true}
+				<Dropdown
+					menu={accountMenu}
+					open={menuOpen}
+					onOpenChange={setMenuOpen}
+					placement="bottomRight"
+					trigger={["click"]}
 				>
-					<span className={styles.avatar} aria-hidden="true">
-						{identity ? getInitials(identity.name) : null}
-					</span>
-					<span className={styles.identityDetails}>
-						{identity ? (
-							<>
-								<span className={styles.identityName}>{identity.name}</span>
-								<span className={styles.identityRole}>{identity.roleName}</span>
-							</>
-						) : (
-							<>
-								<Skeleton
-									className={styles.identitySkeleton}
-									active
-									avatar={{ size: 34 }}
-									title={false}
-									paragraph={{ rows: 2, width: [84, 110] }}
-								/>
-								<span className={styles.visuallyHidden}>
-									Loading account details
-								</span>
-							</>
-						)}
-					</span>
-				</div>
+					{/* A raw button rather than an antd Button: antd's token path covers
+					    Button's own padding, height and weight, but this slot is the
+					    design's avatar + name + role + chevron block — a multi-line
+					    layout Button's single-line label cannot host, so overriding it
+					    would rebuild the component. Dropdown also needs one focusable
+					    child to attach the menu to, which this carries. */}
+					<button
+						type="button"
+						className={styles.identityTrigger}
+						aria-haspopup="menu"
+						aria-expanded={menuOpen}
+					>
+						<span className={styles.avatar} aria-hidden="true">
+							{getInitials(identity.name)}
+						</span>
+						<span className={styles.identityDetails}>
+							<span className={styles.identityName}>{identity.name}</span>
+							<span className={styles.identityRole}>{identity.roleName}</span>
+						</span>
+						<Image
+							src="/images/admin/header/chevron-down.svg"
+							alt=""
+							width={13}
+							height={13}
+							unoptimized
+							className={styles.identityChevron}
+						/>
+					</button>
+				</Dropdown>
 			</div>
 		</header>
 	);

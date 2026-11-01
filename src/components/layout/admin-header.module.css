@@ -77,11 +77,31 @@
 	background: var(--color-admin-panel-border);
 }
 
-.identity {
+/* The identity block only ever renders a resolved account: the portal guard
+   withholds the shell until the session is confirmed, so there is no loading
+   placeholder to style here. */
+.identityTrigger {
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
 	gap: 10px;
+	padding: 4px 6px;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition: background-color 160ms ease;
+}
+
+.identityTrigger:hover {
+	background: var(--color-surface-icon);
+}
+
+.identityChevron {
+	flex-shrink: 0;
 }
 
 .avatar {
@@ -119,61 +139,6 @@
 
 .identityRole {
 	color: var(--color-admin-panel-text-muted);
-}
-
-/* antd Skeleton: match the loaded identity footprint (34px avatar + 10px gap
-   + 84/110px detail bars, via the paragraph width prop). antd v6 anchors its
-   internals on .ant-skeleton-header/.ant-skeleton-section inside :where()
-   wrappers — mirroring those chains keeps these overrides ahead in the cascade.
-   The root is display:table, so the avatar gap lives on the header cell's
-   padding-inline-end, not on flex gap. */
-.identitySkeleton:global(.ant-skeleton) {
-	width: 154px;
-}
-
-.identitySkeleton:global(.ant-skeleton) :global(.ant-skeleton-header) {
-	padding-inline-end: 10px;
-	vertical-align: middle;
-}
-
-.identitySkeleton:global(.ant-skeleton)
-	:global(.ant-skeleton-header .ant-skeleton-avatar) {
-	background: var(--color-admin-avatar-surface);
-}
-
-.identitySkeleton:global(.ant-skeleton)
-	:global(.ant-skeleton-avatar + .ant-skeleton-content) {
-	margin-inline-start: 0;
-	padding-block-start: 0;
-}
-
-.identitySkeleton:global(.ant-skeleton)
-	:global(.ant-skeleton-section .ant-skeleton-paragraph) {
-	display: flex;
-	flex-direction: column;
-	gap: 3px;
-	margin: 0;
-	padding: 0;
-}
-
-.identitySkeleton:global(.ant-skeleton)
-	:global(.ant-skeleton-section .ant-skeleton-paragraph li) {
-	height: 8px;
-	margin-block-start: 0;
-	border-radius: 4px;
-	background: var(--color-border-light);
-}
-
-.visuallyHidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	padding: 0;
-	margin: -1px;
-	overflow: hidden;
-	clip: rect(0 0 0 0);
-	white-space: nowrap;
-	border: 0;
 }
 
 @media (max-width: 900px) {

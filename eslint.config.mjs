@@ -14,6 +14,14 @@ const eslintConfig = defineConfig([
 		"next-env.d.ts",
 		".agents/**",
 		".opencode/**",
+		// Everything git ignores: tickets, agent scratch scripts, generated test
+		// output. Linting these reports on files that never ship.
+		".scratch/**",
+		".playwright-cli/**",
+		"test-results/**",
+		"playwright-report/**",
+		"blob-report/**",
+		"coverage/**",
 	]),
 ]);
 

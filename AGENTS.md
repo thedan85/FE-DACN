@@ -172,6 +172,8 @@ Prefer the existing stack unless a concrete requirement justifies another depend
 
 Run the relevant checks after implementation. If a check fails, distinguish new failures from pre-existing issues and report the actual result.
 
+Driving the app — dev servers, browser flows, screenshots — has its own cost model; see `docs/verification.md` before starting one.
+
 ---
 
 ## 3. Architecture and Directory Conventions
@@ -413,17 +415,6 @@ Rules:
 - Use sandbox data and endpoints for development where applicable.
 - Keep provider-specific details out of shared UI components when a common shipping interface is sufficient.
 
-### 6.5 Other Integrations
-
-Additional integrations, authentication methods, or third-party services:
-
-- Status:
-- Purpose:
-- Relevant environment variables:
-- Backend endpoints:
-- Security considerations:
-- Documentation:
-
 ---
 
 ## 7. Foundational Files and Parallel Development Rules
@@ -543,14 +534,6 @@ Before merging a feature branch into `dev`:
 - [ ] Conflicts with recent `dev` changes are resolved.
 - [ ] Known limitations and incomplete integration points are documented.
 
-Team-specific branch naming, review requirements, and merge strategy:
-
-- Branch naming convention:
-- Pull request requirements:
-- Required reviewers:
-- Merge strategy:
-- CI checks:
-
 ---
 
 ## 8. TypeScript and Code Quality
@@ -585,13 +568,6 @@ Use the simplest state-management approach that fits the requirement.
 - Keep server-side and client-side data fetching responsibilities explicit.
 - Do not make unnecessary requests during rendering.
 - Avoid fetching the same data independently in multiple components when the architecture permits reuse.
-
-The final data-fetching and caching conventions:
-
-- Server-side fetching:
-- Client-side fetching:
-- Cache and revalidation policy:
-- Shared client-state policy:
 
 ---
 
@@ -641,13 +617,6 @@ Rules:
 - Distinguish recoverable UI errors from authentication, validation, network, and server failures.
 - Avoid duplicating error-handling logic across features.
 
-Logging and monitoring conventions:
-
-- Logging strategy:
-- Production error reporting:
-- Request correlation:
-- Sensitive-data redaction:
-
 ---
 
 ## 12. Documentation and Decision Making
@@ -665,15 +634,14 @@ Prioritize official documentation, especially for version-specific Next.js, Reac
 
 Do not upgrade dependencies simply because newer documentation uses a different API.
 
-Architecture decisions and technical references:
+Project references:
 
-- Frontend architecture:
-- API contract documentation:
-- Authentication flow:
-- Payment flow:
-- Media configuration:
-- Coding conventions:
-- Additional references:
+- Design tokens, type scale, colours, and measured screens: `docs/design.md`
+- Ant Design theming, tokens, and override mechanics: `docs/antd.md`
+- Running checks, browser verification, and committing: `docs/verification.md`
+- Coding standards, applied during review: `CODING_STANDARDS.md`
+- Decisions and shared terms: `docs/adr/`, `GLOSSARY.md`
+- Issue and spec tracking: `docs/agents/issue-tracker.md`
 
 ---
 
@@ -702,104 +670,15 @@ During implementation:
 After implementation:
 
 1. Review the diff for unintended changes.
-2. Run relevant linting, type checks, tests, or production builds supported by the repository.
+2. Run `npm run check`, then `npm run build` when the change touches rendering or routing. For browser and dev-server checks, follow `docs/verification.md`: one process per flow, throwaway scripts in `$env:TEMP`.
 3. Fix issues introduced by the change.
 4. Report the files changed, checks performed, and any known limitations.
 5. Do not claim that a check passed if it was not run.
-6. Do not commit or push changes unless explicitly authorized or required by the agreed task.
+6. Commit with the message in a file — `git commit -F <file>`, never inline, because quotes break PowerShell parsing. Do not commit or push unless authorized or required by the agreed task.
 
 ---
 
-## 14. Project-Specific Conventions — To Be Completed
-
-### Business and Functional Requirements
-
-- Target users:
-- Supported user roles:
-- Core customer workflows:
-- Product catalog requirements:
-- Cart and checkout requirements:
-- Order management requirements:
-- Other requirements:
-
-### Frontend Routing
-
-- Route naming conventions:
-- Public routes:
-- Protected routes:
-- Route groups:
-- URL and query parameter conventions:
-
-### API Contracts
-
-- Backend base URL:
-- API versioning:
-- Request and response conventions:
-- Pagination and filtering:
-- Error response schema:
-- Authentication mechanism:
-- API documentation location:
-
-### Design System
-
-- Brand identity:
-- Color palette:
-- Typography:
-- Spacing scale:
-- Responsive breakpoints:
-- Component naming:
-- Accessibility requirements:
-
-### Authentication and Authorization
-
-- Google OAuth flow:
-- Session or token strategy:
-- Token storage:
-- Protected-route strategy:
-- Logout behavior:
-- Role-based access requirements:
-
-### Payment and Fulfillment
-
-- VNPAY payment initiation endpoint:
-- Payment return flow:
-- Payment status contract:
-- Shipping provider:
-- Shipping quotation endpoint:
-- Shipment creation endpoint:
-- Order tracking contract:
-
-### Testing
-
-- Unit testing framework:
-- Component testing framework:
-- End-to-end testing framework:
-- Test directory conventions:
-- Required coverage:
-- CI workflow:
-
-### Team Workflow
-
-- Team member responsibilities:
-- Foundation owners:
-- Feature ownership:
-- Branch naming convention:
-- Pull request template:
-- Review and approval policy:
-- Release and deployment procedure:
-
-### Deployment
-
-- Hosting platform:
-- Build environment:
-- Production environment variables:
-- Preview deployment strategy:
-- Domain and callback URL configuration:
-- Monitoring and rollback procedure:
-
----
-
-## 15. Final Operating Principles
+## 14. Final Operating Principles
 
 1. Preserve a single, consistent frontend architecture.
 2. Finalize and merge shared foundations into `dev` before dependent parallel feature development.

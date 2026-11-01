@@ -6,6 +6,7 @@ import { Alert, Button, ConfigProvider, Flex, Form, Input, Typography } from "an
 import { designTokens } from "@/lib/design-tokens";
 import { useAuthStore } from "@/stores/auth-store";
 import { getAuthErrorMessage, getMe, login } from "../../api/auth.api";
+import { isCustomerAccount } from "../../model/access";
 import { validateEmail, validateRequired } from "../../model/validation";
 import { clearSession, setAccessToken } from "../../session";
 import styles from "./admin-login-form.module.css";
@@ -14,14 +15,6 @@ type LoginValues = {
 	email: string;
 	password: string;
 };
-
-/**
- * The only role without portal access — the backend's own discriminator.
- * Compared case-insensitively because `GET auth/me` returns the stored code
- * verbatim (`customer`, `admin`, …), while the backend's own check is
- * `equalsIgnoreCase("CUSTOMER")`.
- */
-const CUSTOMER_ROLE_CODE = "CUSTOMER";
 
 const COMPANY_ACCOUNTS_ONLY =
 	"This portal is for company accounts only. Customer accounts sign in through the storefront.";
@@ -54,10 +47,6 @@ const loginTheme = {
 		},
 	},
 };
-
-function isCustomerAccount(roleCode: string): boolean {
-	return roleCode.toUpperCase() === CUSTOMER_ROLE_CODE;
-}
 
 export function AdminLoginForm() {
 	const router = useRouter();

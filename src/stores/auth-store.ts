@@ -1,9 +1,14 @@
 "use client";
 
 import { create } from "zustand";
+import { ApiError } from "@/lib/api/client";
 import { getMe, logout, refreshSession } from "@/features/auth/api/auth.api";
 import type { MeData } from "@/features/auth/types";
-import { clearSession, setAccessToken } from "@/features/auth/session";
+import {
+	clearSession,
+	getAccessToken,
+	setAccessToken,
+} from "@/features/auth/session";
 
 type AuthStatus = "loading" | "authenticated" | "anonymous";
 
@@ -11,11 +16,23 @@ type AuthState = {
 	user: MeData | null;
 	status: AuthStatus;
 	hydrate: () => Promise<void>;
+	/**
+	 * Re-reads the account from the server even when a session is already
+	 * resolved, so a caller that must not act on stale state (the admin portal
+	 * guard) can re-check the role on every mount.
+	 */
+	revalidate: () => Promise<void>;
 	setUser: (user: MeData) => void;
 	signOut: () => Promise<void>;
 };
 
 let hydration: Promise<void> | null = null;
+let revalidation: Promise<void> | null = null;
+
+/** A transport failure says nothing about whether the session is still valid. */
+function isTransportError(error: unknown): boolean {
+	return error instanceof ApiError && error.status === 0;
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
 	user: null,
@@ -44,6 +61,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 		})();
 
 		return hydration;
+	},
+
+	revalidate: () => {
+		if (revalidation) {
+			return revalidation;
+		}
+
+		revalidation = (async () => {
+			try {
+				if (getAccessToken() !== null) {
+					try {
+						set({ user: await getMe(), status: "authenticated" });
+						return;
+					} catch (error) {
+						// Only an HTTP rejection proves the token is bad; a network
+						// failure leaves the session unproven, not ended.
+						if (isTransportError(error)) {
+							throw error;
+						}
+					}
+				}
+
+				// No usable access token: exchange the refresh cookie for one.
+				const session = await refreshSession();
+				setAccessToken(session.accessToken);
+				set({ user: await getMe(), status: "authenticated" });
+			} catch {
+				clearSession();
+
+				// Fail closed only when nothing was resolved: a transient failure
+				// must not sign out an account that has already been confirmed.
+				if (get().user === null) {
+					set({ status: "anonymous" });
+				}
+			} finally {
+				revalidation = null;
+			}
+		})();
+
+		return revalidation;
 	},
 
 	signOut: async () => {

@@ -51,7 +51,7 @@ antd compiles its styles through `@ant-design/cssinjs` with `hashPriority: 'low'
 `:where()` contributes **zero** specificity. Two consequences:
 
 - **Your class can beat antd without `!important`** when it out-ranks the bare antd class. `.search:global(.ant-input-affix-wrapper)` is 0,2,0 against antd's 0,1,0 — it wins.
-- **A tie is decided by injection order, not source order.** antd injects its tags at runtime, after your static module CSS, so equal specificity means antd wins even though your file "comes later". The failure in this repo's history was skeleton `li` styling: `.identitySkeleton … .ant-skeleton-paragraph li` tied with antd's own chain and lost. Mirroring antd's inner chain (`.ant-skeleton-section`) raised specificity and won.
+- **A tie is decided by injection order, not source order.** antd injects its tags at runtime, after your static module CSS, so equal specificity means antd wins even though your file "comes later". The failure in this repo's history was skeleton `li` styling: `.identitySkeleton … .ant-skeleton-paragraph li` tied with antd's own chain and lost. Mirroring antd's inner chain (`.ant-skeleton-section`) raised specificity and won. The `Modal` panel hit the same tie once its selector was corrected — see "Structures that surprise" for that fix.
 
 Do not try to fix a tie with `!important`; add the missing parent class to the selector.
 
@@ -79,6 +79,13 @@ An antd class that no longer exists fails the same way as a missing CSS-module c
 | `.ant-modal-content` | `.ant-modal-container` |
 | `.ant-modal-close-x` | still present, but `classNames.close` is the hook |
 
+This one shipped broken. Both dialog modules targeted `.ant-modal-content`, so the panel fell back to antd's defaults — `20px 24px` padding and a `16px` radius where the design specifies `32px 24px 24px` and `24px`. Nothing failed; the CSS simply never matched. Verified in the browser:
+
+```js
+document.querySelector(".ant-modal-content")    // null
+document.querySelector(".ant-modal-container")  // the panel
+```
+
 Before writing an `:global(.ant-*)` rule, confirm the class exists in the installed build:
 
 ```bash
@@ -87,12 +94,29 @@ Get-ChildItem node_modules\antd\es -Recurse -Filter *.js |
   Select-String -Pattern 'ant-modal-container' -List
 ```
 
-The same check applies to CSS custom properties: `var(--color-surface)` with a typo or an old name silently resolves to nothing. Every `--color-*`, `--space-*`, `--radius-*`, and `--font-*` must exist in `src/lib/design-tokens.ts`; grep it before trusting a name.
+The same check applies to CSS custom properties, and the failure is nastier than a no-op. A `var()` whose name is missing is **invalid at computed-value time**, so the property computes to its *initial* value instead of falling back to whatever the cascade would otherwise have chosen:
+
+```css
+/* --color-surface does not exist (it is --color-surface-white) */
+.modal { --dialog-surface: var(--color-surface); background: var(--dialog-surface); }
+/* → background computes to `transparent`, overriding antd's own background.
+      It does NOT keep antd's colour, and it does NOT use a fallback that isn't written. */
+```
+
+Six such names sat in the two dialog modules; `ConfirmDialog`'s panel was rendering transparent because of it. Every `--color-*`, `--space-*`, `--radius-*`, and `--font-*` must exist in `src/lib/design-tokens.ts`, and a `var(--token, <fallback>)` at least degrades to the intended colour instead of vanishing. Grep the token file before trusting a name.
 
 ## Structures that surprise
 
 - **`Skeleton` root is `display: table`.** `gap` and `align-items` do nothing. The avatar→bars distance is the header cell's `padding-inline-end`; row widths come from the `paragraph.width` prop (accepts an array of px strings), not CSS, because antd sets them inline.
 - **`Modal` needs `:global(.ant-modal-container)`** for the panel surface: `className` lands on the `.ant-modal` wrapper (rendered by `@rc-component/dialog`), `rootClassName` is the outermost portal node, and the panel itself carries `-container`. There is no `-content` class in v6.
+- **`Modal` panel overrides need 0-3-0, not 0-2-0.** antd scopes the panel as `:where(.css-hash).ant-modal .ant-modal-container` — `:where()` contributes nothing, so it scores `0-2-0`. A rule like `.modal .ant-modal-container` scores the same and therefore *loses*, because antd's stylesheet is injected at runtime, after your module CSS. Naming both classes on the wrapper element fixes it, since `className` and the hash class share the `.ant-modal` node:
+
+  ```css
+  /* 0-3-0 — wins */
+  .modal:global(.ant-modal) :global(.ant-modal-container) { … }
+  ```
+
+  This is the general shape for any antd rule nested under a component root class: mirror the extra ancestor.
 - **`Modal` footer buttons.** `okButtonProps.className` does work (it lands on the `Button`), so use it when one button needs a hook. Reach for `.ant-modal-footer .ant-btn*` when the footer's pair should share styling — it covers both buttons and their variants in one place, which is why the dialogs here use it.
 - **`Tree`/`Dropdown` internals** (`.ant-tree-title`, `.ant-tree-treenode`, `.ant-dropdown-menu-item`) are only reachable as descendants.
 

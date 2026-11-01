@@ -16,9 +16,13 @@ Custom markup stays for layout shells and static design regions, where the desig
 
 A `"use client"` component reaches for the Ant Design v6 primitive for anything interactive or stateful: `Button`, `Input`, `Select`, `Form`, `Checkbox`, `Radio`, `Switch`, `Modal`, `Drawer`, `Table`, `Tabs`, `Dropdown`, `Menu`, `Breadcrumb`, `Alert`, `Badge`, `Skeleton`, `Avatar`, `Empty`, `Result`, `Spin`, `Tooltip`, `Popconfirm`, `Pagination`, `Space`, `Flex`, `Typography`.
 
-The exception test: a raw element earns its tag when it wraps design-supplied content the primitive cannot host, or when antd's DOM cannot express the design without more override CSS than the element saves. Note the reason on the element as a comment.
+The exception test: a raw element earns its tag when it wraps design-supplied content the primitive cannot host, or when antd's DOM cannot express the design without more override CSS than the element saves.
 
-Reviewer step: for each new client component, list the antd primitives it uses, and state the reason for every raw interactive element that kept its tag. The bar is state, not styling: `Form` + `Input` + `Button` carry validation, in-flight disabling, and error display, so a hand-rolled control trio hands the reviewer a state machine to audit instead.
+An exemption is granted on **evidence, not assertion**, and the evidence is a specific prop or token that falls short — the one `antd token <Component>` lists and whose value the design overrides. "An antd pair would need more override CSS" is not evidence: it predicts work instead of naming a gap, and the reviewer cannot check it. Write the claim as `<prop/token> is <antd value>, design wants <design value>` on the element, and a claim that cannot be written that way means the primitive already fits.
+
+Worked example: the admin login form kept hand-rolled controls on the reasoning "an antd `Form`/`Input` pair would need more override CSS than those components cost". Nothing in that sentence is checkable, and it was wrong — the difference was `controlHeight: 48`, `borderRadius`, and `colorBorder`, all reachable through a nested `ConfigProvider` (see `docs/antd.md`). The rewrite took 19 minutes and deleted 138 lines.
+
+Reviewer step: for each new client component, list the antd primitives it uses, and state the reason for every raw interactive element that kept its tag. Treat an exemption comment that names no prop or token as a failed exemption, then check the named prop yourself with `antd token <Component>`. The bar is state, not styling: `Form` + `Input` + `Button` carry validation, in-flight disabling, and error display, so a hand-rolled control trio hands the reviewer a state machine to audit instead.
 
 Query antd before writing it: the `antd` skill runs the offline CLI (`antd info Button`, `antd semantic`, `antd demo`, `antd token`), and `antd lint <paths>` catches deprecated usage after the edit. The CLI bundles metadata for several major versions, so pass `--version <installed>` (read `node_modules/antd/package.json`) whenever the answer could differ across releases.
 

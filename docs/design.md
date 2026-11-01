@@ -92,6 +92,47 @@ Use uppercase text for eyebrow labels and apply `letter-spacing: 1.2px`.
 - Header height: `80px`.
 - Hero minimum height: `580px`.
 
+## Measured surfaces
+
+Numbers for implemented screens, transcribed from the design and verified against the running build. **Measure a new design into a table here before writing the component**, then let acceptance criteria cite these rows instead of "matches the frame" — a criterion an agent can check by arithmetic does not need eyes on a screenshot.
+
+### Admin portal shell — frame `5445-2495`
+
+| Region | Metric | Value |
+| --- | --- | --- |
+| Sidebar | width / collapsed width | `224px` / `72px`, `width 200ms ease` |
+| Sidebar | padding / section gap | `26px 14px 22px` / `28px` |
+| Brand | name type | `19px`, weight `700`, line-height `1.3` |
+| Brand | label type ("STORE ADMIN") | `10px`, line-height `1.2`, `#8AB6AE` |
+| Nav | row height / radius | `42px` / `6px` |
+| Nav | row padding / icon-to-label gap | inline `12px` / `11px` |
+| Nav | label type | `13px`, line-height `1.2`, letter-spacing `-0.26px` |
+| Nav | list gap | `5px` |
+| Nav | hover / active surface | `rgb(255 255 255 / 6%)` / `#1A5650` |
+| Header | bar height / inline padding / gap | `72px` / `28px` / `24px` |
+| Breadcrumb | type / gap | `13px`, `-0.26px` / `10px` |
+| Search | field size / radius | `260×36px` / `6px` |
+| Header | avatar / divider | `34×34px` / `1×30px` |
+
+Sidebar surfaces: `#0C3532` base, `#B8CDCA` label, `#28504B` divider. Header surfaces: `#FFFFFF` bar, `#DFE8E4` border, `#687D7B` muted text, `#142D2D` strong text.
+
+### Admin login — frame `5311-353`
+
+The frame is a 2× export of the form column, so its CSS width is `540px`.
+
+| Metric | Value |
+| --- | --- |
+| Form column width | `540px` |
+| Control height | `48px` |
+| Input radius / border | `12px` / `#CBD5E1` |
+| Button radius / fill | `9999px` (pill) / `#115E59` |
+| Field gap / form gap | `12px` / `24px` |
+| Title | `36px`, line-height `1.15`, letter-spacing `-0.9px`, weight `800` |
+| Subtitle | `16px`, line-height `1.55`, `#64748B` |
+| Inline error | `14px`, `#B42318`, plain text (no panel or icon) |
+
+The control metrics differ from the shared theme (`controlHeight` 44, `colorPrimary` aqua), which is why the form scopes them with a nested `ConfigProvider` — see `docs/antd.md`.
+
 ## Design Notes
 
 - The visual direction is premium, natural, and aquatic: pale mint content surfaces contrast with deep green sections and bright teal actions.

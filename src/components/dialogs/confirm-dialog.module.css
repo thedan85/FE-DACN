@@ -1,15 +1,23 @@
+/* Each alias names a token that exists in `design-tokens.ts`, with the intended
+   colour as a fallback: an alias pointing at a missing name resolves to nothing,
+   and an invalid `var()` makes the property compute to its initial value — which
+   left this panel transparent until the names were corrected. */
 .modal {
-	--dialog-surface: var(--color-surface);
-	--dialog-text: var(--color-text-heading);
-	--dialog-muted: var(--color-text-body);
-	--dialog-border: var(--color-border-light);
-	--dialog-primary: var(--color-brand-primary);
-	--dialog-primary-hover: var(--color-brand-deep);
+	--dialog-surface: var(--color-surface-white, #fff);
+	--dialog-text: var(--color-text-heading, #0f172a);
+	--dialog-muted: var(--color-text-body, #475569);
+	--dialog-border: var(--color-border-light, #e2e8f0);
+	--dialog-primary: var(--color-brand-teal, #1bc5bd);
+	--dialog-primary-hover: var(--color-brand-deep-teal, #115e59);
 	--dialog-radius: 16px;
 }
 
-/* Modal container */
-.modal :global(.ant-modal-content) {
+/* Modal container (the panel). antd v6 renamed `.ant-modal-content` to
+   `.ant-modal-container`. `.modal` is on the `.ant-modal` wrapper, so both
+   classes on that element reach 0-3-0 and outrank antd's nested
+   `:where(.css-hash).ant-modal .ant-modal-container` at 0-2-0; at equal
+   weight antd's runtime-injected rule wins on document order. */
+.modal:global(.ant-modal) :global(.ant-modal-container) {
 	padding: var(--space-6);
 	border: 1px solid var(--dialog-border);
 	border-radius: var(--dialog-radius);
@@ -95,7 +103,7 @@
 
 /* Small screens */
 @media (max-width: 480px) {
-	.modal :global(.ant-modal-content) {
+	.modal:global(.ant-modal) :global(.ant-modal-container) {
 		padding: var(--space-4);
 	}
 
