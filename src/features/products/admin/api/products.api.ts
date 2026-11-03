@@ -1,4 +1,4 @@
-import { ApiError, apiFetch } from "@/lib/api/client";
+import { apiFetch } from "@/lib/api/client";
 import { parseOrThrow } from "@/lib/api/parse";
 import {
 	createApiResponseSchema,
@@ -96,24 +96,7 @@ export async function getAdminProductDetailBySlug(
 }
 
 /**
- * Creates a product, then corrects its status if the caller asked for
- * something other than Active.
- *
- * **Backend defect, verified live 2026-11-03:** `CatalogMapper.toProduct`
- * declares `@Mapping(target = "status", constant = "ACTIVE")`, so the
- * `status` field of `ProductCreateRequest` is silently ignored and every new
- * product is Active. A draft-first flow is only expressible as
- * create-then-patch; this function does that so no caller rediscovers it.
- *
- * Two consequences worth knowing at the call site:
- *
- * - The correction needs **`product:update`**, not just `product:create`:
- *   `SecurityConfig` guards `PATCH /products/**` with `PRODUCT_UPDATE`. A role
- *   that can create but not update therefore cannot produce a draft, and this
- *   function reports that as a specific failure rather than a mystery 403 —
- *   the product does exist by then, which the caller must be told.
- * - The product is briefly Active between the two calls. No backend route
- *   avoids that window, so it is kept as short as possible rather than hidden.
+ * Creates a product with the requested status in a single request.
  *
  * A duplicate slug is a 409 and reaches the caller as `ApiError` carrying the
  * backend's message — surface it on the slug field rather than retrying.
@@ -127,26 +110,11 @@ export async function createProduct(
 		body: JSON.stringify(input),
 	});
 
-	const created = parseOrThrow(
+	return parseOrThrow(
 		productResponseSchema,
 		payload,
 		"The created product response",
 	).data;
-
-	if (created.status === input.status) {
-		return created;
-	}
-
-	try {
-		return await patchProduct(created.productId, { status: input.status });
-	} catch (error) {
-		throw new ApiError(
-			`The product was created as "${created.slug}" but its status could not be set to ${input.status}. ` +
-				"A status change needs the product:update permission.",
-			error instanceof ApiError ? error.status : 0,
-			{ product: created, cause: error },
-		);
-	}
 }
 
 /**
