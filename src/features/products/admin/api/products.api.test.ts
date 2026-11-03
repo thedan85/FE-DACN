@@ -102,17 +102,9 @@ it("passes a non-default status through instead of defaulting to Active", async 
 	expect(url.searchParams.get("sort")).toBe("NEWEST");
 });
 
-/**
- * The backend's create path ignores the requested status: `CatalogMapper`
- * declares `@Mapping(target = "status", constant = "ACTIVE")`, verified live on
- * 2026-11-03. `createProduct` corrects it, so a draft-first form still works.
- */
-it("corrects a created product's status when the backend forces Active", async () => {
+it("creates with the requested status in a single POST", async () => {
 	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
-	const fetch = stubFetch(
-		ok({ ...productFixture, status: "ACTIVE" }),
-		ok(productFixture),
-	);
+	const fetch = stubFetch(ok(productFixture));
 
 	const created = await createProduct({
 		name: "ZZ Probe",
@@ -121,65 +113,12 @@ it("corrects a created product's status when the backend forces Active", async (
 	});
 
 	expect(created.status).toBe("DRAFT");
-	expect(fetch).toHaveBeenCalledTimes(2);
-
-	const [postUrl, postInit] = fetch.mock.calls[0];
-	expect(postInit.method).toBe("POST");
-	expect(new URL(String(postUrl)).pathname).toBe("/api/v1/products");
-	expect(JSON.parse(String(postInit.body)).status).toBe("DRAFT");
-
-	const [patchUrl, patchInit] = fetch.mock.calls[1];
-	expect(patchInit.method).toBe("PATCH");
-	expect(new URL(String(patchUrl)).pathname).toBe("/api/v1/products/PRD_198");
-	expect(JSON.parse(String(patchInit.body))).toEqual({ status: "DRAFT" });
-});
-
-it("makes no follow-up request when the created status already matches", async () => {
-	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
-	const fetch = stubFetch(ok({ ...productFixture, status: "ACTIVE" }));
-
-	const created = await createProduct({
-		name: "ZZ Probe",
-		description: "probe",
-		status: "ACTIVE",
-	});
-
-	expect(created.status).toBe("ACTIVE");
 	expect(fetch).toHaveBeenCalledTimes(1);
-});
 
-/**
- * The status correction is a `PATCH`, which requires `product:update`. A role
- * that may only create would otherwise get a bare 403 after its product
- * already exists, with no way to tell what happened.
- */
-it("explains a failed status correction instead of leaking a bare 403", async () => {
-	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
-	const fetch = vi.fn();
-	fetch.mockResolvedValueOnce(
-		new Response(JSON.stringify(ok({ ...productFixture, status: "ACTIVE" })), {
-			headers: { "Content-Type": "application/json" },
-		}),
-	);
-	fetch.mockResolvedValueOnce(
-		new Response(JSON.stringify({ code: 403, message: "Forbidden" }), {
-			status: 403,
-			headers: { "Content-Type": "application/json" },
-		}),
-	);
-	vi.stubGlobal("fetch", fetch);
-
-	const error = await createProduct({
-		name: "ZZ Probe",
-		description: "probe",
-		status: "DRAFT",
-	}).catch((caught: unknown) => caught);
-
-	expect(error).toBeInstanceOf(ApiError);
-	const apiError = error as ApiError;
-	expect(apiError.status).toBe(403);
-	expect(apiError.message).toContain("zz-probe");
-	expect(apiError.message).toContain("product:update");
+	const [url, init] = fetch.mock.calls[0];
+	expect(init.method).toBe("POST");
+	expect(new URL(String(url)).pathname).toBe("/api/v1/products");
+	expect(JSON.parse(String(init.body)).status).toBe("DRAFT");
 });
 
 it("rejects a create response that does not match the contract", async () => {
