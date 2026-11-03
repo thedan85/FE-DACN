@@ -1,13 +1,23 @@
 import type { z } from "zod";
 
 import type {
+	AttributeSchema,
+	AttributeValueSchema,
 	CategorySchema,
 	MediaSchema,
+	ProductAttributeValueCreateRequestSchema,
 	ProductAttributeValueSchema,
+	ProductCreateRequestSchema,
 	ProductDetailSchema,
+	ProductUpdateRequestSchema,
 	ReviewSchema,
+	UploadResultSchema,
+	VariantAttributeValueCreateRequestSchema,
 	VariantAttributeValueSchema,
+	VariantCreateRequestSchema,
 	VariantDetailSchema,
+	VariantSchema,
+	VariantUpdateRequestSchema,
 	ProductSchema,
 } from "../schema/catalog.schema";
 
@@ -25,6 +35,25 @@ export type VariantAttributeValue = z.infer<
 export type VariantDetail = z.infer<typeof VariantDetailSchema>;
 export type Review = z.infer<typeof ReviewSchema>;
 export type ProductDetail = z.infer<typeof ProductDetailSchema>;
+
+/** Admin catalog DTOs. */
+export type Attribute = z.infer<typeof AttributeSchema>;
+export type AttributeValue = z.infer<typeof AttributeValueSchema>;
+/** Admin variant row — the `VariantResponse` DTO, not the detail embed. */
+export type VariantRecord = z.infer<typeof VariantSchema>;
+export type UploadResult = z.infer<typeof UploadResultSchema>;
+
+/** Outgoing admin catalog payloads. */
+export type ProductCreateInput = z.infer<typeof ProductCreateRequestSchema>;
+export type ProductUpdateInput = z.infer<typeof ProductUpdateRequestSchema>;
+export type VariantCreateInput = z.infer<typeof VariantCreateRequestSchema>;
+export type VariantUpdateInput = z.infer<typeof VariantUpdateRequestSchema>;
+export type ProductAttributeLinkInput = z.infer<
+	typeof ProductAttributeValueCreateRequestSchema
+>;
+export type VariantAttributeLinkInput = z.infer<
+	typeof VariantAttributeValueCreateRequestSchema
+>;
 
 /** Page envelope returned by the backend for list endpoints. */
 export interface PageData<T> {

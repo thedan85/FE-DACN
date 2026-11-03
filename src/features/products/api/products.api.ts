@@ -4,6 +4,7 @@ import {
 	createPageResponseSchema,
 } from "@/lib/api/schema";
 
+import { buildProductListQuery } from "../model/product-list-query";
 import {
 	CategorySchema,
 	ProductDetailSchema,
@@ -64,30 +65,9 @@ export interface ListProductsParams {
 export async function listProducts(
 	params: ListProductsParams,
 ): Promise<ProductPage> {
-	const search = new URLSearchParams();
-
-	if (params.keyword) {
-		search.set("keyword", params.keyword);
-	}
-
-	if (params.categoryId) {
-		search.set("category_id", params.categoryId);
-	}
-
-	if (params.minPrice != null) {
-		search.set("min_price", String(params.minPrice));
-	}
-
-	if (params.maxPrice != null) {
-		search.set("max_price", String(params.maxPrice));
-	}
-
-	search.set("status", params.status);
-	search.set("sort", params.sort);
-	search.set("page", String(params.page));
-	search.set("size", String(params.size));
-
-	const payload = await apiFetch<unknown>(`products?${search.toString()}`);
+	const payload = await apiFetch<unknown>(
+		`products?${buildProductListQuery(params)}`,
+	);
 	const parsed = productsResponseSchema.safeParse(payload);
 
 	if (!parsed.success) {
@@ -119,10 +99,17 @@ export interface ProductDetailParams {
  *
  * A 404 reaches the caller as `ApiError` with `status === 404` (unknown or
  * non-ACTIVE slug), which the route turns into `notFound()`.
+ *
+ * `options.headers` exists for staff reads: the backend hides DRAFT/INACTIVE
+ * products from anonymous callers, so the admin portal passes auth headers
+ * through the same request rather than re-implementing it. It is narrowed to
+ * `headers` on purpose — accepting a whole `RequestInit` would let a caller
+ * change the method or body of a function whose name promises a GET.
  */
 export async function getProductDetailBySlug(
 	slug: string,
 	params: ProductDetailParams = {},
+	options: { headers?: HeadersInit } = {},
 ): Promise<ProductDetail> {
 	const search = new URLSearchParams();
 
@@ -140,7 +127,7 @@ export async function getProductDetailBySlug(
 		query ? `?${query}` : ""
 	}`;
 
-	const payload = await apiFetch<unknown>(path);
+	const payload = await apiFetch<unknown>(path, { headers: options.headers });
 	const parsed = productDetailResponseSchema.safeParse(payload);
 
 	if (!parsed.success) {

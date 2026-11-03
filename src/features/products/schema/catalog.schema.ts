@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { createPageResponseSchema, ProductStatusSchema } from "@/lib/api/schema";
+import {
+	createPageResponseSchema,
+	ProductStatusSchema,
+} from "@/lib/api/schema";
 
 /**
  * Catalog DTO schemas, mirroring the backend response records
@@ -139,4 +142,133 @@ export const ProductDetailSchema = z.object({
 	 * `f758bae`).
 	 */
 	reviews: createPageResponseSchema(ReviewSchema),
+});
+
+/**
+ * Admin catalog contracts (`/admin/products*`).
+ *
+ * Mirrored from the backend source at `D:\VSCode\UniProjects\DACN`
+ * (`dto/response/catalog/*`, `dto/request/catalog/*`) and exercised against the
+ * live API on 2026-11-03. They live here rather than in a second schema module
+ * so a DTO keeps exactly one definition: the storefront and the admin portal
+ * read the same `ProductResponse`, and forking it would let one drift.
+ */
+
+/** `AttributeResponse` — the twelve catalog properties (Temperature, Color, …). */
+export const AttributeSchema = z.object({
+	attributeId: z.string(),
+	name: z.string(),
+	deleted: z.boolean().nullable(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+});
+
+/** `AttributeValueResponse` — one allowed value of an attribute. */
+export const AttributeValueSchema = z.object({
+	attributeValueId: z.string(),
+	attributeId: z.string(),
+	attributeName: z.string(),
+	value: z.string(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+});
+
+/**
+ * `VariantResponse` — the admin-facing variant row (list/create/update).
+ *
+ * Distinct from `VariantDetailSchema`, which is the detail aggregate's embed:
+ * this one carries its owning product and the soft-delete flag, and its
+ * `stock` is a nullable `Integer` in the DTO (`ProductService` overlays a
+ * scrubbed `null` onto cached rows before recomputing it).
+ */
+export const VariantSchema = z.object({
+	variantId: z.string(),
+	sku: z.string(),
+	price: z.number(),
+	stock: z.number().int().nullable(),
+	productId: z.string(),
+	productName: z.string(),
+	deleted: z.boolean().nullable(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+});
+
+/**
+ * `UploadResponse` — the result of a thumbnail/variant-image upload. The
+ * backend has already attached the new media to the product or variant by the
+ * time this returns, so no follow-up write is needed.
+ */
+export const UploadResultSchema = z.object({
+	url: z.string(),
+	folder: z.string(),
+	productId: z.string().nullable(),
+	variantId: z.string().nullable(),
+	mediaId: z.string(),
+});
+
+/**
+ * Outgoing payloads. These exist to give the request shapes one typed home
+ * alongside their responses; TypeScript enforces them at the call site, and
+ * they are deliberately not re-parsed before sending (the backend's bean
+ * validation owns rejection, and its 400 message is what the UI surfaces).
+ */
+
+/**
+ * `ProductCreateRequest`. `status` is **required** here because the create
+ * form must always state its intent: the backend's mapper hard-codes the
+ * inserted status to `ACTIVE`, so `createProduct` corrects it with a follow-up
+ * PATCH — omitting it would leave every new product published.
+ */
+export const ProductCreateRequestSchema = z.object({
+	name: z.string().min(1).max(255),
+	description: z.string().min(1),
+	detailDescription: z.string().optional(),
+	categoryId: z.string().optional(),
+	slug: z.string().max(255).optional(),
+	status: ProductStatusSchema,
+});
+
+/**
+ * `ProductUpdateRequest` as a PATCH merge: every field is optional and only
+ * the provided ones change. `thumbnailMediaId` is nullable because `null` is
+ * meaningful — `PUT` clears the thumbnail with it, while `PATCH` ignores it
+ * (`ProductService.update` only assigns a non-null id).
+ */
+export const ProductUpdateRequestSchema = z.object({
+	name: z.string().min(1).max(255).optional(),
+	description: z.string().optional(),
+	detailDescription: z.string().optional(),
+	thumbnailMediaId: z.string().nullable().optional(),
+	categoryId: z.string().nullable().optional(),
+	slug: z.string().max(255).optional(),
+	status: ProductStatusSchema.optional(),
+});
+
+/** `VariantCreateRequest` — price is `@PositiveOrZero`, stock optional ≥ 0. */
+export const VariantCreateRequestSchema = z.object({
+	productId: z.string().min(1),
+	sku: z.string().min(1),
+	price: z.number().nonnegative(),
+	stock: z.number().int().nonnegative().optional(),
+});
+
+/** `VariantUpdateRequest` — a merge of the mutable variant fields. */
+export const VariantUpdateRequestSchema = z.object({
+	sku: z.string().min(1).optional(),
+	price: z.number().nonnegative().optional(),
+	stock: z.number().int().nonnegative().optional(),
+});
+
+/** `ProductAttributeValueCreateRequest` — links a product to an attribute value. */
+export const ProductAttributeValueCreateRequestSchema = z.object({
+	productId: z.string().min(1),
+	attributeId: z.string().min(1),
+	attributeValueId: z.string().min(1),
+});
+
+/** `VariantAttributeValueCreateRequest` — the same link, per variant. */
+export const VariantAttributeValueCreateRequestSchema = z.object({
+	variantId: z.string().min(1),
+	attributeId: z.string().min(1),
+	attributeValueId: z.string().min(1),
 });
