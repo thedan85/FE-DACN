@@ -10,18 +10,23 @@
 	gap: 8px;
 }
 
-.back {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	width: fit-content;
-	color: var(--color-brand-deep-teal);
+/* The back control is antd's `Button type="link"`: padding, hover and focus are
+   its own. Only the negative inline start (to sit flush with the page edge) and
+   the type size are ours, and `Button` exposes no token for either. */
+.back:global(.ant-btn) {
+	align-self: flex-start;
+	padding-inline: 0;
 	font-size: 13px;
-	line-height: 18.2px;
+	height: auto;
 }
 
-.back:hover {
-	text-decoration: underline;
+/* Title on the left, the page's own action (Preview) on the right. */
+.titleRow {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
 }
 
 .title:global(.ant-typography) {
@@ -80,6 +85,33 @@
 	margin-inline-end: auto;
 }
 
+/* Archive and Delete: set apart from the save bar so a destructive action is
+   never adjacent to the one the user is meant to press. */
+/* Surface, border and radius come from the themed `Card`; this only adds the
+   vertical rhythm the page uses between sections. */
+.dangerZone:global(.ant-card) {
+	margin-top: 24px;
+}
+
+.dangerRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.dangerText {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.dangerHelp {
+	font-size: 12px;
+	line-height: 16.8px;
+}
+
 @media (max-width: 1023px) {
 	.columns {
 		grid-template-columns: minmax(0, 1fr);
@@ -88,5 +120,10 @@
 	.title:global(.ant-typography) {
 		font-size: 26px;
 		line-height: 34px;
+	}
+
+	.dangerRow {
+		flex-direction: column;
+		align-items: flex-start;
 	}
 }
