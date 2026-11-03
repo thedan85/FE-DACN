@@ -31,6 +31,12 @@ export function AdminCatalogTheme({ children }: { children: ReactNode }) {
 					colorTextSecondary: admin.panelTextMuted,
 					colorBorder: admin.panelBorder,
 					colorBorderSecondary: admin.panelBorder,
+					// The create form's draft notice is a pale blue band, not the
+					// storefront's teal info tint; these three tokens are what carry it,
+					// so the colour lives in the theme rather than an override rule.
+					colorInfoBg: admin.noticeSurface,
+					colorInfoBorder: admin.noticeBorder,
+					colorInfo: admin.noticeText,
 					// 38px controls and a 6px radius are the design's values; the
 					// global theme's 44px/16px would read as a storefront control.
 					controlHeight: 38,

@@ -214,10 +214,10 @@ export const UploadResultSchema = z.object({
  */
 
 /**
- * `ProductCreateRequest`. `status` is **required** here because the create
- * form must always state its intent: the backend's mapper hard-codes the
- * inserted status to `ACTIVE`, so `createProduct` corrects it with a follow-up
- * PATCH — omitting it would leave every new product published.
+ * `ProductCreateRequest`. `status` is **required** here because the create form
+ * must always state its intent: the backend persists the status it is given but
+ * defaults an omitted one to `ACTIVE`, which would leave every new product
+ * published.
  */
 export const ProductCreateRequestSchema = z.object({
 	name: z.string().min(1).max(255),

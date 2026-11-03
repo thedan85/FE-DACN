@@ -1,0 +1,92 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.header {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.back {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	width: fit-content;
+	color: var(--color-brand-deep-teal);
+	font-size: 13px;
+	line-height: 18.2px;
+}
+
+.back:hover {
+	text-decoration: underline;
+}
+
+.title:global(.ant-typography) {
+	margin: 0;
+	color: var(--color-admin-panel-text-strong);
+	font-size: 34px;
+	line-height: 42px;
+	font-weight: 700;
+	letter-spacing: -0.85px;
+}
+
+/* The design's draft notice is a pale blue band. `colorInfoBg` / `colorInfoBorder`
+   / `colorInfo` are set on the scoped ConfigProvider in `AdminCatalogTheme`
+   instead of here, because those are exactly the tokens this needed — see the
+   `Alert` entry there. Only geometry stays local, since no token carries it. */
+.notice:global(.ant-alert) {
+	margin-top: 8px;
+	border-radius: 6px;
+}
+
+.notice :global(.ant-alert-title) {
+	font-size: 13px;
+	line-height: 18.2px;
+}
+
+/* Main column flexes, settings column is the design's fixed 316px; below `lg`
+   they stack rather than squeezing the settings column to nothing. */
+.columns {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 316px;
+	gap: 20px;
+	align-items: start;
+}
+
+.mainColumn,
+.settingsColumn {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	min-width: 0;
+}
+
+.saveBar {
+	position: sticky;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 24px;
+	padding: 16px 0;
+	background: var(--color-surface-white);
+	border-top: 1px solid var(--color-admin-panel-border);
+}
+
+.saveStatus {
+	margin-inline-end: auto;
+}
+
+@media (max-width: 1023px) {
+	.columns {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.title:global(.ant-typography) {
+		font-size: 26px;
+		line-height: 34px;
+	}
+}

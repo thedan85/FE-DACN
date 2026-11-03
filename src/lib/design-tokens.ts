@@ -62,6 +62,11 @@ const colors = {
 		// would be a value with no consumer.
 		panelSurfaceSubtle: "#F6F9F7", // table header, expanded variant row
 
+		// The create form's draft notice (Figma: admin-add-product banner).
+		noticeSurface: "#EDF5FA",
+		noticeBorder: "#D6E6F0",
+		noticeText: "#437F9B",
+
 		// Status tones. Draft and Low stock share the warning pair; Archived and
 		// Deleted share the danger pair, exactly as the design board defines them.
 		// Active reuses `avatarSurface` and `brandDeepTeal` rather than aliasing
