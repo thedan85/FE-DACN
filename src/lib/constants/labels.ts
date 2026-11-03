@@ -64,7 +64,10 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
 export const PRODUCT_STATUS_LABELS: Record<ProductStatus, string> = {
 	DRAFT: "Draft",
 	ACTIVE: "Active",
-	INACTIVE: "Inactive",
+	// The backend spells this INACTIVE; the admin design and GLOSSARY.md call it
+	// Archived, and a product withdrawn from sale and then restored reads as
+	// "archived", not as "inactive".
+	INACTIVE: "Archived",
 	DELETED: "Deleted",
 };
 
