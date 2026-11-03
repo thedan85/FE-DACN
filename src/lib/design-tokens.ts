@@ -51,6 +51,25 @@ const colors = {
 		panelTextMuted: "#687D7B",
 		panelTextStrong: "#142D2D",
 		avatarSurface: "#E9F5F1",
+
+		// Catalog surfaces (Figma: Products & Variants board). The neutrals are
+		// green-tinted on purpose — a pure grey reads cold beside the teal
+		// sidebar, so even white and near-white carries a trace of it.
+		//
+		// Only the values the catalog screens actually render live here. A
+		// "selected row" or "checkbox border" tint is not among them: the table
+		// uses antd's own row-hover/selection tokens, so naming a colour for them
+		// would be a value with no consumer.
+		panelSurfaceSubtle: "#F6F9F7", // table header, expanded variant row
+
+		// Status tones. Draft and Low stock share the warning pair; Archived and
+		// Deleted share the danger pair, exactly as the design board defines them.
+		// Active reuses `avatarSurface` and `brandDeepTeal` rather than aliasing
+		// the same two hexes under new names — the module comments say so.
+		statusWarningSurface: "#FCF3E3",
+		statusWarningText: "#97661C",
+		statusDangerSurface: "#FBEFEE",
+		statusDangerText: "#BC5A53",
 	},
 } as const;
 
@@ -217,6 +236,11 @@ const cssVariableValues = {
 	"--color-admin-panel-text-muted": colors.admin.panelTextMuted,
 	"--color-admin-panel-text-strong": colors.admin.panelTextStrong,
 	"--color-admin-avatar-surface": colors.admin.avatarSurface,
+	"--color-admin-panel-surface-subtle": colors.admin.panelSurfaceSubtle,
+	"--color-admin-status-warning-surface": colors.admin.statusWarningSurface,
+	"--color-admin-status-warning-text": colors.admin.statusWarningText,
+	"--color-admin-status-danger-surface": colors.admin.statusDangerSurface,
+	"--color-admin-status-danger-text": colors.admin.statusDangerText,
 
 	"--font-family-sans": typography.fontFamily,
 
