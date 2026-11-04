@@ -7,6 +7,7 @@ import { PlusOutlined } from "@ant-design/icons";
 import { CATALOG_PERMISSIONS } from "../model/permissions";
 import {
 	totalVariantStock,
+	type VariantImage,
 	type VariantRow,
 	type VariantRowValues,
 } from "../model/variants";
@@ -37,6 +38,8 @@ type VariantsCardProps = {
 		variantId: string,
 		attributes: VariantRow["attributes"],
 	) => void;
+	/** Reported with just the new image, so a concurrent row edit survives. */
+	onVariantImageAdded: (variantId: string, image: VariantImage) => void;
 	onVariantRemoved: (variantId: string) => void;
 };
 
@@ -58,6 +61,7 @@ export function VariantsCard({
 	onVariantAdded,
 	onVariantFieldsSaved,
 	onVariantAttributesChanged,
+	onVariantImageAdded,
 	onVariantRemoved,
 }: VariantsCardProps) {
 	const { can } = useCatalogPermissions();
@@ -68,6 +72,9 @@ export function VariantsCard({
 	const mayUpdate = can(CATALOG_PERMISSIONS.variantUpdate);
 	const mayCreate = can(CATALOG_PERMISSIONS.variantCreate);
 	const mayDelete = can(CATALOG_PERMISSIONS.variantDelete);
+	// Variant images are uploaded through `/uploads/variants/{id}`, which the
+	// backend gates on `media:create` — not on any variant code.
+	const mayUploadImage = can(CATALOG_PERMISSIONS.mediaCreate);
 
 	if (!mayUpdate) {
 		// The ticket's gate: without `variant:update` the whole card is hidden,
@@ -92,9 +99,11 @@ export function VariantsCard({
 			<VariantsTable
 				rows={variants}
 				mayDelete={mayDelete}
+				mayUploadImage={mayUploadImage}
 				onFieldsSaved={onVariantFieldsSaved}
 				onRemoved={onVariantRemoved}
 				onEditAttributes={setAttributesFor}
+				onImageAdded={onVariantImageAdded}
 			/>
 
 			{mayCreate && (

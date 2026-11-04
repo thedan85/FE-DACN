@@ -8,7 +8,11 @@ import { ArrowLeftOutlined, ExportOutlined } from "@ant-design/icons";
 import { ApiError } from "@/lib/api/client";
 import { getCategories } from "@/features/products/api/products.api";
 import { formatDate } from "@/features/products/storefront/model/product-format";
-import type { Category, ProductDetail } from "@/features/products/types";
+import type {
+	Category,
+	Product,
+	ProductDetail,
+} from "@/features/products/types";
 
 import { deleteProduct, patchProduct, putProduct } from "../api/products.api";
 import { CATALOG_PERMISSIONS } from "../model/permissions";
@@ -26,6 +30,7 @@ import {
 	ProductInformationCard,
 	ProductSettingsColumn,
 } from "./product-form-sections";
+import { ProductMediaCard } from "./product-media-card";
 import { VariantsCard } from "./variants-card";
 import styles from "./product-form-page.module.css";
 
@@ -183,6 +188,26 @@ export function ProductEditForm({ detail }: ProductEditFormProps) {
 		if (saveState.status === "saved" || saveState.status === "error") {
 			setSaveState({ status: "idle" });
 		}
+	}
+
+	/**
+	 * Takes the product the media card just changed — an uploaded thumbnail or a
+	 * removal — as the new baseline for the *thumbnail alone*.
+	 *
+	 * Deliberately does **not** touch the form fields. An image operation changes
+	 * no product field, so rewriting the inputs from the server's copy would
+	 * silently discard whatever the user had typed but not yet saved (and flip the
+	 * form back to "no changes") — while the page separately warns before
+	 * navigating away from exactly that unsaved work. Only the two thumbnail
+	 * fields are taken, so the diff keeps comparing the typed values against the
+	 * server's.
+	 */
+	function applySavedProduct(saved: Product) {
+		setProduct((previous) => ({
+			...previous,
+			thumbnail: saved.thumbnail,
+			thumbnailMediaId: saved.thumbnailMediaId,
+		}));
 	}
 
 	/**
@@ -369,6 +394,14 @@ export function ProductEditForm({ detail }: ProductEditFormProps) {
 					<div className={styles.mainColumn}>
 						<ProductInformationCard disabled={!mayUpdate || busy} />
 
+						{/* Media is its own resource too: the upload endpoint attaches
+						    the image to the product itself, so there is nothing to save
+						    in the form afterwards. */}
+						<ProductMediaCard
+							product={product}
+							onProductChanged={applySavedProduct}
+						/>
+
 						{/* Attributes are their own resources, so this card writes
 						    immediately and sits outside the form's save. */}
 						<ProductAttributesCard
@@ -399,6 +432,15 @@ export function ProductEditForm({ detail }: ProductEditFormProps) {
 									previous.map((variant) =>
 										variant.variantId === variantId
 											? { ...variant, attributes }
+											: variant,
+									),
+								)
+							}
+							onVariantImageAdded={(variantId, image) =>
+								setVariants((previous) =>
+									previous.map((variant) =>
+										variant.variantId === variantId
+											? { ...variant, images: [...variant.images, image] }
 											: variant,
 									),
 								)

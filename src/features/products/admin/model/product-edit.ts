@@ -108,6 +108,29 @@ export interface ProductUpdateRequestPlan {
 }
 
 /**
+ * The product's current values, as the body of a replace.
+ *
+ * A `PUT` restates the whole product, so anything that needs one — detaching a
+ * category here, clearing a thumbnail in `model/media.ts` — starts from this and
+ * overrides the one field it means to change. Keeping one definition means a
+ * future product field is added here and nowhere else.
+ *
+ * `categoryId` is `null` rather than omitted: `replace` detaches on null, and
+ * sending `""` would be a malformed id.
+ */
+export function productCurrentValues(product: Product): ProductUpdateInput {
+	return {
+		name: product.name,
+		description: product.description,
+		detailDescription: product.detailDescription,
+		categoryId: product.categoryId ?? null,
+		slug: product.slug,
+		status: product.status,
+		thumbnailMediaId: product.thumbnailMediaId,
+	};
+}
+
+/**
  * Decides the HTTP method and body for the pending edit.
  *
  * A cleared category is the one case that needs a replace, because a merge
@@ -137,6 +160,7 @@ export function buildProductRequest(
 	return {
 		method: "PUT",
 		body: {
+			...productCurrentValues(product),
 			name: values.name.trim(),
 			description: values.description.trim(),
 			detailDescription: (values.detailDescription ?? "").trim(),

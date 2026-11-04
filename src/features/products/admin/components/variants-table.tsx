@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import {
+	useState,
+	type Dispatch,
+	type ReactNode,
+	type SetStateAction,
+} from "react";
+import Image from "next/image";
 import {
 	App,
 	Button,
@@ -16,6 +22,7 @@ import {
 import type { TableColumnsType } from "antd";
 import { DeleteOutlined, SettingOutlined } from "@ant-design/icons";
 
+import { uploadVariantImage } from "../api/media.api";
 import { deleteVariant, patchVariant } from "../api/variants.api";
 import { apiErrorMessage, isConflict } from "../model/api-error";
 import { describeAttributeLink } from "../model/product-attributes";
@@ -23,11 +30,14 @@ import {
 	buildVariantUpdate,
 	validateVariantRow,
 	variantFieldsFromRecord,
+	variantImageFromUpload,
 	variantLabel,
+	type VariantImage,
 	type VariantRow,
 	type VariantRowErrors,
 	type VariantRowValues,
 } from "../model/variants";
+import { ImageUploadButton } from "./image-upload-button";
 import styles from "./variants-table.module.css";
 
 const { Text } = Typography;
@@ -42,10 +52,14 @@ type RowDraft = {
 type VariantsTableProps = {
 	rows: VariantRow[];
 	mayDelete: boolean;
+	/** Hides the image control without `media:create`. */
+	mayUploadImage: boolean;
 	/** Reported with only the three fields a `VariantResponse` describes. */
 	onFieldsSaved: (variantId: string, fields: VariantRowValues) => void;
 	onRemoved: (variantId: string) => void;
 	onEditAttributes: (variantId: string) => void;
+	/** Reported with just the new image, so a concurrent row edit survives. */
+	onImageAdded: (variantId: string, image: VariantImage) => void;
 };
 
 /** The row's current editable values, from the server row. */
@@ -68,9 +82,11 @@ function draftFrom(row: VariantRow): RowDraft {
 export function VariantsTable({
 	rows,
 	mayDelete,
+	mayUploadImage,
 	onFieldsSaved,
 	onRemoved,
 	onEditAttributes,
+	onImageAdded,
 }: VariantsTableProps) {
 	const { message } = App.useApp();
 
@@ -78,6 +94,7 @@ export function VariantsTable({
 	const [errors, setErrors] = useState<Record<string, VariantRowErrors>>({});
 	const [savingIds, setSavingIds] = useState<Record<string, true>>({});
 	const [removingIds, setRemovingIds] = useState<Record<string, true>>({});
+	const [uploadingIds, setUploadingIds] = useState<Record<string, true>>({});
 
 	function draftFor(row: VariantRow): RowDraft {
 		return drafts[row.variantId] ?? draftFrom(row);
@@ -181,25 +198,72 @@ export function VariantsTable({
 		}
 	}
 
-	async function removeRow(row: VariantRow) {
-		setRemovingIds((previous) => ({ ...previous, [row.variantId]: true }));
+	/**
+	 * Runs one row's write, holding that row busy while it is in flight.
+	 *
+	 * Every per-row action has the same shape — mark this row busy, do one
+	 * request, clear the mark — and a per-row flag (rather than one shared
+	 * "busy") is what lets a second row save while the first is still going.
+	 */
+	async function withRowBusy(
+		variantId: string,
+		setFlags: Dispatch<SetStateAction<Record<string, true>>>,
+		run: () => Promise<void>,
+	) {
+		setFlags((previous) => ({ ...previous, [variantId]: true }));
 
 		try {
-			await deleteVariant(row.variantId);
-			onRemoved(row.variantId);
-			clearFeedback(row.variantId);
-			message.success(`Variant ${row.sku} removed.`);
-		} catch (caught) {
-			message.error(
-				apiErrorMessage(caught, "Could not remove the variant. Please try again."),
-			);
+			await run();
 		} finally {
-			setRemovingIds((previous) => {
+			setFlags((previous) => {
 				const next = { ...previous };
-				delete next[row.variantId];
+				delete next[variantId];
 				return next;
 			});
 		}
+	}
+
+	async function removeRow(row: VariantRow) {
+		await withRowBusy(row.variantId, setRemovingIds, async () => {
+			try {
+				await deleteVariant(row.variantId);
+				onRemoved(row.variantId);
+				clearFeedback(row.variantId);
+				message.success(`Variant ${row.sku} removed.`);
+			} catch (caught) {
+				message.error(
+					apiErrorMessage(
+						caught,
+						"Could not remove the variant. Please try again.",
+					),
+				);
+			}
+		});
+	}
+
+	/**
+	 * Uploads one row's image.
+	 *
+	 * `POST /uploads/variants/{id}` attaches the media to the variant itself, so
+	 * only the new image is reported upward — the row's price, stock and picks are
+	 * untouched by an upload and must not be re-sent from the response, which
+	 * does not describe them.
+	 */
+	async function uploadImage(row: VariantRow, file: File) {
+		await withRowBusy(row.variantId, setUploadingIds, async () => {
+			try {
+				const uploaded = await uploadVariantImage(row.variantId, file);
+				onImageAdded(row.variantId, variantImageFromUpload(uploaded));
+				message.success(`Image added to ${row.sku}.`);
+			} catch (caught) {
+				message.error(
+					apiErrorMessage(
+						caught,
+						"Could not upload that image. Check your connection and try again.",
+					),
+				);
+			}
+		});
 	}
 
 	/**
@@ -248,6 +312,41 @@ export function VariantsTable({
 				<Flex align="center" gap={8}>
 					<Text>{variantLabel(row)}</Text>
 					{savingIds[row.variantId] && <Spin size="small" />}
+				</Flex>
+			),
+		},
+		{
+			title: "Image",
+			key: "image",
+			width: 150,
+			render: (_, row) => (
+				<Flex vertical gap={4}>
+					{row.images.length > 0 ? (
+						<Flex wrap gap={4}>
+							{row.images.map((image) => (
+								<Image
+									key={image.mediaId}
+									className={styles.thumb}
+									src={image.url}
+									alt={`${variantLabel(row)} image`}
+									width={40}
+									height={40}
+									unoptimized
+								/>
+							))}
+						</Flex>
+					) : (
+						<Text type="secondary">None</Text>
+					)}
+					{mayUploadImage && (
+						<ImageUploadButton
+							label={row.images.length === 0 ? "Add image" : "Add"}
+							disabled={removingIds[row.variantId] === true}
+							loading={uploadingIds[row.variantId] === true}
+							onFile={(file) => void uploadImage(row, file)}
+							onInvalid={(error) => message.error(error)}
+						/>
+					)}
 				</Flex>
 			),
 		},

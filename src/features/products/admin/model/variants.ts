@@ -1,4 +1,5 @@
 import type {
+	UploadResult,
 	VariantCreateInput,
 	VariantDetail,
 	VariantRecord,
@@ -16,6 +17,19 @@ import { describeAttributeLink } from "./product-attributes";
  * the picks and not from a name the API does not have.
  */
 
+/**
+ * One image on a variant row.
+ *
+ * A projection of the aggregate's `media[]`, not the DTO: the row renders a
+ * thumbnail, and nothing reads `createdAt`/`updatedAt`/`deleted`. Carrying the
+ * whole `Media` would also mean inventing timestamps for a just-uploaded image,
+ * whose `UploadResponse` does not include any.
+ */
+export interface VariantImage {
+	mediaId: string;
+	url: string;
+}
+
 /** One editable variant row, as the table holds it. */
 export interface VariantRow {
 	variantId: string;
@@ -24,6 +38,8 @@ export interface VariantRow {
 	stock: number;
 	/** The variant's attribute picks, reused by the shared `AttributePicker`. */
 	attributes: VariantDetail["attributes"];
+	/** The variant's images, most recent last, as the backend returns them. */
+	images: VariantImage[];
 }
 
 /**
@@ -41,6 +57,10 @@ export function toVariantRows(variants: readonly VariantDetail[]): VariantRow[] 
 		price: variant.price,
 		stock: variant.stock,
 		attributes: variant.attributes,
+		images: variant.media.map((media) => ({
+			mediaId: media.mediaId,
+			url: media.url,
+		})),
 	}));
 }
 
@@ -222,5 +242,24 @@ export function rowFromVariantRecord(record: VariantRecord): VariantRow {
 		variantId: record.variantId,
 		...variantFieldsFromRecord(record, 0),
 		attributes: [],
+		// `VariantResponse` carries no media either; a new variant starts bare and
+		// an image is added from its row.
+		images: [],
 	};
+}
+
+/**
+ * The image an upload just created, in the row's own shape.
+ *
+ * `POST /uploads/variants/{id}` returns `{mediaId, url, …}`, so the thumbnail can
+ * appear immediately without refetching the aggregate; it also returns no
+ * timestamps, which is why `VariantImage` is a two-field projection rather than
+ * the `Media` DTO.
+ *
+ * The caller **appends** this to the row's images rather than replacing the row:
+ * the upload response describes only the image, so replacing a whole row with it
+ * would revert a concurrent price or stock edit.
+ */
+export function variantImageFromUpload(upload: UploadResult): VariantImage {
+	return { mediaId: upload.mediaId, url: upload.url };
 }

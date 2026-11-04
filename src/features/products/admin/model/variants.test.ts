@@ -169,6 +169,7 @@ it("sends only the fields that differ on an existing row", () => {
 		price: 15000,
 		stock: 50,
 		attributes: [],
+		images: [],
 	};
 
 	expect(buildVariantUpdate(saved, { ...saved, price: 18000 })).toEqual({
@@ -183,6 +184,7 @@ it("returns null when a row was not changed", () => {
 		price: 15000,
 		stock: 50,
 		attributes: [],
+		images: [],
 	};
 
 	// The editor keeps an inline row editable, so "unchanged" has to be
@@ -200,7 +202,7 @@ it("always writes with PATCH, never choosing a method", () => {
 	// there is no method for a caller to get wrong, which is why the product's
 	// `buildProductRequest` must not be reused here.
 	const update = buildVariantUpdate(
-		{ variantId: "v1", sku: "A", price: 1, stock: 1, attributes: [] },
+		{ variantId: "v1", sku: "A", price: 1, stock: 1, attributes: [], images: [] },
 		{ sku: "B", price: 1, stock: 1 },
 	);
 
@@ -230,6 +232,8 @@ it("turns a create response into a row, which has no picks yet", () => {
 		price: 15000,
 		stock: 4,
 		attributes: [],
+		// `VariantResponse` carries no media either, so a new row starts bare.
+		images: [],
 	});
 });
 
