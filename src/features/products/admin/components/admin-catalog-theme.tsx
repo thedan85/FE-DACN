@@ -26,11 +26,24 @@ export function AdminCatalogTheme({ children }: { children: ReactNode }) {
 			theme={{
 				token: {
 					colorPrimary: designTokens.colors.brandDeepTeal,
+					// The design's primary hover is `#1A5650`, the same hex the sidebar
+					// uses for its active row — referenced rather than re-declared, the
+					// way `StatusPill` borrows `avatarSurface` for Active.
+					colorPrimaryHover: admin.sidebarActiveSurface,
 					colorLink: designTokens.colors.brandDeepTeal,
 					colorText: admin.panelTextStrong,
 					colorTextSecondary: admin.panelTextMuted,
 					colorBorder: admin.panelBorder,
 					colorBorderSecondary: admin.panelBorder,
+					// antd derives a focus ring from the primary when this is unset,
+					// and on this theme that measured as `rgb(88,133,125)` — not the
+					// design's teal. `colorPrimaryBorder` is what the 3px outline on
+					// buttons and Segmented is built from (`genFocusOutline`).
+					colorPrimaryBorder: admin.focusRing,
+					// Disabled controls, in the design's green-tinted neutrals rather
+					// than antd's `rgba(0,0,0,…)` greys.
+					colorBgContainerDisabled: admin.disabledSurface,
+					colorTextDisabled: admin.panelTextMuted,
 					// The create form's draft notice is a pale blue band, not the
 					// storefront's teal info tint; these three tokens are what carry it,
 					// so the colour lives in the theme rather than an override rule.
@@ -44,6 +57,23 @@ export function AdminCatalogTheme({ children }: { children: ReactNode }) {
 					fontSize: 13,
 				},
 				components: {
+					// The focus ring on text inputs and selects does not follow
+					// `token.colorPrimaryBorder` (buttons and Segmented do). Their active
+					// outline is built from their *own* component tokens:
+					// `Input.activeBorderColor` defaults to `colorPrimary` and
+					// `Select.activeOutlineColor` to `controlOutline`, neither of which
+					// this scoped theme sets — so left alone they resolve against the
+					// **global** storefront theme, measured as `#1BC5BD33` on inputs.
+					// These two component tokens are what actually bite; a themed
+					// `controlOutline` would not, because both components now override it.
+					Input: {
+						activeBorderColor: admin.focusRing,
+						activeShadow: `0 0 0 2px ${admin.focusRing}`,
+					},
+					Select: {
+						activeBorderColor: admin.focusRing,
+						activeOutlineColor: admin.focusRing,
+					},
 					Table: {
 						headerBg: admin.panelSurfaceSubtle,
 						headerColor: admin.panelTextMuted,
