@@ -167,8 +167,12 @@ Prefer the existing stack unless a concrete requirement justifies another depend
 - `npm run build` — create a production build.
 - `npm run start` — start the production server after a successful build.
 - `npm run lint` — run ESLint.
+- `npm run lint:antd` — run `antd lint` and fail on deprecated or discouraged antd v6 usage. The CLI exits 0 with or without findings, so `scripts/lint-antd.mjs` turns its counts into an exit code.
 - `npm run typecheck` — run `tsc --noEmit`.
-- `npm run check` — run lint, typecheck, and the CSS-module reference check. This is the gate run before a PR; `.githooks/pre-commit` runs the CSS check, ESLint on the staged files, and the typecheck on every commit.
+- `npm run check:css` — fail on a `styles.x` with no matching class in its `*.module.css`.
+- `npm run check:encoding` — fail on a BOM, invalid UTF-8, or the signature of a PowerShell round trip (`scripts/check-encoding.mjs`).
+- `npm run test` — run vitest.
+- `npm run check` — the gate: lint, `antd lint`, typecheck, the CSS-module check, the encoding check, then the test suite. Run it before a PR; `.githooks/pre-commit` runs the cheap subset — CSS, encoding, `antd lint --staged`, ESLint and the typecheck on the staged files — on every commit.
 
 Run the relevant checks after implementation. If a check fails, distinguish new failures from pre-existing issues and report the actual result.
 

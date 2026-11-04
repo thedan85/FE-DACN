@@ -151,7 +151,7 @@ export function ProductPurchasePanel({
 					role="alert"
 					type="warning"
 					showIcon
-					message="Sign in to purchase"
+					title="Sign in to purchase"
 					description={
 						<>
 							You need an account before items can be added to your
@@ -170,7 +170,7 @@ export function ProductPurchasePanel({
 					role="alert"
 					type="error"
 					showIcon
-					message="Could not add to cart"
+					title="Could not add to cart"
 					description={
 						<>
 							{notice.text} Check your connection and try again with
