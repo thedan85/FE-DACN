@@ -71,6 +71,13 @@ export function AdminCatalogTheme({ children }: { children: ReactNode }) {
 					Tag: {
 						borderRadiusSM: 4,
 					},
+					Listy: {
+						// Row rhythm for the attribute list. These are Listy's own
+						// tokens, so no CSS rule has to out-rank antd's
+						// `:where()`-wrapped `.ant-listy-item` chain for the same values.
+						itemPaddingBlock: 8,
+						itemPaddingInline: 0,
+					},
 				},
 			}}
 		>

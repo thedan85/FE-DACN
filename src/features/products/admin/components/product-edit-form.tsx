@@ -20,6 +20,7 @@ import {
 import type { ProductFormValues } from "../model/product-form";
 import type { EditableProductStatus } from "../model/product-status";
 import { useCatalogPermissions } from "../use-catalog-permissions";
+import { ProductAttributesCard } from "./product-attributes-card";
 import {
 	ProductInformationCard,
 	ProductSettingsColumn,
@@ -62,6 +63,12 @@ export function ProductEditForm({ detail }: ProductEditFormProps) {
 	const [form] = Form.useForm<ProductFormValues>();
 	/** The product as last known to this component; refreshed after each save. */
 	const [product, setProduct] = useState(detail.product);
+	/**
+	 * The product's attribute links. Held here rather than read from `detail`
+	 * because adds and removes are immediate and the aggregate prop is only
+	 * refetched on remount, so the card would otherwise show a stale list.
+	 */
+	const [links, setLinks] = useState(detail.attributes);
 	const [status, setStatus] = useState<EditableProductStatus>(
 		() => toProductFormValues(detail.product).status,
 	);
@@ -350,6 +357,14 @@ export function ProductEditForm({ detail }: ProductEditFormProps) {
 				<div className={styles.columns}>
 					<div className={styles.mainColumn}>
 						<ProductInformationCard disabled={!mayUpdate || busy} />
+
+						{/* Attributes are their own resources, so this card writes
+						    immediately and sits outside the form's save. */}
+						<ProductAttributesCard
+							productId={product.productId}
+							links={links}
+							onLinksChanged={setLinks}
+						/>
 					</div>
 
 					{mayUpdate && (
