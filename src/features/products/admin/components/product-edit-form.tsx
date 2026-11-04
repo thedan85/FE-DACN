@@ -19,12 +19,14 @@ import {
 } from "../model/product-edit";
 import type { ProductFormValues } from "../model/product-form";
 import type { EditableProductStatus } from "../model/product-status";
+import { toVariantRows, type VariantRow } from "../model/variants";
 import { useCatalogPermissions } from "../use-catalog-permissions";
 import { ProductAttributesCard } from "./product-attributes-card";
 import {
 	ProductInformationCard,
 	ProductSettingsColumn,
 } from "./product-form-sections";
+import { VariantsCard } from "./variants-card";
 import styles from "./product-form-page.module.css";
 
 const { Title, Text } = Typography;
@@ -69,6 +71,14 @@ export function ProductEditForm({ detail }: ProductEditFormProps) {
 	 * refetched on remount, so the card would otherwise show a stale list.
 	 */
 	const [links, setLinks] = useState(detail.attributes);
+	/**
+	 * The product's variants, held here so the header's SKU and the card's stock
+	 * total read the same rows. Each write is immediate, so these are updated
+	 * from the server's own responses rather than from the form's save.
+	 */
+	const [variants, setVariants] = useState<VariantRow[]>(() =>
+		toVariantRows(detail.variants),
+	);
 	const [status, setStatus] = useState<EditableProductStatus>(
 		() => toProductFormValues(detail.product).status,
 	);
@@ -100,8 +110,9 @@ export function ProductEditForm({ detail }: ProductEditFormProps) {
 	const dirty = hasProductChanges(current, product);
 
 	// The first variant is the default one (the backend sorts it first), and it
-	// is the only SKU a product has — SKUs belong to variants.
-	const firstVariantSku = detail.variants[0]?.sku ?? null;
+	// is the only SKU a product has — SKUs belong to variants. Read from the
+	// live rows so editing a SKU in the card updates the header too.
+	const firstVariantSku = variants[0]?.sku ?? null;
 	const updated = formatDate(product.updatedAt);
 
 	useEffect(() => {
@@ -364,6 +375,39 @@ export function ProductEditForm({ detail }: ProductEditFormProps) {
 							productId={product.productId}
 							links={links}
 							onLinksChanged={setLinks}
+						/>
+
+						{/* Variants likewise: each row is its own resource and saves on
+						    its own, so the save bar below has nothing to send for them. */}
+						<VariantsCard
+							productId={product.productId}
+							variants={variants}
+							onVariantAdded={(added) =>
+								setVariants((previous) => [...previous, added])
+							}
+							onVariantFieldsSaved={(variantId, fields) =>
+								setVariants((previous) =>
+									previous.map((variant) =>
+										variant.variantId === variantId
+											? { ...variant, ...fields }
+											: variant,
+									),
+								)
+							}
+							onVariantAttributesChanged={(variantId, attributes) =>
+								setVariants((previous) =>
+									previous.map((variant) =>
+										variant.variantId === variantId
+											? { ...variant, attributes }
+											: variant,
+									),
+								)
+							}
+							onVariantRemoved={(removedId) =>
+								setVariants((previous) =>
+									previous.filter((variant) => variant.variantId !== removedId),
+								)
+							}
 						/>
 					</div>
 

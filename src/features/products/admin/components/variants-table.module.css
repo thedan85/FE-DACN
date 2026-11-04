@@ -1,0 +1,24 @@
+/* The variant table. Row edits are in place, so this module carries only the
+   two values antd exposes no prop or token for. */
+
+/* A cell's validation message. 12px/16.8px is the design's smallest step and
+   sits below antd's `small` (14px/20), so no type token carries it.
+   No `margin: 0` here: `Typography.Text` renders a `span`, and antd only applies
+   its `marginBottom` to `div`/`p`, so a reset would be a no-op. */
+.cellError {
+	font-size: 12px;
+	line-height: 16.8px;
+}
+
+/* The row's "Edit attributes" affordance: antd's link button already carries
+   colour, hover and focus, so only the negative inline start (to sit flush with
+   the cell edge) is ours. `Button.paddingInline` is a *component token*, so
+   reaching for it would mean nesting a `ConfigProvider` around one button —
+   this rule is the ladder's next step instead, and it is what `docs/antd.md`
+   prescribes once the token path costs more than it saves. */
+.attributeAction:global(.ant-btn) {
+	align-self: flex-start;
+	padding-inline: 0;
+	height: auto;
+	font-size: 12px;
+}

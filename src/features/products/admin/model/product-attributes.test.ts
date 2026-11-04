@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import type { Attribute, AttributeValue, ProductAttributeValue } from "../../types";
 import {
 	attributeOptions,
-	describeProductAttribute,
+	describeAttributeLink,
 	linkedAttributeIds,
 	resolveAddBlock,
 	valueOptions,
@@ -80,7 +80,7 @@ it("lists which attributes the product already has a value for", () => {
 });
 
 it("renders an existing link as the design's readable row", () => {
-	expect(describeProductAttribute(existing[0]!)).toBe("Temperature: 20-28 °C");
+	expect(describeAttributeLink(existing[0]!)).toBe("Temperature: 20-28 °C");
 });
 
 it("marks attributes that already have a value, and disables them", () => {

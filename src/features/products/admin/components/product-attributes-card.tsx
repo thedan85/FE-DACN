@@ -1,23 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { App, Button, Card, Empty, Flex, Listy, Typography } from "antd";
-import { DeleteOutlined } from "@ant-design/icons";
+import { useCallback, useState } from "react";
+import { App, Card, Flex, Typography } from "antd";
 
-import { ApiError } from "@/lib/api/client";
-import type {
-	Attribute,
-	ProductAttributeValue,
-} from "@/features/products/types";
+import type { ProductAttributeValue } from "@/features/products/types";
 
 import {
 	addProductAttribute,
-	listAttributes,
 	removeProductAttribute,
 } from "../api/attributes.api";
+import { apiErrorMessage } from "../model/api-error";
 import { CATALOG_PERMISSIONS } from "../model/permissions";
-import { describeProductAttribute } from "../model/product-attributes";
+import { useAttributeCatalog } from "../use-attribute-catalog";
 import { useCatalogPermissions } from "../use-catalog-permissions";
+import { AttributeLinkList } from "./attribute-link-list";
 import { AttributePicker } from "./attribute-picker";
 import styles from "./product-attributes-card.module.css";
 
@@ -50,33 +46,13 @@ export function ProductAttributesCard({
 	const { message } = App.useApp();
 	const { can } = useCatalogPermissions();
 
-	const [attributes, setAttributes] = useState<Attribute[]>([]);
-	const [attributesFailed, setAttributesFailed] = useState(false);
+	// The twelve attributes are cached across the page, so the variant editor's
+	// dialog reuses this fetch instead of asking again (useAttributeCatalog).
+	const catalog = useAttributeCatalog();
 	const [removingId, setRemovingId] = useState<string | null>(null);
 
 	const mayCreate = can(CATALOG_PERMISSIONS.attributeCreate);
 	const mayDelete = can(CATALOG_PERMISSIONS.attributeDelete);
-
-	useEffect(() => {
-		let active = true;
-
-		listAttributes()
-			.then((result) => {
-				if (active) {
-					setAttributes(result);
-				}
-			})
-			.catch(() => {
-				if (active) {
-					setAttributes([]);
-					setAttributesFailed(true);
-				}
-			});
-
-		return () => {
-			active = false;
-		};
-	}, []);
 
 	const handleAdd = useCallback(
 		async (attributeId: string, attributeValueId: string): Promise<boolean> => {
@@ -94,9 +70,10 @@ export function ProductAttributesCard({
 				// which the picker normally prevents — so say what the server said
 				// rather than guessing at a friendlier wording.
 				message.error(
-					caught instanceof ApiError && caught.status > 0
-						? caught.message
-						: "Could not add that attribute. Please try again.",
+					apiErrorMessage(
+						caught,
+						"Could not add that attribute. Please try again.",
+					),
 				);
 				// Reported to the user, so no rethrow: the picker's Add is
 				// fire-and-forget and a rejection would surface as an unhandled one.
@@ -118,9 +95,10 @@ export function ProductAttributesCard({
 				);
 			} catch (caught) {
 				message.error(
-					caught instanceof ApiError && caught.status > 0
-						? caught.message
-						: "Could not remove that attribute. Please try again.",
+					apiErrorMessage(
+						caught,
+						"Could not remove that attribute. Please try again.",
+					),
 				);
 			} finally {
 				setRemovingId(null);
@@ -145,76 +123,30 @@ export function ProductAttributesCard({
 				</Text>
 			}
 		>
-			{attributesFailed ? (
+			{catalog.status === "failed" ? (
 				<Text type="danger" role="alert">
 					Could not load the attribute list. Other fields can still be edited.
 				</Text>
 			) : (
 				<AttributePicker
 					links={links}
-					attributes={attributes}
-					disabled={removingId !== null}
+					attributes={catalog.status === "ready" ? catalog.attributes : []}
+					disabled={catalog.status !== "ready" || removingId !== null}
 					onAdd={handleAdd}
 				/>
 			)}
 
 			<Flex vertical className={styles.list}>
-				<AttributesList
+				<AttributeLinkList
 					links={links}
 					mayDelete={mayDelete}
 					removingId={removingId}
+					rowKey={(link) => link.productValueId}
 					onRemove={handleRemove}
+					emptyDescription="No attributes yet"
 				/>
 			</Flex>
 		</Card>
 	);
 }
 
-type AttributesListProps = {
-	links: ProductAttributeValue[];
-	mayDelete: boolean;
-	removingId: string | null;
-	onRemove: (link: ProductAttributeValue) => Promise<void>;
-};
-
-/** The existing links, each as a removable row. */
-function AttributesList({
-	links,
-	mayDelete,
-	removingId,
-	onRemove,
-}: AttributesListProps) {
-	if (links.length === 0) {
-		return (
-			<Empty
-				image={Empty.PRESENTED_IMAGE_SIMPLE}
-				description="No attributes yet"
-			/>
-		);
-	}
-
-	return (
-		<Listy
-			items={links}
-			rowKey="productValueId"
-			classNames={{ item: styles.row }}
-			itemRender={(link) => (
-				<Flex align="center" justify="space-between" gap={12}>
-					<Text>{describeProductAttribute(link)}</Text>
-					{mayDelete && (
-						<Button
-							type="text"
-							danger
-							size="small"
-							icon={<DeleteOutlined />}
-							aria-label={`Remove ${link.attributeName}`}
-							loading={removingId === link.productValueId}
-							disabled={removingId !== null}
-							onClick={() => void onRemove(link)}
-						/>
-					)}
-				</Flex>
-			)}
-		/>
-	);
-}

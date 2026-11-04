@@ -282,7 +282,11 @@ export function ProductsListing() {
 				title: "Price range",
 				key: "price",
 				width: 150,
-				render: (_, row) => row.priceRange ?? <Text type="secondary">—</Text>,
+				// A product with no (priced) variant has `minPrice: null` — it is not
+				// free. Saying "No price" rather than rendering 0 or a bare dash keeps
+				// "we cannot price this" distinct from "this costs nothing".
+				render: (_, row) =>
+					row.priceRange ?? <Text type="secondary">No price</Text>,
 			},
 			{
 				title: "Stock",

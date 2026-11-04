@@ -5,14 +5,15 @@ import type {
 } from "../../types";
 
 /**
- * The attribute picker's rules, shared by the product editor and (ticket 07)
- * the variant editor.
+ * The attribute picker's rules, shared by the product editor and the variant
+ * editor (ticket 07).
  *
- * **A product holds at most one value per attribute.** The backend's
- * `productValueId` is `{productId}-{attributeId}`, and adding a second value for
- * an attribute answers 409 — verified live on 2026-11-04. So the picker must
- * know which attributes are taken before the user spends a round trip finding
- * out, and "change the temperature" means removing the old link first.
+ * **A product holds at most one value per attribute, and a variant likewise.**
+ * The backend's link ids are `{productId}-{attributeId}` and
+ * `{variantId}-{attributeId}`, and adding a second value for an attribute
+ * answers 409 — verified live on 2026-11-04. So the picker must know which
+ * attributes are taken before the user spends a round trip finding out, and
+ * "change the temperature" means removing the old link first.
  */
 
 /**
@@ -33,7 +34,7 @@ export function linkedAttributeIds(
 }
 
 /** The design's row label for an existing link: `Temperature: 20-28 °C`. */
-export function describeProductAttribute(link: AttributeLink): string {
+export function describeAttributeLink(link: AttributeLink): string {
 	return `${link.attributeName}: ${link.attributeValue}`;
 }
 

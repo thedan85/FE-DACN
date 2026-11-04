@@ -3,25 +3,25 @@
 import { useCallback, useRef, useState } from "react";
 import { Button, Flex, Select, Typography } from "antd";
 
-import { ApiError } from "@/lib/api/client";
-import type {
-	Attribute,
-	AttributeValue,
-	ProductAttributeValue,
-} from "@/features/products/types";
+import type { Attribute, AttributeValue } from "@/features/products/types";
 
 import { listAttributeValues } from "../api/attributes.api";
+import { apiErrorMessage } from "../model/api-error";
 import {
 	attributeOptions,
 	resolveAddBlock,
 	valueOptions,
+	type AttributeLink,
 } from "../model/product-attributes";
 
 const { Text } = Typography;
 
 type AttributePickerProps = {
-	/** The product's (or variant's) existing links, so taken attributes are known. */
-	links: readonly ProductAttributeValue[];
+	/**
+	 * The product's (or variant's) existing links, so taken attributes are known.
+	 * Typed structurally, so `productValueId` and `variantValueId` rows both fit.
+	 */
+	links: readonly AttributeLink[];
 	attributes: Attribute[];
 	/** Disables every control (no permission, or a request in flight). */
 	disabled?: boolean;
@@ -102,9 +102,7 @@ export function AttributePicker({
 
 				setValues([]);
 				setValuesError(
-					caught instanceof ApiError && caught.status > 0
-						? caught.message
-						: "Could not load this attribute's values.",
+					apiErrorMessage(caught, "Could not load this attribute's values."),
 				);
 			} finally {
 				if (token === requestToken.current) {
