@@ -34,6 +34,7 @@ import {
 	PAYMENT_STATUS_COPY,
 	paymentMethodLabel,
 } from "../model/order-display";
+import { PayNowButton } from "./pay-now-button";
 import styles from "./order-detail-view.module.css";
 
 const TIMELINE_STEPS = [
@@ -336,6 +337,11 @@ function DeliveryAndPayment({ order }: { order: OrderView }) {
 						</div>
 
 						{note && <p className={styles.paymentNote}>{note}</p>}
+
+						<PayNowButton
+							order={order}
+							className={`${styles.shipmentAction} ${styles.payNow}`}
+						/>
 					</>
 				) : (
 					<p className={styles.paymentNote}>Payment details unavailable.</p>

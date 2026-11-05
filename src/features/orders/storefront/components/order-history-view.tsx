@@ -30,6 +30,7 @@ import { listOrders } from "../../api/orders.api";
 import type { OrderPage, OrderView } from "../../types";
 import { ORDER_STATUS_COPY, paymentLabel } from "../model/order-display";
 import { OrderHistorySkeleton } from "./order-history-skeleton";
+import { PayNowButton } from "./pay-now-button";
 import styles from "./order-history-view.module.css";
 
 type StatusFilter = "ALL" | OrderStatus;
@@ -488,6 +489,11 @@ export function OrderHistoryView() {
 												>
 													View Details
 												</Link>
+
+												<PayNowButton
+													order={order}
+													className={styles.detailsButton}
+												/>
 
 												{order.status === "COMPLETED" && (
 													<button
