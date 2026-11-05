@@ -1,7 +1,7 @@
 import { PAYMENT_METHOD_LABELS } from "@/lib/constants/labels";
 import type { OrderStatus } from "@/types";
 
-import type { OrderPayment, PaymentStatus } from "../../types";
+import type { OrderPayment, OrderView, PaymentStatus } from "../../types";
 
 /** Design labels differ from the backend enum names. */
 export const ORDER_STATUS_COPY: Record<OrderStatus, string> = {
@@ -39,4 +39,16 @@ export function paymentLabel(payment: OrderPayment | null): string {
 	}
 
 	return `${paymentMethodLabel(payment.method)} · ${PAYMENT_STATUS_COPY[payment.status]}`;
+}
+
+/** Mirrors the backend rule: only a pending VN Pay payment can be paid again. */
+export function canPayNow(order: OrderView): boolean {
+	const payment = order.payment;
+
+	return (
+		order.status === "PENDING" &&
+		payment !== null &&
+		payment.status === "PENDING" &&
+		payment.method !== "COD"
+	);
 }
