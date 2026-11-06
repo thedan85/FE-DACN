@@ -2,6 +2,7 @@
    geometry, token colors, and the D10-③ bounce-up hover. */
 
 .card {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -87,6 +88,14 @@
 .nameLink {
 	color: inherit;
 	text-decoration: none;
+}
+
+/* Stretched link: the name anchor covers the whole card, so one anchor
+   navigates while keeping the card keyboard accessible. */
+.nameLink::after {
+	content: "";
+	position: absolute;
+	inset: 0;
 }
 
 .nameLink:hover {
