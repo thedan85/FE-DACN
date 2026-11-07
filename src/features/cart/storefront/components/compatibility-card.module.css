@@ -1,0 +1,80 @@
+.card {
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+	margin-top: 16px;
+	padding: 20px 24px;
+}
+
+.icon {
+	flex: 0 0 auto;
+	margin-top: 2px;
+	color: var(--color-brand-deep-teal);
+	font-size: 22px;
+}
+
+.body {
+	flex: 1;
+	min-width: 0;
+}
+
+.heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 4px;
+}
+
+.heading h2 {
+	margin: 0;
+	color: var(--color-brand-dark-teal);
+	font-size: 16px;
+	line-height: 24px;
+	font-weight: 700;
+}
+
+.body p {
+	margin: 0;
+	color: var(--color-text-muted);
+	font-size: 13px;
+	line-height: 20px;
+}
+
+.checks {
+	margin: 8px 0 0;
+	padding-left: 18px;
+	font-size: 13px;
+	line-height: 20px;
+}
+
+.pass {
+	color: var(--color-text-muted);
+}
+
+.warn {
+	color: var(--color-text-muted);
+}
+
+.fail {
+	color: var(--color-danger);
+}
+
+.unknown {
+	color: var(--color-text-muted);
+}
+
+.tank {
+	margin-top: 8px;
+	font-weight: 600;
+}
+
+@media (max-width: 640px) {
+	.card {
+		flex-wrap: wrap;
+	}
+
+	.heading {
+		flex-wrap: wrap;
+	}
+}
