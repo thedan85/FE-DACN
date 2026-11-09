@@ -39,7 +39,7 @@ shapes, not the behaviour.
 
 Before the shapes: **the API on `localhost:8080` is local, the stores behind it are not.** PostgreSQL is a Supabase pooler in ap-southeast-2 and Redis is hosted, both shared with the whole team. That changes how this contract has to be used:
 
-- **A `DELETE` is permanent.** `DELETE /products/{id}` sets `status = DELETED` and the row survives with its slug still reserved. A throwaway probe product is still there tomorrow, and still holding its slug.
+- **A `DELETE` is permanent.** `DELETE /products/{id}` sets `status = DELETED` and the row survives with its slug still reserved. A throwaway probe product is still there tomorrow, and still holding its slug. Creating such products is fine **in an agent session** (the coursework database is re-seeded before submission), but never from CI/CD — see `docs/verification.md` § Never put live end-to-end tests in CI.
 - **The rate limits are team-wide.** The limiter runs in the shared Redis, so the login window is spent by everyone's sessions combined. A `429` is a stop sign: wait it out, never retry around it.
 - **Reads are slow.** A cold `GET /products` measured 5.5 s and a warm one ~830 ms over the cross-region hop, so a "fetch everything, then filter" loop is far more expensive than it looks and the `size` clamp caps it anyway.
 

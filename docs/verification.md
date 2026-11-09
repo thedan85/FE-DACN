@@ -87,7 +87,9 @@ The backend's tracked config defaults to `localhost:5432`, which does not exist 
 
 **Every request pays a cross-region round trip.** Measured here: TCP connect to the Supabase pooler 320–475 ms, a cold `GET /products?size=20` **5.5 s**, the same call warm ~830 ms, against ~0 ms for loopback. Budget a browser check accordingly — a ten-page flow is 10–50 s of pure waiting, and it is the dominant cost, not process launch. Prefer a unit test over a page load whenever the question can be answered without a browser.
 
-**Writes are permanent and shared.** The database is shared demo data, and `DELETE` on a product is archival (`status = DELETED`; the row survives and its slug stays reserved forever). Creating throwaway products for a check is fine and expected on this project, but know that a probe row outlives the check. No one needs to clean up before submission — the backend team re-seeds the database from scratch.
+**Writes are permanent and shared.** The database is shared demo data, and `DELETE` on a product is archival (`status = DELETED`; the row survives and its slug stays reserved forever).
+
+**Creating throwaway products is allowed for an agent session, and only for an agent session.** The coursework database is re-seeded from scratch before submission, so probing CRUD manually — creating a product, editing it, deleting it, checking the result — is expected and carries no cleanup obligation. That permission is scoped to a live, human-supervised session against the dev backend. It does **not** extend to CI/CD: an automated job must never write to this database, which is the first reason live E2E stays out of the pipeline (below). A probe row outlives the session that made it; an automated one would outlive the branch that made it.
 
 **Flyway runs against the hosted database in the `dev` profile.** `application-dev.yml` sets `flyway.enabled: true` with `classpath:db/dev`, so starting the backend applies migrations plus a demo seed to the shared instance. Restarting the backend is a schema-mutating action here, not a read.
 
@@ -112,13 +114,13 @@ Then read that file in each later call instead of logging in again. If a call re
 **Live E2E tests must not be added to the GitHub Actions pipeline.** This is a hard rule, not a preference, for four compounding reasons:
 
 1. **The rate limit is shared and global.** Every CI run authenticates against the same account, and the 10-per-15-minutes window is spent by concurrent jobs as well as by developers. Two parallel runners starve each other and every human on the team.
-2. **The database is shared and remote.** A CI job would write throwaway rows to the same hosted Supabase instance everybody else is using, and `DELETE` only marks rows.
+2. **The database is shared and remote.** Creating throwaway products is an *agent-session* permission, not a general one (see above). A CI job would write rows to the same hosted Supabase instance on every push and PR, unattended, and `DELETE` only marks rows.
 3. **Latency makes the suite slow and flaky.** A cross-region hop with a 5 s cold read turns a small browser suite into minutes, and hosts are not guaranteed reachable from a runner at all.
 4. **It would need production-adjacent secrets in CI** — database URL, Redis credentials, seeded account passwords — for tests that verify nothing about the code under test that a unit test cannot.
 
 What CI runs instead: **`npm run check`** — lint, `antd lint`, typecheck, the CSS-module check, the encoding check, and the vitest suite. All of it is hermetic: the API tests stub `fetch` and assert on URLs, so no socket is opened and no credential is needed. Keep it that way; a test that reaches the network belongs in a manual verification pass, not the pipeline.
 
-Live browser and API verification stays a deliberate, manual, local action, following the rules above.
+The asymmetry, stated once: **a human-supervised agent session may CRUD against the dev backend; an automated pipeline may do neither.** Live browser and API verification stays a deliberate, manual, local action, following the rules above.
 
 ## Throwaway scripts live in the temp directory
 
