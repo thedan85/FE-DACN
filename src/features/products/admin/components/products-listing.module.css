@@ -1,0 +1,175 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 20px;
+}
+
+.title:global(.ant-typography) {
+	margin: 0 0 4px;
+	color: var(--color-admin-panel-text-strong);
+	/* 34px/700 is the design's page title; the shell's other pages use 28px, so
+	   the size lives on this page rather than in a shared heading token. */
+	font-size: 34px;
+	line-height: 42px;
+	font-weight: 700;
+	letter-spacing: -0.85px;
+}
+
+/* The card's 10px radius and border colour come from AdminCatalogTheme
+   (Card.borderRadiusLG and colorBorder); nothing here duplicates them. */
+
+.productCell {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+}
+
+.thumbnail,
+.thumbnailFallback {
+	width: 44px;
+	height: 44px;
+	flex: none;
+	border-radius: 7px;
+	object-fit: cover;
+	background: var(--color-admin-panel-surface-subtle);
+}
+
+.productText {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.productName {
+	color: var(--color-admin-panel-text-strong);
+	font-size: 13px;
+	line-height: 18.2px;
+	font-weight: 600;
+}
+
+.productName:hover {
+	color: var(--color-brand-deep-teal);
+	text-decoration: underline;
+}
+
+.productSku {
+	color: var(--color-admin-panel-text-muted);
+	font-size: 11px;
+	line-height: 15.4px;
+}
+
+.pagination {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 16px 20px;
+	border-top: 1px solid var(--color-admin-panel-border);
+}
+
+.pageControls {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.pageCounter {
+	white-space: nowrap;
+}
+
+.variantPanel {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 16px 20px;
+	background: var(--color-admin-panel-surface-subtle);
+	border-radius: 6px;
+}
+
+.variantHeader {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.variantList {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	padding: 0;
+	gap: 6px;
+	list-style: none;
+}
+
+.variantRow {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 120px 120px;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 12px;
+	background: var(--color-surface-white);
+	border-radius: 6px;
+	border: 1px solid var(--color-admin-panel-border);
+}
+
+.variantSkus {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.variantSku {
+	color: var(--color-admin-panel-text-strong);
+	font-size: 12px;
+	line-height: 16.8px;
+	font-weight: 600;
+}
+
+.variantAttrs {
+	color: var(--color-admin-panel-text-muted);
+	font-size: 11px;
+	line-height: 15.4px;
+}
+
+.variantPrice {
+	color: var(--color-admin-panel-text-strong);
+	font-size: 13px;
+	line-height: 18.2px;
+}
+
+.variantStock {
+	color: var(--color-admin-panel-text-muted);
+	font-size: 12px;
+	line-height: 16.8px;
+	text-align: right;
+}
+
+@media (max-width: 767px) {
+	.title:global(.ant-typography) {
+		font-size: 24px;
+		line-height: 32px;
+	}
+
+	.variantRow {
+		grid-template-columns: 1fr;
+		gap: 4px;
+	}
+
+	.variantStock {
+		text-align: left;
+	}
+}

@@ -1,0 +1,58 @@
+.toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 20px;
+}
+
+.searchForm {
+	flex: 1;
+	min-width: 200px;
+}
+
+/* 38px is the design's control height. antd's affix wrapper computes 36 from
+   its own padding, so it is set explicitly here rather than left to the token. */
+.search:global(.ant-input-affix-wrapper) {
+	min-height: 38px;
+	border-radius: 6px;
+}
+
+.desktopFilters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.select {
+	min-width: 160px;
+	min-height: 38px;
+}
+
+.select :global(.ant-select-selector) {
+	border-radius: 6px;
+}
+
+.mobileFilterButton {
+	display: none;
+}
+
+.drawerFilters {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.drawerFilters .select {
+	width: 100%;
+}
+
+@media (max-width: 767px) {
+	.desktopFilters {
+		display: none;
+	}
+
+	.mobileFilterButton {
+		display: inline-flex;
+	}
+}

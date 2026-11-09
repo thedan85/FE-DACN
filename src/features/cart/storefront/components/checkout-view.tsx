@@ -382,7 +382,7 @@ export function CheckoutView() {
 							type="error"
 							showIcon
 							role="alert"
-							message={
+							title={
 								submitError.orderId
 									? `Order ${submitError.orderId} was created`
 									: "Could not place your order"

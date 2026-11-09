@@ -26,7 +26,11 @@ const navItems: NavItem[] = [
 		href: "/admin/dashboard",
 	},
 	{ label: "Orders", icon: "/images/admin/nav/shopping-bag.svg" },
-	{ label: "Products & Variants", icon: "/images/admin/nav/fish.svg" },
+	{
+		label: "Products & Variants",
+		icon: "/images/admin/nav/fish.svg",
+		href: "/admin/products",
+	},
 	{ label: "Categories", icon: "/images/admin/nav/layers.svg" },
 	{ label: "Inventory", icon: "/images/admin/nav/package.svg" },
 	{ label: "Customers", icon: "/images/admin/nav/users.svg" },
@@ -36,6 +40,16 @@ const navItems: NavItem[] = [
 	{ label: "Staff & Permissions", icon: "/images/admin/nav/shield-check.svg" },
 	{ label: "Settings", icon: "/images/admin/nav/settings.svg" },
 ];
+
+/**
+ * A section stays highlighted for everything beneath it, so
+ * `/admin/products/[slug]/edit` still reads as "Products & Variants" rather
+ * than falling back to nothing. Matching on `/admin` alone would light up every
+ * item, so each href anchors on its own segment.
+ */
+function isActivePath(pathname: string, href: string): boolean {
+	return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function AdminSidebar({ collapsed, onToggleCollapse }: AdminSidebarProps) {
 	const pathname = usePathname();
@@ -54,7 +68,8 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: AdminSidebarProps)
 			<nav className={styles.nav} aria-label="Admin sections">
 				<ul className={styles.navList}>
 					{navItems.map((item) => {
-						const isActive = item.href !== undefined && pathname === item.href;
+						const isActive =
+							item.href !== undefined && isActivePath(pathname, item.href);
 						const icon = (
 							<Image
 								src={item.icon}

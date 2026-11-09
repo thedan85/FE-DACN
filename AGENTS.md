@@ -113,53 +113,11 @@ Before modifying an existing foundation, inspect the actual source files and cur
 
 ## 2. Technology Stack
 
-### Core Technologies
+The dependency baseline is `package.json` and `package-lock.json`. Read them rather than a table here: a version list is a cache of a one-file lookup, and this one had already drifted — it said Next.js 16.3.8 while 16.4.3 was installed, and it warned that Zustand was not installed when it was.
 
-| Technology | Purpose |
-|---|---|
-| Next.js 16.3.8 | React framework, App Router, routing, rendering, and server-side capabilities |
-| React 19.2.8 | UI composition and component lifecycle |
-| TypeScript 5 | Static typing and maintainable application contracts |
-| Node.js | JavaScript runtime and development tooling |
-| npm | Package management and dependency scripts |
-| CSS | Global styling, design tokens, and component styling |
-| ESLint 9 | Static analysis and code quality |
-| PostgreSQL / Supabase | Backend-managed data persistence; the frontend should not bypass the backend without an explicit architectural decision |
-| Java Spring Boot 3.x | Backend REST API in a separate repository |
+The frontend is Next.js (App Router) + React + TypeScript + Ant Design v6 + Zod + Zustand, run through Node.js and npm. The backend is a Java Spring Boot 3.x REST API in a separate repository, behind PostgreSQL/Supabase.
 
-Use the versions declared in `package.json` and `package-lock.json` as the repository's current dependency baseline.
-
-Do not upgrade major framework versions or replace libraries without checking compatibility and obtaining agreement when the change affects shared foundations.
-
-### Installed npm Packages
-
-#### Production Dependencies
-
-| Package | Intended purpose |
-|---|---|
-| `next` | Application framework, App Router, route handlers, and rendering |
-| `react` | Component-based UI |
-| `react-dom` | React DOM rendering |
-| `antd` | Ant Design component library |
-| `@ant-design/nextjs-registry` | Ant Design integration with Next.js server rendering and style registration |
-| `@ant-design/icons` | Ant Design icon components |
-| `zod` | Runtime validation of environment variables, API responses, and other untrusted data where appropriate |
-| `zustand` | Lightweight state management for shared client-side state |
-
-#### Development Dependencies
-
-| Package | Intended purpose |
-|---|---|
-| `typescript` | Type checking |
-| `eslint` | Linting |
-| `eslint-config-next` | Next.js-specific ESLint rules |
-| `@types/node` | Node.js type definitions |
-| `@types/react` | React type definitions |
-| `@types/react-dom` | React DOM type definitions |
-
-Do not assume that additional libraries such as Axios, TanStack Query, Zustand, React Hook Form, or an icon package are installed. Inspect the manifest before using them.
-
-Prefer the existing stack unless a concrete requirement justifies another dependency.
+Do not upgrade major framework versions or replace libraries without checking compatibility and obtaining agreement when the change affects shared foundations. Prefer the existing stack unless a concrete requirement justifies another dependency.
 
 ### Available npm Scripts
 
@@ -167,8 +125,12 @@ Prefer the existing stack unless a concrete requirement justifies another depend
 - `npm run build` — create a production build.
 - `npm run start` — start the production server after a successful build.
 - `npm run lint` — run ESLint.
+- `npm run lint:antd` — run `antd lint` and fail on deprecated or discouraged antd v6 usage. The CLI exits 0 with or without findings, so `scripts/lint-antd.mjs` turns its counts into an exit code.
 - `npm run typecheck` — run `tsc --noEmit`.
-- `npm run check` — run lint, typecheck, and the CSS-module reference check. This is the gate run before a PR; `.githooks/pre-commit` runs the CSS check, ESLint on the staged files, and the typecheck on every commit.
+- `npm run check:css` — fail on a `styles.x` with no matching class in its `*.module.css`.
+- `npm run check:encoding` — fail on a BOM, invalid UTF-8, or the signature of a PowerShell round trip (`scripts/check-encoding.mjs`).
+- `npm run test` — run vitest.
+- `npm run check` — the gate: lint, `antd lint`, typecheck, the CSS-module check, the encoding check, then the test suite. Run it before a PR; `.githooks/pre-commit` runs the cheap subset — CSS, encoding, `antd lint --staged`, ESLint and the typecheck on the staged files — on every commit.
 
 Run the relevant checks after implementation. If a check fails, distinguish new failures from pre-existing issues and report the actual result.
 
@@ -305,7 +267,9 @@ Use feature-specific API modules or service functions to keep endpoints organize
 
 ### API Contracts
 
-- Confirm endpoint paths, HTTP methods, request schemas, response schemas, pagination conventions, and error formats against backend documentation or agreed contracts.
+- **`docs/api-contract.md` is the agreed contract.** Read it before touching a catalog, variant, attribute, media, or permission endpoint: it records the behaviours the OpenAPI document leaves out (the `PATCH`/`PUT` asymmetry, the silent `size` clamp, `stock` nullability, the attribute-uniqueness rule, the login rate limits).
+- The backend source is available read-only at `D:\VSCode\UniProjects\DACN`, and the API runs at `http://localhost:8080` with its OpenAPI document at `/v3/api-docs`. Read the controller or the live response instead of inferring a shape — that is where the contract facts come from, and it is cheaper than a probe-and-guess cycle.
+- Confirm endpoint paths, HTTP methods, request schemas, response schemas, pagination conventions, and error formats against those sources.
 - Do not invent endpoints or assume response fields.
 - Do not use `any` as a shortcut for unknown response shapes.
 - Use shared TypeScript types where contracts cross feature boundaries.
@@ -551,7 +515,7 @@ Before merging a feature branch into `dev`:
 - Avoid introducing abstractions that are more complex than the problem they solve.
 - Follow the existing ESLint rules rather than disabling rules to silence errors.
 - Remove unused code and imports.
-- Add tests when a test framework and appropriate test conventions are established.
+- Tests are colocated as `<module>.test.ts` / `.test.tsx` beside the module, and run with `npm run test`.
 
 ---
 
@@ -626,7 +590,7 @@ When a task depends on an undocumented implementation detail:
 1. Inspect the existing source code.
 2. Check the project's `docs/` directory and README.
 3. Consult the official documentation for the installed framework or library version.
-4. Verify backend contracts with the backend team when applicable.
+4. Verify backend contracts against `docs/api-contract.md`, the backend source at `D:\VSCode\UniProjects\DACN`, or a live response — not against memory.
 5. Avoid inventing APIs, configuration properties, or response formats.
 6. Record decisions that affect multiple features or contributors.
 
@@ -636,6 +600,7 @@ Do not upgrade dependencies simply because newer documentation uses a different 
 
 Project references:
 
+- Backend contract and its verified quirks: `docs/api-contract.md`
 - Design tokens, type scale, colours, and measured screens: `docs/design.md`
 - Ant Design theming, tokens, and override mechanics: `docs/antd.md`
 - Running checks, browser verification, and committing: `docs/verification.md`
