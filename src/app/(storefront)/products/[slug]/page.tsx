@@ -18,13 +18,11 @@ const DESCRIPTION_LIMIT = 160;
  * Validates the route segment, fetches the aggregate once and maps a
  * missing/non-ACTIVE product to the not-found route.
  *
- * Wrapped in `React.cache`: `generateMetadata` and `page` both call this per
- * request, and `apiFetch` hardcodes `cache: "no-store"` — which opts out of
- * Next.js fetch-request memoization — so without this wrapper the ~3–6 s
- * aggregate (defect N4) was fetched twice per page view. `React.cache` is
- * scoped to one server render pass (Next.js docs, "Reusing data with
- * React.cache"), so metadata and page share one backend hit while separate
- * requests still see fresh data.
+ * Wrapped in `React.cache` so `generateMetadata` and `page` share one loader
+ * call (including the notFound() handling) in a render pass. Next also
+ * memoizes identical GET fetches, so this is defensive rather than the only
+ * dedupe; the public aggregate itself is data-cached for 30 seconds in
+ * `getProductDetailBySlug`.
  */
 export const loadProductDetail = cache(
 	async (rawSlug: string | undefined): Promise<ProductDetail> => {

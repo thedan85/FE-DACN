@@ -55,6 +55,8 @@ export function ProductVariantGallery({
 						alt={productName}
 						fill
 						sizes="(max-width: 991px) 100vw, 45vw"
+						loading={activeIndex === 0 ? "eager" : undefined}
+						fetchPriority={activeIndex === 0 ? "high" : undefined}
 						className={styles.image}
 						onError={() => markFailed(activeIndex)}
 					/>

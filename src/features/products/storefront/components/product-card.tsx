@@ -9,6 +9,11 @@ import styles from "./product-card.module.css";
 type ProductCardProps = {
 	product: Product;
 	/**
+	 * Above-the-fold card: load its image eagerly with high fetch priority.
+	 * Next 16 deprecates `priority` in favour of these native hints.
+	 */
+	eager?: boolean;
+	/**
 	 * Listing-level stock signal.
 	 *
 	 * `ProductResponse.stock` (backend defect N2, fixed 2026-10-22) is wired
@@ -24,7 +29,11 @@ type ProductCardProps = {
  * in `product-grid`; the card itself is block-level and fills its column).
  * Hover = bounce up (D10-③).
  */
-export function ProductCard({ product, inStock = null }: ProductCardProps) {
+export function ProductCard({
+	product,
+	inStock = null,
+	eager = false,
+}: ProductCardProps) {
 	const price = formatPriceRange(product.minPrice, product.maxPrice);
 	const isOutOfStock = inStock === false;
 
@@ -42,6 +51,8 @@ export function ProductCard({ product, inStock = null }: ProductCardProps) {
 							alt={product.name}
 							fill
 							sizes="(max-width: 767px) 100vw, (max-width: 991px) 45vw, 300px"
+							loading={eager ? "eager" : undefined}
+							fetchPriority={eager ? "high" : undefined}
 							className={styles.image}
 						/>
 					) : (
@@ -74,7 +85,13 @@ export function ProductCard({ product, inStock = null }: ProductCardProps) {
 			)}
 
 			<h3 className={styles.name}>
-				<Link href={`/products/${product.slug}`} className={styles.nameLink}>
+				<Link
+					href={`/products/${product.slug}`}
+					className={styles.nameLink}
+					// The listing can show a dozen cards; viewport prefetching each
+					// detail aggregate floods the backend and its connection pool.
+					prefetch={false}
+				>
 					{product.name}
 				</Link>
 			</h3>

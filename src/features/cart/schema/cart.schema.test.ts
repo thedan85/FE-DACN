@@ -31,8 +31,8 @@ describe("CartDetailSchema compatibility", () => {
 			},
 		});
 
-		expect(parsed.compatibility.verdict).toBe("CAUTION");
-		expect(parsed.compatibility.checks[0].status).toBe("WARN");
+		expect(parsed.compatibility?.verdict).toBe("CAUTION");
+		expect(parsed.compatibility?.checks[0]?.status).toBe("WARN");
 	});
 
 	it("rejects an unknown verdict", () => {
@@ -49,7 +49,9 @@ describe("CartDetailSchema compatibility", () => {
 		expect(parsed.success).toBe(false);
 	});
 
-	it("requires the compatibility field", () => {
-		expect(CartDetailSchema.safeParse(base).success).toBe(false);
+	it("accepts a missing compatibility field (older backend)", () => {
+		// Older backend revisions omit `compatibility` entirely; the cart must
+		// still parse so the rest of the page remains usable.
+		expect(CartDetailSchema.safeParse(base).success).toBe(true);
 	});
 });

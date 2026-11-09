@@ -284,7 +284,9 @@ export function CartView() {
 						</div>
 					</div>
 
-					<CompatibilityCard compatibility={cart.compatibility} />
+					{cart.compatibility ? (
+						<CompatibilityCard compatibility={cart.compatibility} />
+					) : null}
 				</div>
 
 				<aside className={styles.summary} aria-labelledby="cart-summary-title">

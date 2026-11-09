@@ -40,6 +40,13 @@ const productDetailResponseSchema = createApiResponseSchema(
 
 const CATEGORIES_PAGE_SIZE = 100;
 
+/**
+ * Storefront data is cached in the Next.js data cache. Stock and prices are
+ * part of the payload, so keep the window short; categories barely change.
+ */
+const PRODUCT_REVALIDATE_SECONDS = 30;
+const CATEGORY_REVALIDATE_SECONDS = 300;
+
 export interface ListProductsParams {
 	/** Maps to the API `keyword` param (name-only substring match). */
 	keyword?: string;
@@ -67,6 +74,7 @@ export async function listProducts(
 ): Promise<ProductPage> {
 	const payload = await apiFetch<unknown>(
 		`products?${buildProductListQuery(params)}`,
+		{ next: { revalidate: PRODUCT_REVALIDATE_SECONDS } },
 	);
 	const parsed = productsResponseSchema.safeParse(payload);
 
@@ -127,7 +135,11 @@ export async function getProductDetailBySlug(
 		query ? `?${query}` : ""
 	}`;
 
-	const payload = await apiFetch<unknown>(path, { headers: options.headers });
+	const payload = await apiFetch<unknown>(path, {
+		headers: options.headers,
+		// Staff reads must stay live; anonymous storefront reads are cacheable.
+		...(options.headers ? {} : { next: { revalidate: PRODUCT_REVALIDATE_SECONDS } }),
+	});
 	const parsed = productDetailResponseSchema.safeParse(payload);
 
 	if (!parsed.success) {
@@ -145,6 +157,7 @@ export async function getProductDetailBySlug(
 async function fetchCategoryPage(page: number): Promise<CategoryPage> {
 	const payload = await apiFetch<unknown>(
 		`categories?page=${page}&size=${CATEGORIES_PAGE_SIZE}`,
+		{ next: { revalidate: CATEGORY_REVALIDATE_SECONDS } },
 	);
 	const parsed = categoriesResponseSchema.safeParse(payload);
 
@@ -162,32 +175,25 @@ async function fetchCategoryPage(page: number): Promise<CategoryPage> {
 /**
  * Fetches every category page and returns the flattened list.
  *
- * Page 0 and page 1 are requested speculatively in parallel: the backend
- * caps `size` at 100 and the current catalog (115 categories) always needs
- * 2 pages, so the sequential gap (~1.1 s per page against this backend)
- * is the listing's biggest avoidable wait after the products query itself.
- * A wasted second call (when a future catalog fits on one page) costs no
- * extra wall time — only a duplicate cheap query.
+ * Page 0 is fetched first so a one-page catalog costs a single request; extra
+ * pages are fetched in parallel only when the first page says they exist.
+ * Combined with the data cache, that keeps the common path at one request.
  */
 export async function getCategories(): Promise<Category[]> {
-	const [first, second] = await Promise.all([
-		fetchCategoryPage(0),
-		fetchCategoryPage(1),
-	]);
+	const first = await fetchCategoryPage(0);
 
 	if (first.totalPages <= 1) {
 		return first.content;
 	}
 
 	const remaining = await Promise.all(
-		Array.from({ length: Math.max(first.totalPages - 2, 0) }, (_, index) =>
-			fetchCategoryPage(index + 2),
+		Array.from({ length: first.totalPages - 1 }, (_, index) =>
+			fetchCategoryPage(index + 1),
 		),
 	);
 
 	return [
 		...first.content,
-		...second.content,
 		...remaining.flatMap((pageData) => pageData.content),
 	];
 }
