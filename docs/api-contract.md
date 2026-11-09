@@ -37,6 +37,14 @@ shapes, not the behaviour.
 
 ## Envelope and errors
 
+Before the shapes: **the API on `localhost:8080` is local, the stores behind it are not.** PostgreSQL is a Supabase pooler in ap-southeast-2 and Redis is hosted, both shared with the whole team. That changes how this contract has to be used:
+
+- **A `DELETE` is permanent.** `DELETE /products/{id}` sets `status = DELETED` and the row survives with its slug still reserved. A throwaway probe product is still there tomorrow, and still holding its slug.
+- **The rate limits are team-wide.** The limiter runs in the shared Redis, so the login window is spent by everyone's sessions combined. A `429` is a stop sign: wait it out, never retry around it.
+- **Reads are slow.** A cold `GET /products` measured 5.5 s and a warm one ~830 ms over the cross-region hop, so a "fetch everything, then filter" loop is far more expensive than it looks and the `size` clamp caps it anyway.
+
+Details and measurements: `docs/verification.md` § The database and Redis are hosted.
+
 | Fact | Behaviour |
 |---|---|
 | Success shape | `ApiResponse {code, message, data}` — the payload is under `data`, never at the top. **[both]** |
@@ -65,6 +73,11 @@ one session** rather than re-authenticating per check. Recovering from the
 per-email limit needs a ~15-minute wait, not a retry — and a token taken from a
 429 body is not a token, so the next call reports 401 and sends you looking in
 the wrong place.
+
+The limiter state lives in the **shared hosted Redis**, so these windows are
+team-wide: your retries spend a budget everyone else needs. A `429` means stop
+and wait, never retry in a loop. Do not add a live login to CI for the same
+reason (`docs/verification.md` § Never put live end-to-end tests in CI).
 
 `GET /auth/me` returns the account's `permissions[]` and its `roleCode`
 **lowercase** (`"customer"`, not `"CUSTOMER"`) — a strict comparison against the

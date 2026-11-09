@@ -74,11 +74,30 @@ Two things that wedge a `run-code` session, both hit twice in the admin-products
 - **A file chooser or `beforeunload` dialog.** Once either is open every subsequent tool call fails with `does not handle the modal state`, and no `upload`/`press`/`eval` gets through. Recover with `close` then `open` — that is the only way out, and it costs a re-login. So never register `page.on("dialog")`, and drive an antd `Upload` by calling `setFiles` on its hidden `input[type=file]` rather than clicking the control.
 - **Positional element refs** (`e15`) go stale after navigation and turn into `f1e19`. Use role and label locators, and expect strict-mode violations when a label matches twice — scope with `.filter()` or `.nth()`.
 
+## The database and Redis are hosted, not local
+
+`localhost:8080` is the backend process only. Both stores behind it are **remote and shared with the whole team**:
+
+| Service | What it actually is |
+|---|---|
+| PostgreSQL | Supabase pooler in **ap-southeast-2 (Sydney)** — a cross-region hop, not a loopback |
+| Redis | A hosted instance (rate limiter and catalog cache), also remote |
+
+The backend's tracked config defaults to `localhost:5432`, which does not exist on a dev machine; the real URL is in the backend's untracked `.env`. So nothing about this stack is local, and two consequences follow.
+
+**Every request pays a cross-region round trip.** Measured here: TCP connect to the Supabase pooler 320–475 ms, a cold `GET /products?size=20` **5.5 s**, the same call warm ~830 ms, against ~0 ms for loopback. Budget a browser check accordingly — a ten-page flow is 10–50 s of pure waiting, and it is the dominant cost, not process launch. Prefer a unit test over a page load whenever the question can be answered without a browser.
+
+**Writes are permanent and shared.** The database is shared demo data, and `DELETE` on a product is archival (`status = DELETED`; the row survives and its slug stays reserved forever). Creating throwaway products for a check is fine and expected on this project, but know that a probe row outlives the check. No one needs to clean up before submission — the backend team re-seeds the database from scratch.
+
+**Flyway runs against the hosted database in the `dev` profile.** `application-dev.yml` sets `flyway.enabled: true` with `classpath:db/dev`, so starting the backend applies migrations plus a demo seed to the shared instance. Restarting the backend is a schema-mutating action here, not a read.
+
 ## Logging in once, and staying logged in
 
-The API throttles login **10 per minute per IP** and **10 per 15 minutes per account** (see `docs/api-contract.md`). A loop that re-authenticates per check exhausts the account window within a few minutes, and the resulting `429` looks like a broken endpoint. Recovering needs a ~15-minute wait, not a retry.
+The API throttles login **10 per minute per IP** and **10 per 15 minutes per account** (see `docs/api-contract.md`). The limiter lives in the **shared hosted Redis**, so that window is global: it is exhausted by the team's combined sessions, not just yours, and your retries spend a budget everyone else needs.
 
-So: authenticate once, keep the token, and reuse the browser context.
+An exhausted window returns `429`, which looks like a broken endpoint. **Treat a `429` as a stop sign: wait the window out. Do not retry in a loop and do not look for a way around it** — the limiter is there to protect a shared account, and working around it takes the whole team offline.
+
+So: authenticate once, keep the token, and reuse it and the browser context.
 
 ```powershell
 $body = @{ email = 'swagger.admin@example.com'; password = 'Swagger123!' } | ConvertTo-Json
@@ -87,6 +106,19 @@ $r.data.accessToken | Out-File -Encoding utf8 "$env:TEMP\dsh-admin-token.txt"
 ```
 
 Then read that file in each later call instead of logging in again. If a call returns `401`, the token expired — re-login **once**, and check the response actually carried a token rather than a `429` body, because a `429` envelope deserialised as a login looks like an empty token and sends you hunting in the wrong place.
+
+## Never put live end-to-end tests in CI
+
+**Live E2E tests must not be added to the GitHub Actions pipeline.** This is a hard rule, not a preference, for four compounding reasons:
+
+1. **The rate limit is shared and global.** Every CI run authenticates against the same account, and the 10-per-15-minutes window is spent by concurrent jobs as well as by developers. Two parallel runners starve each other and every human on the team.
+2. **The database is shared and remote.** A CI job would write throwaway rows to the same hosted Supabase instance everybody else is using, and `DELETE` only marks rows.
+3. **Latency makes the suite slow and flaky.** A cross-region hop with a 5 s cold read turns a small browser suite into minutes, and hosts are not guaranteed reachable from a runner at all.
+4. **It would need production-adjacent secrets in CI** — database URL, Redis credentials, seeded account passwords — for tests that verify nothing about the code under test that a unit test cannot.
+
+What CI runs instead: **`npm run check`** — lint, `antd lint`, typecheck, the CSS-module check, the encoding check, and the vitest suite. All of it is hermetic: the API tests stub `fetch` and assert on URLs, so no socket is opened and no credential is needed. Keep it that way; a test that reaches the network belongs in a manual verification pass, not the pipeline.
+
+Live browser and API verification stays a deliberate, manual, local action, following the rules above.
 
 ## Throwaway scripts live in the temp directory
 
