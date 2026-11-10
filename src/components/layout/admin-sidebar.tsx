@@ -25,7 +25,11 @@ const navItems: NavItem[] = [
 		icon: "/images/admin/nav/layout-dashboard.svg",
 		href: "/admin/dashboard",
 	},
-	{ label: "Orders", icon: "/images/admin/nav/shopping-bag.svg" },
+	{
+		label: "Orders",
+		icon: "/images/admin/nav/shopping-bag.svg",
+		href: "/admin/orders",
+	},
 	{ label: "Products & Variants", icon: "/images/admin/nav/fish.svg" },
 	{ label: "Categories", icon: "/images/admin/nav/layers.svg" },
 	{ label: "Inventory", icon: "/images/admin/nav/package.svg" },
@@ -54,7 +58,8 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: AdminSidebarProps)
 			<nav className={styles.nav} aria-label="Admin sections">
 				<ul className={styles.navList}>
 					{navItems.map((item) => {
-						const isActive = item.href !== undefined && pathname === item.href;
+						const isActive = item.href !== undefined &&
+							(pathname === item.href || pathname.startsWith(`${item.href}/`));
 						const icon = (
 							<Image
 								src={item.icon}
