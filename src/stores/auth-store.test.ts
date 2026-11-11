@@ -30,30 +30,19 @@ describe("auth store hydration", () => {
 		useAuthStore.setState({ user: null, status: "loading" });
 	});
 
-	it("marks the session ready before the profile finishes loading", async () => {
-		let resolveMe: (value: MeData) => void = () => {};
+	it("hydrates the account from the refresh exchange without a second request", async () => {
 		api.refreshSession.mockResolvedValue({
 			accessToken: "token",
 			expiresIn: 900,
 			tokenType: "Bearer",
+			user: me,
 		});
-		api.getMe.mockReturnValue(
-			new Promise<MeData>((resolve) => {
-				resolveMe = resolve;
-			}),
-		);
 
-		const hydration = useAuthStore.getState().hydrate();
+		await useAuthStore.getState().hydrate();
 
-		await vi.waitFor(() => {
-			expect(useAuthStore.getState().sessionReady).toBe(true);
-		});
-		expect(useAuthStore.getState().status).toBe("loading");
-
-		resolveMe(me);
-		await hydration;
-
+		expect(useAuthStore.getState().sessionReady).toBe(true);
 		expect(useAuthStore.getState().status).toBe("authenticated");
 		expect(useAuthStore.getState().user).toEqual(me);
+		expect(api.getMe).not.toHaveBeenCalled();
 	});
 });

@@ -8,7 +8,7 @@ import { GoogleAuthOption } from "@/components/auth/google-auth-option";
 import { PasswordField } from "@/components/auth/password-field";
 import { TextField } from "@/components/auth/text-field";
 import { ApiError } from "@/lib/api/client";
-import { getAuthErrorMessage, getMe, login } from "../../api/auth.api";
+import { getAuthErrorMessage, login } from "../../api/auth.api";
 import { setAccessToken } from "../../session";
 import { useAuthStore } from "@/stores/auth-store";
 import { validateEmail, validateRequired } from "../../model/validation";
@@ -58,13 +58,7 @@ export function LoginForm() {
 		try {
 			const data = await login({ email, password });
 			setAccessToken(data.accessToken);
-
-			try {
-				const user = await getMe();
-				useAuthStore.setState({ user, status: "authenticated" });
-			} catch {
-				useAuthStore.setState({ user: null, status: "loading" });
-			}
+			useAuthStore.setState({ user: data.user, status: "authenticated" });
 
 			router.replace("/");
 		} catch (submitError) {

@@ -18,7 +18,7 @@ type AuthState = {
 	/**
 	 * True once the refresh exchange has resolved, whether it produced a
 	 * session or not. Cart/order data can start loading in parallel with
-	 * `getMe()` instead of waiting for the profile.
+	 * the rest of the page instead of waiting for the profile.
 	 */
 	sessionReady: boolean;
 	hydrate: () => Promise<void>;
@@ -58,8 +58,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 			try {
 				const session = await refreshSession();
 				setAccessToken(session.accessToken);
-				set({ sessionReady: true });
-				set({ user: await getMe(), status: "authenticated" });
+				set({ user: session.user, status: "authenticated", sessionReady: true });
 			} catch {
 				clearSession();
 				set({ user: null, status: "anonymous", sessionReady: true });
@@ -94,8 +93,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 				// No usable access token: exchange the refresh cookie for one.
 				const session = await refreshSession();
 				setAccessToken(session.accessToken);
-				set({ sessionReady: true });
-				set({ user: await getMe(), status: "authenticated" });
+				set({ user: session.user, status: "authenticated", sessionReady: true });
 			} catch {
 				clearSession();
 
