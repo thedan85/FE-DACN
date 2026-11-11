@@ -19,7 +19,8 @@ vi.mock("@/features/cart/api/cart.api", () => ({
 const order: OrderView = {
 	orderId: "ORD_NEWEST", customerId: "CUS_1", customerName: "Jane",
 	status: "CONFIRMED", total: 10000, address: "addr", recipientName: "Jane",
-	phone: "090", items: [], createdAt: "2026-11-01T00:00:00Z",
+	phone: "090", shippingProvince: null, shippingWard: null, ghnOrderCode: null,
+	items: [], createdAt: "2026-11-01T00:00:00Z",
 	updatedAt: "2026-11-01T00:00:00Z", payment: null,
 };
 
