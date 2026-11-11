@@ -297,7 +297,17 @@ export function CheckoutView() {
 						</div>
 
 						{ghnAddress.error && (
-							<Alert type="error" showIcon role="alert" title={ghnAddress.error} />
+							<Alert
+								type="error"
+								showIcon
+								role="alert"
+								title={ghnAddress.error}
+								action={
+									<Button size="small" onClick={ghnAddress.reload}>
+										Retry
+									</Button>
+								}
+							/>
 						)}
 
 						<div className={styles.fields}>

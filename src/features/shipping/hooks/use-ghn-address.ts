@@ -21,7 +21,11 @@ export function useGhnAddress(provinceId: number | null) {
 			.then((next) => {
 				if (active) {
 					setProvinces(next);
-					setError(null);
+					setError(
+						next.length === 0
+							? "No delivery provinces are available right now."
+							: null,
+					);
 				}
 			})
 			.catch(() => {
@@ -45,7 +49,11 @@ export function useGhnAddress(provinceId: number | null) {
 				if (active) {
 					setWards(next);
 					setWardsProvinceId(provinceId);
-					setError(null);
+					setError(
+						next.length === 0
+							? "No wards are available for this province."
+							: null,
+					);
 				}
 			})
 			.catch(() => {
@@ -58,7 +66,7 @@ export function useGhnAddress(provinceId: number | null) {
 		return () => {
 			active = false;
 		};
-	}, [provinceId]);
+	}, [provinceId, reloadKey]);
 
 	// Wards from an earlier province stay hidden until the new list arrives,
 	// so the ward select never offers options for the wrong province.
