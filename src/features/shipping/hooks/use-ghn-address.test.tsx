@@ -86,6 +86,75 @@ describe("useGhnAddress", () => {
 		expect(getGhnWards).toHaveBeenCalledTimes(2);
 	});
 
+	it("keeps the ward error when the province request succeeds during the same reload", async () => {
+		vi.mocked(getGhnProvinces).mockResolvedValue([{ id: 1, name: "Province A" }]);
+		vi.mocked(getGhnWards).mockResolvedValue([{ id: 11, name: "Ward A" }]);
+
+		const { result } = renderHook(() => useGhnAddress(1));
+		await waitFor(() => {
+			expect(result.current.wards).toEqual([{ id: 11, name: "Ward A" }]);
+		});
+
+		const provincesRetry = deferred<GhnOption[]>();
+		vi.mocked(getGhnProvinces).mockReturnValueOnce(provincesRetry.promise);
+		vi.mocked(getGhnWards).mockRejectedValueOnce(new Error("offline"));
+
+		act(() => {
+			result.current.reload();
+		});
+
+		await waitFor(() => {
+			expect(result.current.error).toBe(
+				"Could not load wards. Please try again.",
+			);
+		});
+		expect(result.current.loadingProvinces).toBe(true);
+
+		await act(async () => {
+			provincesRetry.resolve([{ id: 1, name: "Province A" }]);
+		});
+		await waitFor(() => {
+			expect(result.current.loadingProvinces).toBe(false);
+		});
+		expect(result.current.error).toBe(
+			"Could not load wards. Please try again.",
+		);
+	});
+
+	it("keeps the province error when the ward request succeeds during the same reload", async () => {
+		vi.mocked(getGhnProvinces).mockResolvedValue([{ id: 1, name: "Province A" }]);
+		vi.mocked(getGhnWards).mockResolvedValue([{ id: 11, name: "Ward A" }]);
+
+		const { result } = renderHook(() => useGhnAddress(1));
+		await waitFor(() => {
+			expect(result.current.wards).toEqual([{ id: 11, name: "Ward A" }]);
+		});
+
+		const wardsRetry = deferred<GhnOption[]>();
+		vi.mocked(getGhnProvinces).mockRejectedValueOnce(new Error("offline"));
+		vi.mocked(getGhnWards).mockReturnValueOnce(wardsRetry.promise);
+
+		act(() => {
+			result.current.reload();
+		});
+
+		await waitFor(() => {
+			expect(result.current.error).toBe(
+				"Could not load provinces. Please try again.",
+			);
+		});
+
+		await act(async () => {
+			wardsRetry.resolve([{ id: 11, name: "Ward A" }]);
+		});
+		await waitFor(() => {
+			expect(result.current.wards).toEqual([{ id: 11, name: "Ward A" }]);
+		});
+		expect(result.current.error).toBe(
+			"Could not load provinces. Please try again.",
+		);
+	});
+
 	it("ignores a stale ward response after the province changes", async () => {
 		const wardsA = deferred<GhnOption[]>();
 		const wardsB = deferred<GhnOption[]>();

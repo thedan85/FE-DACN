@@ -7,12 +7,18 @@ import {
 	type GhnOption,
 } from "../api/shipping.api";
 
+type WardError = {
+	provinceId: number;
+	message: string;
+};
+
 export function useGhnAddress(provinceId: number | null) {
 	const [provinces, setProvinces] = useState<GhnOption[]>([]);
 	const [wards, setWards] = useState<GhnOption[]>([]);
 	const [wardsProvinceId, setWardsProvinceId] = useState<number | null>(null);
 	const [loadingProvinces, setLoadingProvinces] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const [provinceError, setProvinceError] = useState<string | null>(null);
+	const [wardError, setWardError] = useState<WardError | null>(null);
 	const [reloadKey, setReloadKey] = useState(0);
 
 	useEffect(() => {
@@ -21,7 +27,7 @@ export function useGhnAddress(provinceId: number | null) {
 			.then((next) => {
 				if (active) {
 					setProvinces(next);
-					setError(
+					setProvinceError(
 						next.length === 0
 							? "No delivery provinces are available right now."
 							: null,
@@ -29,7 +35,9 @@ export function useGhnAddress(provinceId: number | null) {
 				}
 			})
 			.catch(() => {
-				if (active) setError("Could not load provinces. Please try again.");
+				if (active) {
+					setProvinceError("Could not load provinces. Please try again.");
+				}
 			})
 			.finally(() => {
 				if (active) setLoadingProvinces(false);
@@ -49,9 +57,12 @@ export function useGhnAddress(provinceId: number | null) {
 				if (active) {
 					setWards(next);
 					setWardsProvinceId(provinceId);
-					setError(
+					setWardError(
 						next.length === 0
-							? "No wards are available for this province."
+							? {
+									provinceId,
+									message: "No wards are available for this province.",
+								}
 							: null,
 					);
 				}
@@ -60,7 +71,10 @@ export function useGhnAddress(provinceId: number | null) {
 				if (active) {
 					setWards([]);
 					setWardsProvinceId(provinceId);
-					setError("Could not load wards. Please try again.");
+					setWardError({
+						provinceId,
+						message: "Could not load wards. Please try again.",
+					});
 				}
 			});
 		return () => {
@@ -72,10 +86,14 @@ export function useGhnAddress(provinceId: number | null) {
 	// so the ward select never offers options for the wrong province.
 	const loadingWards = provinceId != null && wardsProvinceId !== provinceId;
 	const visibleWards = wardsProvinceId === provinceId ? wards : [];
+	const error =
+		provinceError ??
+		(wardError?.provinceId === provinceId ? wardError.message : null);
 
 	const reload = useCallback(() => {
 		setLoadingProvinces(true);
-		setError(null);
+		setProvinceError(null);
+		setWardError(null);
 		setReloadKey((key) => key + 1);
 	}, []);
 
