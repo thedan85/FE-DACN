@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { App, Dropdown, Input } from "antd";
+import { App, Button, Dropdown, Input } from "antd";
 import type { MenuProps } from "antd";
 import { LogoutOutlined } from "@ant-design/icons";
 import { getInitials } from "@/lib/utils/initials";
@@ -19,9 +19,15 @@ type AdminHeaderProps = {
 	currentPage: string;
 	/** Signed-in identity. The guard resolves the session before the shell mounts. */
 	identity: AdminHeaderIdentity;
+	/** Opens the sidebar drawer below the shell's mobile breakpoint. */
+	onOpenNav: () => void;
 };
 
-export function AdminHeader({ currentPage, identity }: AdminHeaderProps) {
+export function AdminHeader({
+	currentPage,
+	identity,
+	onOpenNav,
+}: AdminHeaderProps) {
 	const { message } = App.useApp();
 	const signOut = useAuthStore((state) => state.signOut);
 	const [menuOpen, setMenuOpen] = useState(false);
@@ -64,6 +70,23 @@ export function AdminHeader({ currentPage, identity }: AdminHeaderProps) {
 	return (
 		<header className={styles.header}>
 			<div className={styles.bar}>
+				<Button
+					type="text"
+					className={styles.menuButton}
+					aria-label="Open navigation"
+					aria-controls="admin-sidebar-drawer"
+					onClick={onOpenNav}
+					icon={
+						<Image
+							src="/images/admin/dashboard/menu.svg"
+							alt=""
+							width={20}
+							height={20}
+							unoptimized
+						/>
+					}
+				/>
+
 				<nav className={styles.breadcrumb} aria-label="Breadcrumb">
 					<span className={styles.breadcrumbParent}>Store admin</span>
 					<Image

@@ -102,6 +102,31 @@ const colors = {
 		statusWarningText: "#97661C",
 		statusDangerSurface: "#FBEFEE",
 		statusDangerText: "#BC5A53",
+
+		// Dashboard surfaces (Figma: Admin Dashboard frame 5445-2495). The chart
+		// line and area live here because the SVG reads them through CSS custom
+		// properties; the donut palette is read in TypeScript and has no CSS
+		// consumer, so it is typed here without a duplicated variable below.
+		dashboardChartLine: "#2A9D8F",
+		dashboardChartArea: "#E9F5F1",
+
+		// Order-status tones from the recent-orders badges and the donut legend.
+		orderStatusPendingSurface: "#FBF3E3",
+		orderStatusPendingText: "#97661C",
+		orderStatusConfirmedSurface: "#E9F5F1",
+		orderStatusConfirmedText: "#115E59",
+		orderStatusShippingSurface: "#EDF4F8",
+		orderStatusShippingText: "#42768A",
+		orderStatusCompletedSurface: "#ECF5EE",
+		orderStatusCompletedText: "#39785B",
+		orderStatusCancelledSurface: "#FAEFED",
+		orderStatusCancelledText: "#A75D58",
+
+		donutCompleted: "#115E59",
+		donutShipping: "#5D9DA6",
+		donutConfirmed: "#77BCAF",
+		donutPending: "#D7B776",
+		donutCancelled: "#C68B82",
 	},
 } as const;
 
@@ -273,6 +298,18 @@ const cssVariableValues = {
 	"--color-admin-status-warning-text": colors.admin.statusWarningText,
 	"--color-admin-status-danger-surface": colors.admin.statusDangerSurface,
 	"--color-admin-status-danger-text": colors.admin.statusDangerText,
+	"--color-admin-dashboard-chart-line": colors.admin.dashboardChartLine,
+	"--color-admin-dashboard-chart-area": colors.admin.dashboardChartArea,
+	"--color-admin-order-pending-surface": colors.admin.orderStatusPendingSurface,
+	"--color-admin-order-pending-text": colors.admin.orderStatusPendingText,
+	"--color-admin-order-confirmed-surface": colors.admin.orderStatusConfirmedSurface,
+	"--color-admin-order-confirmed-text": colors.admin.orderStatusConfirmedText,
+	"--color-admin-order-shipping-surface": colors.admin.orderStatusShippingSurface,
+	"--color-admin-order-shipping-text": colors.admin.orderStatusShippingText,
+	"--color-admin-order-completed-surface": colors.admin.orderStatusCompletedSurface,
+	"--color-admin-order-completed-text": colors.admin.orderStatusCompletedText,
+	"--color-admin-order-cancelled-surface": colors.admin.orderStatusCancelledSurface,
+	"--color-admin-order-cancelled-text": colors.admin.orderStatusCancelledText,
 
 	"--font-family-sans": typography.fontFamily,
 

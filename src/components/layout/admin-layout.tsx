@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { Drawer } from "antd";
 import { useAuthStore } from "@/stores/auth-store";
 import { AdminHeader } from "./admin-header";
 import { AdminSidebar } from "./admin-sidebar";
@@ -38,28 +39,68 @@ function currentPageTitle(pathname: string): string {
  */
 export function AdminLayout({ children }: AdminLayoutProps) {
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const [mobileNavOpen, setMobileNavOpen] = useState(false);
 	const user = useAuthStore((state) => state.user);
 	const pathname = usePathname();
+
+	useEffect(() => {
+		closeMobileNav();
+	}, [pathname]);
+
+	useEffect(() => {
+		const desktop = window.matchMedia("(min-width: 901px)");
+		const handleDesktop = (event: MediaQueryListEvent) => {
+			if (event.matches) {
+				setMobileNavOpen(false);
+			}
+		};
+
+		desktop.addEventListener("change", handleDesktop);
+		return () => desktop.removeEventListener("change", handleDesktop);
+	}, []);
 
 	// Unreachable through the guard; without it the shell has no identity to show.
 	if (user === null) {
 		return null;
 	}
 
+	function closeMobileNav() {
+		setMobileNavOpen(false);
+	}
+
 	return (
 		<div className={styles.shell}>
-			<AdminSidebar
-				collapsed={sidebarCollapsed}
-				onToggleCollapse={() => setSidebarCollapsed((previous) => !previous)}
-			/>
+			<div className={styles.sidebarSlot}>
+				<AdminSidebar
+					collapsed={sidebarCollapsed}
+					onToggleCollapse={() => setSidebarCollapsed((previous) => !previous)}
+				/>
+			</div>
 
 			<div className={styles.workspace}>
 				<AdminHeader
 					currentPage={currentPageTitle(pathname)}
 					identity={{ name: user.name, roleName: user.roleName }}
+					onOpenNav={() => setMobileNavOpen(true)}
 				/>
 				<main className={styles.main}>{children}</main>
 			</div>
+
+			<Drawer
+				open={mobileNavOpen}
+				onClose={closeMobileNav}
+				placement="left"
+				size={264}
+				closable={false}
+				classNames={{ body: styles.drawerBody }}
+			>
+				<AdminSidebar
+					collapsed={false}
+					inDrawer
+					onToggleCollapse={closeMobileNav}
+					onNavigate={closeMobileNav}
+				/>
+			</Drawer>
 		</div>
 	);
 }
