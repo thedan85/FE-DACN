@@ -9,6 +9,10 @@ import styles from "./admin-sidebar.module.css";
 type AdminSidebarProps = {
 	collapsed: boolean;
 	onToggleCollapse: () => void;
+	/** Closes the mobile drawer when a destination is chosen. */
+	onNavigate?: () => void;
+	/** The drawer variant hides the collapse control and fills its panel. */
+	inDrawer?: boolean;
 };
 
 type NavItem = {
@@ -28,9 +32,12 @@ const navItems: NavItem[] = [
 	{
 		label: "Orders",
 		icon: "/images/admin/nav/shopping-bag.svg",
-		href: "/admin/orders",
 	},
-	{ label: "Products & Variants", icon: "/images/admin/nav/fish.svg" },
+	{
+		label: "Products & Variants",
+		icon: "/images/admin/nav/fish.svg",
+		href: "/admin/products",
+	},
 	{ label: "Categories", icon: "/images/admin/nav/layers.svg" },
 	{ label: "Inventory", icon: "/images/admin/nav/package.svg" },
 	{ label: "Customers", icon: "/images/admin/nav/users.svg" },
@@ -41,13 +48,30 @@ const navItems: NavItem[] = [
 	{ label: "Settings", icon: "/images/admin/nav/settings.svg" },
 ];
 
-export function AdminSidebar({ collapsed, onToggleCollapse }: AdminSidebarProps) {
+/**
+ * A section stays highlighted for everything beneath it, so
+ * `/admin/products/[slug]/edit` still reads as "Products & Variants" rather
+ * than falling back to nothing. Matching on `/admin` alone would light up every
+ * item, so each href anchors on its own segment.
+ */
+function isActivePath(pathname: string, href: string): boolean {
+	return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function AdminSidebar({
+	collapsed,
+	onToggleCollapse,
+	onNavigate,
+	inDrawer = false,
+}: AdminSidebarProps) {
 	const pathname = usePathname();
 
 	return (
 		<aside
-			id="admin-sidebar"
-			className={`${styles.sidebar} ${collapsed ? styles.collapsed : ""}`}
+			id={inDrawer ? "admin-sidebar-drawer" : "admin-sidebar"}
+			className={`${styles.sidebar} ${collapsed ? styles.collapsed : ""} ${
+				inDrawer ? styles.drawer : ""
+			}`}
 			aria-label="Admin sidebar"
 		>
 			<div className={styles.brand}>
@@ -58,8 +82,8 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: AdminSidebarProps)
 			<nav className={styles.nav} aria-label="Admin sections">
 				<ul className={styles.navList}>
 					{navItems.map((item) => {
-						const isActive = item.href !== undefined &&
-							(pathname === item.href || pathname.startsWith(`${item.href}/`));
+						const isActive =
+							item.href !== undefined && isActivePath(pathname, item.href);
 						const icon = (
 							<Image
 								src={item.icon}
@@ -79,6 +103,7 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: AdminSidebarProps)
 										href={item.href}
 										className={`${styles.navLink} ${isActive ? styles.navLinkActive : ""}`}
 										aria-current={isActive ? "page" : undefined}
+										onClick={onNavigate}
 									>
 										{icon}
 										{label}
@@ -99,7 +124,12 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: AdminSidebarProps)
 			</nav>
 
 			<div className={styles.footer}>
-				<Link href="/" className={styles.footerAction} aria-label="View storefront">
+				<Link
+					href="/"
+					className={styles.footerAction}
+					aria-label="View storefront"
+					onClick={onNavigate}
+				>
 					<Image
 						src="/images/admin/nav/external-link.svg"
 						alt=""
@@ -111,31 +141,35 @@ export function AdminSidebar({ collapsed, onToggleCollapse }: AdminSidebarProps)
 					<span className={styles.footerLabel}>View storefront</span>
 				</Link>
 
-				<span className={styles.footerDivider} aria-hidden="true" />
+				{!inDrawer && (
+					<>
+						<span className={styles.footerDivider} aria-hidden="true" />
 
-				<Button
-					type="text"
-					block
-					className={styles.footerAction}
-					icon={
-						<Image
-							src="/images/admin/nav/panel-left-close.svg"
-							alt=""
-							width={18}
-							height={18}
-							unoptimized
-							className={styles.navIcon}
-						/>
-					}
-					aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-					aria-controls="admin-sidebar"
-					aria-expanded={!collapsed}
-					onClick={onToggleCollapse}
-				>
-					<span className={styles.footerLabel}>
-						{collapsed ? "Expand sidebar" : "Collapse sidebar"}
-					</span>
-				</Button>
+						<Button
+							type="text"
+							block
+							className={styles.footerAction}
+							icon={
+								<Image
+									src="/images/admin/nav/panel-left-close.svg"
+									alt=""
+									width={18}
+									height={18}
+									unoptimized
+									className={styles.navIcon}
+								/>
+							}
+							aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+							aria-controls="admin-sidebar"
+							aria-expanded={!collapsed}
+							onClick={onToggleCollapse}
+						>
+							<span className={styles.footerLabel}>
+								{collapsed ? "Expand sidebar" : "Collapse sidebar"}
+							</span>
+						</Button>
+					</>
+				)}
 			</div>
 		</aside>
 	);

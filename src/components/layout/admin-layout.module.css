@@ -5,6 +5,11 @@
 	background: var(--color-surface-page);
 }
 
+.sidebarSlot {
+	display: flex;
+	flex-shrink: 0;
+}
+
 .workspace {
 	display: flex;
 	flex: 1;
@@ -17,4 +22,25 @@
 	flex: 1;
 	padding: 28px;
 	overflow-y: auto;
+}
+
+.drawerBody:global(.ant-drawer-body) {
+	padding: 0;
+	background: var(--color-admin-sidebar-surface);
+}
+
+@media (max-width: 900px) {
+	.sidebarSlot {
+		display: none;
+	}
+
+	.main {
+		padding: 20px 16px;
+	}
+}
+
+@media (max-width: 600px) {
+	.main {
+		padding: 16px 12px 24px;
+	}
 }

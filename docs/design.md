@@ -133,6 +133,35 @@ The frame is a 2× export of the form column, so its CSS width is `540px`.
 
 The control metrics differ from the shared theme (`controlHeight` 44, `colorPrimary` aqua), which is why the form scopes them with a nested `ConfigProvider` — see `docs/antd.md`.
 
+### Admin catalog — frames `admin-products-listing`, `admin-add-product`, `admin-edit-product`
+
+Measured on the running app at **1440px** on 2026-11-04. Layout metrics come from `getBoundingClientRect()`; colours, radii and type from `getComputedStyle()`. The three catalog routes share one nested `ConfigProvider` (`AdminCatalogTheme`), so these values are asserted once for all three.
+
+**Not a visual comparison.** Screenshots of the three routes were captured to `.scratch/admin-products/screenshots/09-{listing,create,edit}-1440.png`, but no agent has eyeballed them against the Figma frames — the reviewing model has no image input. Treat the numbers below as the verification, per `docs/verification.md` § Screenshots.
+
+| Region | Metric | Value |
+| --- | --- | --- |
+| Global (scoped theme) | `controlHeight` | `38px` — the storefront stays `44px` |
+| Global (scoped theme) | `borderRadius` / `fontSize` | `6px` / `13px` |
+| Global (scoped theme) | primary / hover | `#115E59` / `#1A5650` |
+| Buttons | height (primary, default, danger) | `38px` |
+| Text inputs, textareas, selects | height | `38px` (the title input measures `38.09`, antd's own rounding) |
+| Editor grid | columns at ≥1024px | main `1fr`, settings `316px` (measured `824px 316px` at 1440) |
+| Editor grid | columns below 1024px | single column (measured `620px` at 900px wide) |
+| Listing toolbar | desktop filter row | visible at ≥768px; `display: none` below |
+| Listing toolbar | mobile filter button | `Filters`, shown below 768px, opens the drawer |
+| Card | radius | `10px` |
+| Status pill | type | `11px` / line-height `15.4px`, padding `4px 8px`, radius `4px`, `4px` dot |
+| Status pill | Active | bg `#E9F5F1`, text `#115E59` |
+| Status pill | Draft | bg `#FCF3E3`, text `#97661C` |
+| Status pill | Archived / Deleted | bg `#FBEFEE`, text `#BC5A53` |
+
+Focus ring: every catalog control shows `3px solid #2A9D8F` (buttons, Segmented) or a `2px` `#2A9D8F` ring plus `#2A9D8F` border (inputs, textareas, selects). This is *not* antd's default — the derived ring measured `rgb(88,133,125)`, and text inputs fell back to the **global** primary (`#1BC5BD` at its `33` alpha suffix, i.e. 20%), which is why the scoped theme sets `colorPrimaryBorder` and the `Input`/`Select` active tokens explicitly.
+
+Disabled controls: fill `#E5ECE9`, text `#687D7B` (antd's default is `rgba(0,0,0,.04)` / `rgba(0,0,0,.25)`).
+
+Tables: header cells carry `scope="col"` — antd sets it on the seven data columns; the expansion column is the eighth and has none. The row-expansion control is a real `<button>` with `aria-expanded` and a locale label (`Expand row`), and it toggles on <kbd>Enter</kbd>. Dialogs return focus to their trigger on close; antd v6 renders no focus sentinels, so one <kbd>Tab</kbd> from a dialog's last control reaches the document body before wrapping — Escape closes from anywhere.
+
 ## Design Notes
 
 - The visual direction is premium, natural, and aquatic: pale mint content surfaces contrast with deep green sections and bright teal actions.

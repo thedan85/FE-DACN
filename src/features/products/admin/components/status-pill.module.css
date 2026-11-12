@@ -1,0 +1,49 @@
+/*
+ * Status pill colours, from the Figma board:
+ *   Active   bg #E9F5F1  text #115E59
+ *   Draft    bg #FCF3E3  text #97661C
+ *   Archived bg #FBEFEE  text #BC5A53
+ *   Deleted  bg #FBEFEE  text #BC5A53   (the board has no Deleted pill; it
+ *                                        shares Archived's danger tone)
+ *
+ * `Tag` has no component token for a per-status tint, so this is a scoped
+ * override rather than a theme change. The selector doubles up as
+ * `.pill:global(.ant-tag)` to out-rank antd's own `:where()`-wrapped rule.
+ */
+
+.pill:global(.ant-tag) {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	margin: 0;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-family: var(--font-family-sans);
+	font-size: 11px;
+	line-height: 15.4px;
+	font-weight: 400;
+}
+
+.dot {
+	width: 4px;
+	height: 4px;
+	border-radius: var(--radius-pill);
+	background: currentColor;
+}
+
+.success:global(.ant-tag) {
+	/* Active reuses the avatar tint and the deep-teal accent rather than two more
+	   tokens naming the same hexes. */
+	background: var(--color-admin-avatar-surface);
+	color: var(--color-brand-deep-teal);
+}
+
+.warning:global(.ant-tag) {
+	background: var(--color-admin-status-warning-surface);
+	color: var(--color-admin-status-warning-text);
+}
+
+.danger:global(.ant-tag) {
+	background: var(--color-admin-status-danger-surface);
+	color: var(--color-admin-status-danger-text);
+}

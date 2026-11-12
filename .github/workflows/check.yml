@@ -1,0 +1,29 @@
+name: check
+
+# The hermetic gate only: lint, antd lint, typecheck, the CSS-module check, the
+# encoding check, then the vitest suite.
+#
+# Deliberately NOT included: any live end-to-end test. The API's database is a
+# shared hosted Supabase instance and its rate limiter runs in a shared hosted
+# Redis, so a CI job would spend the team's login window, write throwaway rows to
+# data everyone is using, and pay a cross-region round trip per request. See
+# docs/verification.md § Never put live end-to-end tests in CI.
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run check

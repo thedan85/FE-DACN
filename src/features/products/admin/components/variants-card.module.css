@@ -1,0 +1,35 @@
+/* The variants card's shell. The table and its cells have their own module
+   (`variants-table.module.css`); this one carries only the card's furniture. */
+
+/* Card.extra help copy. 12px/16.8px is the design's smallest step and sits below
+   antd's `small` (14px/20), so no type token carries it. */
+.help {
+	font-size: 12px;
+	line-height: 16.8px;
+	font-weight: 400;
+}
+
+.addRow {
+	margin-top: 16px;
+}
+
+/* Layout (row, centred, spread, gap) comes from the `Flex` props; only the
+   separation from the rows above is ours. The rule is the card's own border
+   colour, so no new token is introduced for it. */
+.footer {
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1px solid var(--color-admin-panel-border);
+}
+
+/* The summary's caption, at the same smallest step as `.help`. */
+.sumNote {
+	font-size: 12px;
+	line-height: 16.8px;
+}
+
+/* `--font-size-navigation` is 15px, which is what the design uses for this
+   figure — a token exists, so no raw px. */
+.total {
+	font-size: var(--font-size-navigation);
+}

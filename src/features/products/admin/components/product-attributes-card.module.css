@@ -1,0 +1,20 @@
+/* Spacing between the picker and the existing links.
+
+   The list rows' padding comes from Listy's `itemPaddingBlock` /
+   `itemPaddingInline` component tokens (set in `AdminCatalogTheme`), not from a
+   rule here: a `.row` class is 0-1-0 against antd's
+   `:where(.css-hash).ant-listy .ant-listy-item` at 0-2-0, so an override would
+   silently lose the cascade — the exact failure `docs/antd.md` documents. */
+
+.list {
+	margin-top: 16px;
+}
+
+/* Card.extra help copy. The type scale's smallest step is `small` at 14px/20, and
+   the design's notice text is 12px/16.8 — so this is a value the scale does not
+   carry rather than a Card token that was missed. */
+.help {
+	font-size: 12px;
+	line-height: 16.8px;
+	font-weight: 400;
+}
