@@ -141,8 +141,52 @@
 	color: var(--color-admin-panel-text-muted);
 }
 
+.menuButton {
+	display: none;
+}
+
 @media (max-width: 900px) {
+	.header {
+		padding-inline: 16px;
+	}
+
+	.bar {
+		height: 60px;
+		gap: 12px;
+	}
+
+	.menuButton:global(.ant-btn) {
+		display: inline-flex;
+		width: 36px;
+		height: 36px;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+	}
+
+	.breadcrumbParent,
+	.breadcrumbSeparator {
+		display: none;
+	}
+
 	.search {
-		width: 180px;
+		display: none;
+	}
+
+	.bell,
+	.divider {
+		display: none;
+	}
+}
+
+@media (max-width: 600px) {
+	.identityDetails,
+	.identityChevron {
+		display: none;
+	}
+
+	.identityTrigger {
+		padding: 0;
 	}
 }

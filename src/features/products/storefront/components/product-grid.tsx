@@ -15,10 +15,11 @@ type ProductGridProps = {
 export function ProductGrid({ products }: ProductGridProps) {
 	return (
 		<Row gutter={[24, 24]}>
-			{products.map((product) => (
+			{products.map((product, index) => (
 				<Col key={product.productId} xs={24} sm={12} md={8}>
 					<ProductCard
 						product={product}
+						eager={index === 0}
 						inStock={
 							product.stock == null ? null : product.stock > 0
 						}

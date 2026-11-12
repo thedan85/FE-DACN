@@ -1,18 +1,27 @@
 import type { Metadata } from "next";
-import styles from "./page.module.css";
+import { Suspense } from "react";
+
+import { AdminCatalogTheme } from "@/features/products/admin/components/admin-catalog-theme";
+import {
+	DashboardSkeleton,
+	DashboardView,
+} from "@/features/dashboard/admin/components/dashboard-view";
 
 export const metadata: Metadata = {
 	title: "Dashboard",
 };
 
+/**
+ * The dashboard keeps its selected range in the URL, so the view reads
+ * `useSearchParams`; the Suspense boundary keeps the rest of the route from
+ * opting into client rendering.
+ */
 export default function AdminDashboardPage() {
 	return (
-		<section className={styles.placeholder}>
-			<h1 className={styles.heading}>Dashboard</h1>
-			<p className={styles.description}>
-				Store metrics, recent orders, and inventory alerts will appear here once
-				real admin data is wired up.
-			</p>
-		</section>
+		<AdminCatalogTheme>
+			<Suspense fallback={<DashboardSkeleton />}>
+				<DashboardView />
+			</Suspense>
+		</AdminCatalogTheme>
 	);
 }

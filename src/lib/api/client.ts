@@ -44,21 +44,27 @@ function getErrorMessage(payload: unknown, status: number): string {
 	return `API request failed with HTTP status ${status}.`;
 }
 
+export type ApiFetchInit = RequestInit & {
+	/** Opts into the Next.js data cache; omitted keeps the request uncached. */
+	next?: { revalidate?: number | false; tags?: string[] };
+};
+
 export async function apiFetch<T>(
 	path: string,
-	init: RequestInit = {},
+	init: ApiFetchInit = {},
 ): Promise<T> {
 	const url = getApiUrl(path);
-	const headers = new Headers(init.headers);
+	const { next, ...rest } = init;
+	const headers = new Headers(rest.headers);
 
 	if (!headers.has("Accept")) {
 		headers.set("Accept", "application/json");
 	}
 
 	const isFormData =
-		typeof FormData !== "undefined" && init.body instanceof FormData;
+		typeof FormData !== "undefined" && rest.body instanceof FormData;
 
-	if (init.body != null && !isFormData && !headers.has("Content-Type")) {
+	if (rest.body != null && !isFormData && !headers.has("Content-Type")) {
 		headers.set("Content-Type", "application/json");
 	}
 
@@ -66,8 +72,9 @@ export async function apiFetch<T>(
 
 	try {
 		response = await fetch(url, {
-			cache: "no-store",
-			...init,
+			...rest,
+			...(next ? { next } : {}),
+			...(next || rest.cache ? {} : { cache: "no-store" }),
 			headers,
 		});
 	} catch (error) {

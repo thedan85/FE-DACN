@@ -21,7 +21,7 @@ export type CartState = LoadState | { status: "anonymous" };
  * without a second round trip; `reload` re-fetches after an error.
  */
 export function useCart() {
-	const { status, hydrate } = useAuthStore();
+	const { status, sessionReady, hydrate } = useAuthStore();
 	const [load, setLoad] = useState<LoadState>({ status: "loading" });
 	const [reloadKey, setReloadKey] = useState(0);
 
@@ -29,8 +29,13 @@ export function useCart() {
 		void hydrate();
 	}, [hydrate]);
 
+	const canLoad = sessionReady && status !== "anonymous";
+
 	useEffect(() => {
-		if (status !== "authenticated") {
+		// The refresh exchange already yielded an access token even while the
+		// profile is still loading, so the cart can load in parallel. The
+		// boolean keeps `status` reaching "authenticated" from re-fetching.
+		if (!canLoad) {
 			return;
 		}
 
@@ -54,7 +59,7 @@ export function useCart() {
 		return () => {
 			active = false;
 		};
-	}, [status, reloadKey]);
+	}, [canLoad, reloadKey]);
 
 	const reload = useCallback(() => {
 		setLoad({ status: "loading" });

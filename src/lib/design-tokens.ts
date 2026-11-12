@@ -51,6 +51,82 @@ const colors = {
 		panelTextMuted: "#687D7B",
 		panelTextStrong: "#142D2D",
 		avatarSurface: "#E9F5F1",
+
+		// Catalog surfaces (Figma: Products & Variants board). The neutrals are
+		// green-tinted on purpose — a pure grey reads cold beside the teal
+		// sidebar, so even white and near-white carries a trace of it.
+		//
+		// Only the values the catalog screens actually render live here. The
+		// ticket's proposed `panelSurfaceTint` (`#E9F5F1`) was not added as a
+		// second name for a hex `avatarSurface` already carries — the status pill
+		// borrows that one directly, exactly as the Active tone does. Likewise
+		// `controlOn` and `borderStrong` were proposed for a checkbox and a
+		// control border the catalog does not render yet; naming colours nothing
+		// draws is the dead-token case this file keeps out.
+		//
+		// Two near-duplicates ARE both kept, deliberately: `panelSurfaceSubtle`
+		// (`#F6F9F7`, the tint *on* a card) against `surfacePage` (`#F2F7F5`, the
+		// page behind it) — one step apart because a card has to read as raised.
+		panelSurfaceSubtle: "#F6F9F7", // table header, expanded variant row
+
+		// Disabled controls. antd's defaults are neutral greys (`rgba(0,0,0,.04)`
+		// fill, `rgba(0,0,0,.25)` text), which read as "off-brand" beside the
+		// green-tinted neutrals; the design's disabled control is `#E5ECE9` on
+		// `#687D7B`, so both are supplied to the scoped theme. Consumed by the
+		// antd theme only, hence no matching custom property (see `focusRing`).
+		disabledSurface: "#E5ECE9",
+
+		// The keyboard focus ring. antd derives `colorPrimaryBorder` from the
+		// primary when it is not set, which on this theme landed on
+		// `rgb(88,133,125)` — measured in the browser — while the design's ring is
+		// this teal. Text inputs and selects ignore that token entirely and build
+		// their ring from their own component tokens, which is why
+		// `admin-catalog-theme.tsx` also sets `Input`/`Select` focus values.
+		//
+		// Like `disabledSurface` above, this is consumed by the *antd theme*
+		// (`admin-catalog-theme.tsx`), not by a CSS module, so it is deliberately
+		// not emitted as a `--color-admin-*` custom property — a variable nothing
+		// reads is a value with no consumer.
+		focusRing: "#2A9D8F",
+
+		// The create form's draft notice (Figma: admin-add-product banner).
+		noticeSurface: "#EDF5FA",
+		noticeBorder: "#D6E6F0",
+		noticeText: "#437F9B",
+
+		// Status tones. Draft and Low stock share the warning pair; Archived and
+		// Deleted share the danger pair, exactly as the design board defines them.
+		// Active reuses `avatarSurface` and `brandDeepTeal` rather than aliasing
+		// the same two hexes under new names — the module comments say so.
+		statusWarningSurface: "#FCF3E3",
+		statusWarningText: "#97661C",
+		statusDangerSurface: "#FBEFEE",
+		statusDangerText: "#BC5A53",
+
+		// Dashboard surfaces (Figma: Admin Dashboard frame 5445-2495). The chart
+		// line and area live here because the SVG reads them through CSS custom
+		// properties; the donut palette is read in TypeScript and has no CSS
+		// consumer, so it is typed here without a duplicated variable below.
+		dashboardChartLine: "#2A9D8F",
+		dashboardChartArea: "#E9F5F1",
+
+		// Order-status tones from the recent-orders badges and the donut legend.
+		orderStatusPendingSurface: "#FBF3E3",
+		orderStatusPendingText: "#97661C",
+		orderStatusConfirmedSurface: "#E9F5F1",
+		orderStatusConfirmedText: "#115E59",
+		orderStatusShippingSurface: "#EDF4F8",
+		orderStatusShippingText: "#42768A",
+		orderStatusCompletedSurface: "#ECF5EE",
+		orderStatusCompletedText: "#39785B",
+		orderStatusCancelledSurface: "#FAEFED",
+		orderStatusCancelledText: "#A75D58",
+
+		donutCompleted: "#115E59",
+		donutShipping: "#5D9DA6",
+		donutConfirmed: "#77BCAF",
+		donutPending: "#D7B776",
+		donutCancelled: "#C68B82",
 	},
 } as const;
 
@@ -217,6 +293,23 @@ const cssVariableValues = {
 	"--color-admin-panel-text-muted": colors.admin.panelTextMuted,
 	"--color-admin-panel-text-strong": colors.admin.panelTextStrong,
 	"--color-admin-avatar-surface": colors.admin.avatarSurface,
+	"--color-admin-panel-surface-subtle": colors.admin.panelSurfaceSubtle,
+	"--color-admin-status-warning-surface": colors.admin.statusWarningSurface,
+	"--color-admin-status-warning-text": colors.admin.statusWarningText,
+	"--color-admin-status-danger-surface": colors.admin.statusDangerSurface,
+	"--color-admin-status-danger-text": colors.admin.statusDangerText,
+	"--color-admin-dashboard-chart-line": colors.admin.dashboardChartLine,
+	"--color-admin-dashboard-chart-area": colors.admin.dashboardChartArea,
+	"--color-admin-order-pending-surface": colors.admin.orderStatusPendingSurface,
+	"--color-admin-order-pending-text": colors.admin.orderStatusPendingText,
+	"--color-admin-order-confirmed-surface": colors.admin.orderStatusConfirmedSurface,
+	"--color-admin-order-confirmed-text": colors.admin.orderStatusConfirmedText,
+	"--color-admin-order-shipping-surface": colors.admin.orderStatusShippingSurface,
+	"--color-admin-order-shipping-text": colors.admin.orderStatusShippingText,
+	"--color-admin-order-completed-surface": colors.admin.orderStatusCompletedSurface,
+	"--color-admin-order-completed-text": colors.admin.orderStatusCompletedText,
+	"--color-admin-order-cancelled-surface": colors.admin.orderStatusCancelledSurface,
+	"--color-admin-order-cancelled-text": colors.admin.orderStatusCancelledText,
 
 	"--font-family-sans": typography.fontFamily,
 

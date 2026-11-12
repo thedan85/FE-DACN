@@ -14,6 +14,11 @@
 	overflow: hidden;
 }
 
+.drawer {
+	width: 100%;
+	height: 100%;
+}
+
 .brand {
 	display: flex;
 	flex-direction: column;

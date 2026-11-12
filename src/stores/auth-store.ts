@@ -15,6 +15,12 @@ type AuthStatus = "loading" | "authenticated" | "anonymous";
 type AuthState = {
 	user: MeData | null;
 	status: AuthStatus;
+	/**
+	 * True once the refresh exchange has resolved, whether it produced a
+	 * session or not. Cart/order data can start loading in parallel with
+	 * `getMe()` instead of waiting for the profile.
+	 */
+	sessionReady: boolean;
 	hydrate: () => Promise<void>;
 	/**
 	 * Re-reads the account from the server even when a session is already
@@ -37,6 +43,7 @@ function isTransportError(error: unknown): boolean {
 export const useAuthStore = create<AuthState>((set, get) => ({
 	user: null,
 	status: "loading",
+	sessionReady: false,
 
 	hydrate: () => {
 		if (get().status === "authenticated") {
@@ -51,10 +58,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 			try {
 				const session = await refreshSession();
 				setAccessToken(session.accessToken);
+				set({ sessionReady: true });
 				set({ user: await getMe(), status: "authenticated" });
 			} catch {
 				clearSession();
-				set({ user: null, status: "anonymous" });
+				set({ user: null, status: "anonymous", sessionReady: true });
 			} finally {
 				hydration = null;
 			}
@@ -72,7 +80,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 			try {
 				if (getAccessToken() !== null) {
 					try {
-						set({ user: await getMe(), status: "authenticated" });
+						set({ user: await getMe(), status: "authenticated", sessionReady: true });
 						return;
 					} catch (error) {
 						// Only an HTTP rejection proves the token is bad; a network
@@ -86,6 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 				// No usable access token: exchange the refresh cookie for one.
 				const session = await refreshSession();
 				setAccessToken(session.accessToken);
+				set({ sessionReady: true });
 				set({ user: await getMe(), status: "authenticated" });
 			} catch {
 				clearSession();
@@ -93,7 +102,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 				// Fail closed only when nothing was resolved: a transient failure
 				// must not sign out an account that has already been confirmed.
 				if (get().user === null) {
-					set({ status: "anonymous" });
+					set({ status: "anonymous", sessionReady: true });
 				}
 			} finally {
 				revalidation = null;

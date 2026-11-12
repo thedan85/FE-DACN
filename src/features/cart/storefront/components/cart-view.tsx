@@ -7,12 +7,11 @@ import Link from "next/link";
 import {
 	ArrowRightOutlined,
 	DeleteOutlined,
-	ExperimentOutlined,
 	LockOutlined,
 	SafetyCertificateOutlined,
 	TruckOutlined,
 } from "@ant-design/icons";
-import { App, Button, Tag } from "antd";
+import { App, Button } from "antd";
 
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -24,6 +23,7 @@ import { formatVndPrice } from "@/features/products/storefront/model/product-for
 import { removeCartItem, updateCartItem } from "../../api/cart.api";
 import type { Cart, CartItem } from "../../types";
 import { useCart } from "../hooks/use-cart";
+import { CompatibilityCard } from "./compatibility-card";
 import styles from "./cart-view.module.css";
 
 function replaceItem(cart: Cart, updated: CartItem): Cart {
@@ -141,21 +141,7 @@ export function CartView() {
 
 		try {
 			await removeCartItem(item.cartItemId);
-			const items = cart.items.filter(
-				(line) => line.cartItemId !== item.cartItemId,
-			);
-			setCart({
-				...cart,
-				items,
-				totalQuantity: items.reduce(
-					(sum, line) => sum + line.quantity,
-					0,
-				),
-				totalAmount: items.reduce(
-					(sum, line) => sum + line.lineTotal,
-					0,
-				),
-			});
+			reload();
 			message.success(`Removed ${item.productName} from your cart.`);
 		} catch (error) {
 			message.error(getAuthErrorMessage(error));
@@ -298,19 +284,9 @@ export function CartView() {
 						</div>
 					</div>
 
-					<div className={styles.assuranceCard}>
-						<ExperimentOutlined className={styles.assuranceIcon} />
-						<div>
-							<h2>Biotope Compatibility Check</h2>
-							<p>
-								Selected species share harmonious water parameters (soft to
-								neutral, 22–26°C).
-							</p>
-						</div>
-						<Tag color="green" className={styles.compatibilityTag}>
-							100% Cohabitation Safe
-						</Tag>
-					</div>
+					{cart.compatibility ? (
+						<CompatibilityCard compatibility={cart.compatibility} />
+					) : null}
 				</div>
 
 				<aside className={styles.summary} aria-labelledby="cart-summary-title">

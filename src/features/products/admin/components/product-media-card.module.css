@@ -1,0 +1,68 @@
+/* The product's media card. antd's `Card` carries the surface, padding and
+   radius and `Flex` carries the layout; what is left is what no prop or token
+   reaches: a fixed-ratio preview box, and the dropzone's own geometry. */
+
+/* `Card.extra` help copy. 12px/16.8px is the design's smallest step and sits
+   below antd's `small` (14px/20), so no type token carries it. No font-weight
+   here: `Card`'s own style sets `fontWeight: 400` on `.ant-card-extra`. */
+.help {
+	font-size: 12px;
+	line-height: 16.8px;
+}
+
+.hint {
+	font-size: 12px;
+	line-height: 16.8px;
+}
+
+/* The dropzone's headline: the design sets it at 13px/600 in the brand teal.
+   13px is `token.fontSize` in the scoped admin theme (the Card's body text is
+   already 13px), so only the weight and colour are stated. */
+.dropTitle:global(.ant-typography) {
+	font-weight: 600;
+	color: var(--color-brand-deep-teal);
+}
+
+/* antd's Dragger draws its own 1px dashed border and hover state; the design's
+   dropzone is a *filled* panel (`#F6F9F7`) with a solid border, so the surface
+   is ours. `Upload` exposes no token for the dragger's background or border
+   style — `antd token Upload` lists action colours only — hence a rule. */
+.dropzone:global(.ant-upload-drag) {
+	min-height: 116px;
+	background: var(--color-admin-panel-surface-subtle);
+	border-radius: 6px;
+}
+
+/* The design's 1px solid hairline; antd's dragger ships a dashed one. */
+.dropzone:global(.ant-upload-drag) {
+	border: 1px solid var(--color-admin-panel-border);
+}
+
+.dropzone :global(.ant-upload-btn) {
+	padding-block: 18px;
+}
+
+/* The preview box. `next/image` with `fill` is absolutely positioned, so the
+   size has to come from a positioned parent; `aspect-ratio` keeps the design's
+   386×190 without hard-coding a height that would overflow a 316px column. */
+.preview {
+	position: relative;
+	width: 100%;
+	aspect-ratio: 386 / 190;
+	overflow: hidden;
+	border-radius: 7px;
+	background: var(--color-admin-panel-surface-subtle);
+}
+
+.image {
+	object-fit: cover;
+}
+
+/* The "no endpoint for a gallery" note reads as a footnote, set apart from the
+   upload controls by one step. `Paragraph`'s own bottom margin is reset so the
+   card's gap governs the spacing. */
+.limit:global(.ant-typography) {
+	margin-bottom: 0;
+	font-size: 12px;
+	line-height: 16.8px;
+}

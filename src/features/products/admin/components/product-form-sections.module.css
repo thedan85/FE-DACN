@@ -1,0 +1,15 @@
+/* Layout for the two shared form sections. */
+
+.settingsColumn {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	min-width: 0;
+}
+
+/* The storefront link sits under the status helper copy as its own quiet row,
+   not inline with it — a link inside a sentence makes the sentence the click
+   target. */
+.storefrontLink {
+	margin-top: 8px;
+}

@@ -24,7 +24,7 @@ Worked example: the admin login form kept hand-rolled controls on the reasoning 
 
 Reviewer step: for each new client component, list the antd primitives it uses, and state the reason for every raw interactive element that kept its tag. Treat an exemption comment that names no prop or token as a failed exemption, then check the named prop yourself with `antd token <Component>`. The bar is state, not styling: `Form` + `Input` + `Button` carry validation, in-flight disabling, and error display, so a hand-rolled control trio hands the reviewer a state machine to audit instead.
 
-Query antd before writing it: the `antd` skill runs the offline CLI (`antd info Button`, `antd semantic`, `antd demo`, `antd token`), and `antd lint <paths>` catches deprecated usage after the edit. The CLI bundles metadata for several major versions, so pass `--version <installed>` (read `node_modules/antd/package.json`) whenever the answer could differ across releases.
+Query antd before writing it: the `antd` skill runs the offline CLI (`antd info Button`, `antd semantic`, `antd demo`, `antd token`), and `antd lint <paths>` catches deprecated usage after the edit. The CLI bundles metadata for several major versions, so pass `--version <installed>` (read `node_modules/antd/package.json`) whenever the answer could differ across releases. `npm run lint:antd` runs that lint as part of `npm run check`, because the CLI exits 0 whether or not it finds anything and the wrapper is what turns a finding into a failing gate.
 
 ## Theming antd
 
@@ -35,6 +35,12 @@ Reviewer step: an override that reaches into antd internals (`:global(.ant-*)` o
 ## CSS modules
 
 Every `styles.x` reference resolves to a class defined in the imported `*.module.css`. An unresolved reference renders `class="undefined"` and neither `tsc` nor ESLint can see it, which is why `scripts/check-css-modules.mjs` exists. Run `npm run check:css` after touching a module.
+
+## File encoding
+
+`scripts/check-encoding.mjs` fails on a BOM, on bytes that are not valid UTF-8, and on the glyph pairs a UTF-8-read-as-Windows-1252 round trip leaves behind. `tsc`, ESLint and vitest all read the file as text and shrug, so this is the only guard: it shipped twice before the check existed, both times with the whole gate green.
+
+Edit source files with the edit and write tools. A PowerShell `Get-Content -Raw | Set-Content` round trip is exactly what corrupts them on a console that is not UTF-8, and it also invalidates the read cache, so the next write needs a re-read.
 
 ## Scope
 

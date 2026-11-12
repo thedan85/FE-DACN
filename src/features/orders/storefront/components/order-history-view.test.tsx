@@ -5,11 +5,16 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
+import { createVnpayPaymentUrl } from "@/features/cart/api/cart.api";
 import { listOrders } from "../../api/orders.api";
 import type { OrderPage, OrderView } from "../../types";
 import { OrderHistoryView } from "./order-history-view";
 
 vi.mock("../../api/orders.api", () => ({ listOrders: vi.fn() }));
+vi.mock("@/features/cart/api/cart.api", () => ({
+	addToCart: vi.fn(),
+	createVnpayPaymentUrl: vi.fn(),
+}));
 
 const order: OrderView = {
 	orderId: "ORD_NEWEST", customerId: "CUS_1", customerName: "Jane",
@@ -200,4 +205,58 @@ it("distinguishes filtered-empty from no history and clears filters", async () =
 	await flush();
 	expect(listOrders).toHaveBeenLastCalledWith({ page: 0, size: 10 });
 	expect(screen.getByText("No orders yet")).toBeTruthy();
+});
+
+it("shows Pay Now for a pending VN Pay order and opens the payment page", async () => {
+	const pending: OrderView = {
+		...order,
+		orderId: "ORD_PAY",
+		status: "PENDING",
+		payment: {
+			method: "CREDIT_CARD",
+			status: "PENDING",
+			transactionId: null,
+			paidAt: null,
+		},
+	};
+	vi.mocked(listOrders).mockResolvedValue({
+		content: [pending],
+		page: 0,
+		size: 10,
+		totalElements: 1,
+		totalPages: 1,
+	});
+	vi.mocked(createVnpayPaymentUrl).mockResolvedValue(
+		"https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+	);
+	const assign = vi.fn();
+	vi.stubGlobal("location", { ...window.location, assign });
+
+	await mount();
+	fireEvent.click(screen.getByRole("button", { name: "Pay Now" }));
+	await act(async () => { await Promise.resolve(); });
+
+	expect(createVnpayPaymentUrl).toHaveBeenCalledWith("ORD_PAY");
+	expect(assign).toHaveBeenCalledWith(
+		"https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+	);
+});
+
+it("hides Pay Now when the order is not awaiting VN Pay payment", async () => {
+	const cod: OrderView = {
+		...order,
+		status: "PENDING",
+		payment: { method: "COD", status: "PENDING", transactionId: null, paidAt: null },
+	};
+	vi.mocked(listOrders).mockResolvedValue({
+		content: [cod],
+		page: 0,
+		size: 10,
+		totalElements: 1,
+		totalPages: 1,
+	});
+
+	await mount();
+
+	expect(screen.queryByRole("button", { name: "Pay Now" })).toBeNull();
 });

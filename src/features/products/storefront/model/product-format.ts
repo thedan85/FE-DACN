@@ -31,19 +31,27 @@ export function formatPriceRange(
 	return `${formatVndPrice(minPrice)} – ${formatVndPrice(maxPrice)}`;
 }
 
+export const STORE_TIME_ZONE = "Asia/Ho_Chi_Minh";
+
 /**
  * Compact, locale-stable date for review timestamps ("26 Oct 2026").
  * Day-first to match the storefront's Vietnamese market convention.
+ * An optional time zone pins the day boundary to the store's zone.
  * An unparseable value yields `null` so the caller can omit the date
  * instead of rendering "Invalid Date".
  */
-const dateFormatter = new Intl.DateTimeFormat("en-GB", {
+const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
 	day: "numeric",
 	month: "short",
 	year: "numeric",
-});
+};
 
-export function formatDate(iso: string | null | undefined): string | null {
+const dateFormatter = new Intl.DateTimeFormat("en-GB", DATE_FORMAT_OPTIONS);
+
+export function formatDate(
+	iso: string | null | undefined,
+	timeZone?: string,
+): string | null {
 	if (!iso) {
 		return null;
 	}
@@ -54,7 +62,11 @@ export function formatDate(iso: string | null | undefined): string | null {
 		return null;
 	}
 
-	return dateFormatter.format(date);
+	const formatter = timeZone
+		? new Intl.DateTimeFormat("en-GB", { ...DATE_FORMAT_OPTIONS, timeZone })
+		: dateFormatter;
+
+	return formatter.format(date);
 }
 
 /**

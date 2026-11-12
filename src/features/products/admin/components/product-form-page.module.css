@@ -1,0 +1,129 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.header {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+/* The back control is antd's `Button type="link"`: padding, hover and focus are
+   its own. Only the negative inline start (to sit flush with the page edge) and
+   the type size are ours, and `Button` exposes no token for either. */
+.back:global(.ant-btn) {
+	align-self: flex-start;
+	padding-inline: 0;
+	font-size: 13px;
+	height: auto;
+}
+
+/* Title on the left, the page's own action (Preview) on the right. */
+.titleRow {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.title:global(.ant-typography) {
+	margin: 0;
+	color: var(--color-admin-panel-text-strong);
+	font-size: 34px;
+	line-height: 42px;
+	font-weight: 700;
+	letter-spacing: -0.85px;
+}
+
+/* The design's draft notice is a pale blue band. `colorInfoBg` / `colorInfoBorder`
+   / `colorInfo` are set on the scoped ConfigProvider in `AdminCatalogTheme`
+   instead of here, because those are exactly the tokens this needed — see the
+   `Alert` entry there. Only geometry stays local, since no token carries it. */
+.notice:global(.ant-alert) {
+	margin-top: 8px;
+	border-radius: 6px;
+}
+
+.notice :global(.ant-alert-title) {
+	font-size: 13px;
+	line-height: 18.2px;
+}
+
+/* Main column flexes, settings column is the design's fixed 316px; below `lg`
+   they stack rather than squeezing the settings column to nothing. */
+.columns {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 316px;
+	gap: 20px;
+	align-items: start;
+}
+
+.mainColumn,
+.settingsColumn {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	min-width: 0;
+}
+
+.saveBar {
+	position: sticky;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 24px;
+	padding: 16px 0;
+	background: var(--color-surface-white);
+	border-top: 1px solid var(--color-admin-panel-border);
+}
+
+.saveStatus {
+	margin-inline-end: auto;
+}
+
+/* Archive and Delete: set apart from the save bar so a destructive action is
+   never adjacent to the one the user is meant to press. */
+/* Surface, border and radius come from the themed `Card`; this only adds the
+   vertical rhythm the page uses between sections. */
+.dangerZone:global(.ant-card) {
+	margin-top: 24px;
+}
+
+.dangerRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.dangerText {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.dangerHelp {
+	font-size: 12px;
+	line-height: 16.8px;
+}
+
+@media (max-width: 1023px) {
+	.columns {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.title:global(.ant-typography) {
+		font-size: 26px;
+		line-height: 34px;
+	}
+
+	.dangerRow {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+}
