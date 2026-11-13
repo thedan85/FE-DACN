@@ -8,7 +8,8 @@ in a DTO signature.
 
 **Verified:** 2026-11-04 against the backend source in the read-only sibling
 checkout and the running API. Re-verified where a fact could have moved
-(`maxPageSize`, the login windows, the `Product` entity's restriction).
+(`maxPageSize`, the login windows, the `Product` entity's restriction). The
+shipping section was verified on 2026-11-11.
 
 **Precedence:** the backend source and a live response beat this document, and
 this document beats the frontend code. When they disagree, fix this file in the
@@ -199,6 +200,52 @@ See ADR-0002 — deletion is archival, by design.
 | Removing a thumbnail | Only through `PUT /products/{id}` **omitting** `thumbnailMediaId` (see the asymmetry table) | **[both]** |
 | Gating | Uploading needs `media:create`; **removing needs `product:update`**, because it is a `PUT` on the product. The two gates are separate | **[both]** |
 | Refreshing after a write | An image write changes no product field. Rewriting form inputs from the returned product reverts what the user typed and clears the dirty state — silently. Merge only the thumbnail fields | **[both]** |
+
+## Cart, orders, and shipping
+
+Checkout carries a two-level Vietnamese address — the district tier was removed
+on 2025-07-01 — and GHN is the only shipping provider used by the storefront;
+GHTK remains an unused stub. Shipping is free for the customer in B1.
+
+| Fact | Behaviour | Mark |
+|---|---|---|
+| `POST /cart/checkout` address | `province` and `ward` are optional in the request, so older clients still work. **The storefront requires both** | **[source]** |
+| Order address fields | `OrderResponse` carries `shippingProvince`, `shippingWard`, and `ghnOrderCode`. All three are nullable: checkout does not collect the address yet in older clients, and `ghnOrderCode` stays `null` until the order is shipped | **[source]** |
+| GHN master data | `GET /shipping/ghn/provinces` and `GET /shipping/ghn/wards?provinceId={id}` are **public** and return the normal `ApiResponse` envelope with `data: [{id, name}]`. A successful GHN response with no units yields `[]`; a GHN failure is `502` | **[source]** |
+| Active units only | Only GHN units with `status === 1` are returned; disabled (`2`) and deleted (`10`) units never reach the storefront. `status` is not serialized | **[source]** |
+| Ship endpoint | `POST /staff/orders/{orderId}/ship` requires `ORDER_UPDATE` in both the URL rule and `@PreAuthorize`. Success returns the order with `ghnOrderCode` set and the status still `CONFIRMED` | **[source]** |
+| Ship rejections | A status other than `CONFIRMED`, an existing `ghnOrderCode`, a missing `shippingProvince` or `shippingWard` after the optional body merge, a missing payment, a payment whose method is not `COD` and whose status is not `CONFIRMED`, and a computed weight at or above 20,000 g all return `409`. A GHN rejection is `502`, and the order is not marked shipped | **[source]** |
+| Shipping fee | Free for the customer in B1: the order total excludes the GHN fee, the shop pays it, and COD collects only the goods total | **[source]** |
+
+The optional ship body is `{address?, province?, ward?}`: a non-blank value
+repairs the stored order before shipping, which is how orders created before
+the migration get a GHN address.
+
+### GHN webhook
+
+`POST /webhooks/ghn` is public but authenticated by the `X-GHN-Webhook-Token`
+header against `GHN_WEBHOOK_SECRET`. A blank secret disables the endpoint with
+`503`; a missing or wrong token is `401`. Only `Type: "switch_status"` is
+processed.
+
+| GHN status | Internal result | Mark |
+|---|---|---|
+| `picked`, `storing`, `sorting`, `transporting`, `delivering`, `money_collect_delivering` | `SHIPPING` | **[source]** |
+| `delivered` | `COMPLETED` | **[source]** |
+| `cancel` | `CANCELLED`, with one restock | **[source]** |
+| `returned` | `CANCELLED`, with one restock, including from `COMPLETED` | **[source]** |
+| anything else | no change, logged only | **[source]** |
+
+- **`PENDING` never advances** through a shipping callback; staff must confirm
+  the order first. A callback for a manual GHN order that arrives while the
+  order is `PENDING` is ignored and not replayed. **[source]**
+- A `SHIPPING` or `COMPLETED` callback ignores an order whose payment is neither
+  `COD` nor `CONFIRMED`. The transition is logged, not applied. **[source]**
+- `cancel` cannot regress a `COMPLETED` order; `returned` can. A second cancel or
+  return restocks nothing, so stock moves at most once. **[source]**
+- **Never expose the GHN token or the webhook secret to the frontend.** The
+  browser talks only to these backend endpoints; both secrets stay in the
+  backend `.env`. **[source]**
 
 ## Permissions
 

@@ -10,7 +10,7 @@ import {
 	LockOutlined,
 	SafetyCertificateOutlined,
 } from "@ant-design/icons";
-import { Alert, App, Button, Input } from "antd";
+import { Alert, App, Button, Input, Select } from "antd";
 
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -19,6 +19,7 @@ import { MediaPlaceholder } from "@/components/ui/media-placeholder";
 import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import type { MeData } from "@/features/auth/types";
 import { formatVndPrice } from "@/features/products/storefront/model/product-format";
+import { useGhnAddress } from "@/features/shipping/hooks/use-ghn-address";
 import { useAuthStore } from "@/stores/auth-store";
 
 import { checkoutCart, createVnpayPaymentUrl } from "../../api/cart.api";
@@ -33,6 +34,8 @@ type CheckoutForm = {
 	recipientName: string;
 	phone: string;
 	address: string;
+	province: string;
+	ward: string;
 };
 
 type CheckoutErrors = Partial<Record<keyof CheckoutForm, string>>;
@@ -62,6 +65,8 @@ function formFromUser(user: MeData | null): CheckoutForm {
 		recipientName: user?.name ?? "",
 		phone: user?.phone ?? "",
 		address: user?.address ?? "",
+		province: "",
+		ward: "",
 	};
 }
 
@@ -70,6 +75,8 @@ function validate(form: CheckoutForm): CheckoutErrors {
 	const recipientName = form.recipientName.trim();
 	const phone = form.phone.trim();
 	const address = form.address.trim();
+	const province = form.province.trim();
+	const ward = form.ward.trim();
 
 	if (!recipientName) {
 		errors.recipientName = "Recipient name is required.";
@@ -87,6 +94,14 @@ function validate(form: CheckoutForm): CheckoutErrors {
 		errors.address = "Delivery address is required.";
 	} else if (address.length > 500) {
 		errors.address = "Address must be 500 characters or fewer.";
+	}
+
+	if (!province) {
+		errors.province = "Province or city is required.";
+	}
+
+	if (!ward) {
+		errors.ward = "Ward or commune is required.";
 	}
 
 	return errors;
@@ -135,12 +150,15 @@ export function CheckoutView() {
 	const [submitting, setSubmitting] = useState(false);
 	const [orderPlaced, setOrderPlaced] = useState(false);
 	const [submitError, setSubmitError] = useState<SubmitError | null>(null);
+	const [provinceId, setProvinceId] = useState<number | null>(null);
+	const ghnAddress = useGhnAddress(provinceId);
 
 	// Prefill once the profile finishes hydrating, without discarding edits
 	// the customer may have made in the meantime.
 	if (user && syncedUserId !== user.userId) {
 		setSyncedUserId(user.userId);
 		setForm(formFromUser(user));
+		setProvinceId(null);
 		setErrors({});
 	}
 
@@ -232,6 +250,8 @@ export function CheckoutView() {
 				recipientName: form.recipientName.trim(),
 				phone: form.phone.trim(),
 				address: form.address.trim(),
+				province: form.province.trim(),
+				ward: form.ward.trim(),
 				method: payment,
 			});
 			orderId = order.orderId;
@@ -275,6 +295,20 @@ export function CheckoutView() {
 							</span>
 							<h2 id="shipping-heading">Shipping Information</h2>
 						</div>
+
+						{ghnAddress.error && (
+							<Alert
+								type="error"
+								showIcon
+								role="alert"
+								title={ghnAddress.error}
+								action={
+									<Button size="small" onClick={ghnAddress.reload}>
+										Retry
+									</Button>
+								}
+							/>
+						)}
 
 						<div className={styles.fields}>
 							<Field
@@ -334,6 +368,56 @@ export function CheckoutView() {
 									rows={3}
 									maxLength={500}
 									aria-invalid={errors.address ? true : undefined}
+								/>
+							</Field>
+
+							<Field
+								label="Province / City"
+								htmlFor="checkout-province"
+								error={errors.province}
+							>
+								<Select
+									id="checkout-province"
+									aria-label="Province or city"
+									showSearch={{ optionFilterProp: "label" }}
+									placeholder="Select province or city"
+									value={form.province || undefined}
+									options={ghnAddress.provinces.map(({ name }) => ({
+										value: name,
+										label: name,
+									}))}
+									loading={ghnAddress.loadingProvinces}
+									status={errors.province ? "error" : undefined}
+									onChange={(value: string) => {
+										const selected = ghnAddress.provinces.find(
+											(option) => option.name === value,
+										);
+										setProvinceId(selected?.id ?? null);
+										updateField("province", value);
+										updateField("ward", "");
+									}}
+								/>
+							</Field>
+
+							<Field label="Ward / Commune" htmlFor="checkout-ward" error={errors.ward}>
+								<Select
+									id="checkout-ward"
+									aria-label="Ward or commune"
+									showSearch={{ optionFilterProp: "label" }}
+									placeholder={
+										provinceId == null
+											? "Select a province first"
+											: "Select ward or commune"
+									}
+									value={form.ward || undefined}
+									options={ghnAddress.wards.map(({ name }) => ({
+										value: name,
+										label: name,
+									}))}
+									loading={ghnAddress.loadingWards}
+									disabled={provinceId == null || ghnAddress.loadingWards}
+									status={errors.ward ? "error" : undefined}
+									onChange={(value: string) => updateField("ward", value)}
 								/>
 							</Field>
 						</div>

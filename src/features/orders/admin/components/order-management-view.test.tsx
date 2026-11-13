@@ -40,6 +40,9 @@ const pendingOrder: Order = {
 	address: "123 Demo St",
 	recipientName: "Jane",
 	phone: "0901234567",
+	shippingProvince: null,
+	shippingWard: null,
+	ghnOrderCode: null,
 	items: [
 		{
 			orderId: "ORD_1",

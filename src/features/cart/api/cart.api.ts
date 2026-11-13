@@ -165,6 +165,8 @@ export type CheckoutInput = {
 	recipientName: string;
 	phone: string;
 	address: string;
+	province: string;
+	ward: string;
 	/**
 	 * VN Pay is stored as `CREDIT_CARD` because the backend payment enum has
 	 * no dedicated `VNPAY` value. COD keeps its own enum name.
