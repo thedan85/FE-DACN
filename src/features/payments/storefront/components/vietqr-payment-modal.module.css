@@ -1,0 +1,46 @@
+.body {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 16px;
+	padding: 8px 0;
+}
+
+.qr {
+	border-radius: 8px;
+}
+
+.details {
+	display: flex;
+	flex: 1;
+	min-width: 200px;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.label {
+	font-size: 12px;
+}
+
+.value {
+	font-weight: 500;
+}
+
+.fallback {
+	display: flex;
+	width: 200px;
+	padding: 16px;
+	border: 1px dashed #d9d9d9;
+	border-radius: 8px;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	text-align: center;
+}
