@@ -51,6 +51,7 @@ function detailOf(product: Product, skus: string[]): ProductDetail {
 			sku,
 			price: 15000,
 			stock: 50,
+			stockRevision: 0,
 			attributes: [],
 			media: [],
 		})),

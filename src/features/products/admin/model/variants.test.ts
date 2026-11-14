@@ -29,12 +29,14 @@ function variant(
 	price: number,
 	stock: number,
 	picks: { attributeId: string; name: string; value: string }[] = [],
+	stockRevision: number | null = 0,
 ): VariantDetail {
 	return {
 		variantId,
 		sku,
 		price,
 		stock,
+		stockRevision,
 		attributes: picks.map((pick, index) => ({
 			variantValueId: `${variantId}-${pick.attributeId}`,
 			variantId,
@@ -168,6 +170,7 @@ it("sends only the fields that differ on an existing row", () => {
 		sku: "FISH-1",
 		price: 15000,
 		stock: 50,
+		stockRevision: 3,
 		attributes: [],
 		images: [],
 	};
@@ -177,12 +180,37 @@ it("sends only the fields that differ on an existing row", () => {
 	});
 });
 
+it("carries the edit's own stock revision with a stock change", () => {
+	// The revision is the baseline the user saw, not a fresh one: sending a
+	// newer revision with this older absolute stock is what lets a catalog edit
+	// undo a checkout that committed while the row was open.
+	const saved: VariantRow = {
+		variantId: "v1",
+		sku: "FISH-1",
+		price: 15000,
+		stock: 10,
+		stockRevision: 0,
+		attributes: [],
+		images: [],
+	};
+
+	expect(buildVariantUpdate(saved, { ...saved, stock: 9 })).toEqual({
+		stock: 9,
+		expectedStockRevision: 0,
+	});
+	// Metadata changes need no stock revision, so they stay simple merges.
+	expect(buildVariantUpdate(saved, { ...saved, sku: "FISH-1B" })).toEqual({
+		sku: "FISH-1B",
+	});
+});
+
 it("returns null when a row was not changed", () => {
 	const saved: VariantRow = {
 		variantId: "v1",
 		sku: "FISH-1",
 		price: 15000,
 		stock: 50,
+		stockRevision: 3,
 		attributes: [],
 		images: [],
 	};
@@ -202,12 +230,40 @@ it("always writes with PATCH, never choosing a method", () => {
 	// there is no method for a caller to get wrong, which is why the product's
 	// `buildProductRequest` must not be reused here.
 	const update = buildVariantUpdate(
-		{ variantId: "v1", sku: "A", price: 1, stock: 1, attributes: [], images: [] },
+		{ variantId: "v1", sku: "A", price: 1, stock: 1, stockRevision: 0, attributes: [], images: [] },
 		{ sku: "B", price: 1, stock: 1 },
 	);
 
 	expect(update).toEqual({ sku: "B" });
 	expect(Object.keys(update ?? {})).not.toContain("method");
+});
+
+it("adopts the revision a save returns, so the next edit compares against it", () => {
+	// A PATCH response pairs the new stock with a new revision. Keeping the old
+	// baseline would make the next stock edit fail against stock the user just
+	// saved, so the row takes both from the response together.
+	const saved = penguinTetraRows[0]!;
+	const fields = variantFieldsFromRecord(
+		{
+			variantId: saved.variantId,
+			sku: saved.sku,
+			price: saved.price,
+			stock: 9,
+			stockRevision: 1,
+			productId: "PRD_172",
+			productName: "Penguin Tetra",
+			deleted: false,
+			createdAt: "",
+			updatedAt: "",
+		},
+		saved.stock,
+	);
+	const reloaded = { ...saved, ...fields };
+
+	expect(buildVariantUpdate(reloaded, { ...reloaded, stock: 8 })).toEqual({
+		stock: 8,
+		expectedStockRevision: 1,
+	});
 });
 
 it("turns a create response into a row, which has no picks yet", () => {
@@ -232,6 +288,7 @@ it("turns a create response into a row, which has no picks yet", () => {
 		sku: "FISH-NEW",
 		price: 15000,
 		stock: 4,
+		stockRevision: 0,
 		attributes: [],
 		// `VariantResponse` carries no media either, so a new row starts bare.
 		images: [],
@@ -283,6 +340,7 @@ it("keeps a row's picks when a PATCH response omits them", () => {
 		sku: "FISH-PENGUIN-TETRA-RED-TAIL",
 		price: 19000,
 		stock: 42,
+		stockRevision: 8,
 	});
 	// Merging those onto the row leaves its picks untouched.
 	const merged = { ...penguinTetraRows[1]!, ...fields };

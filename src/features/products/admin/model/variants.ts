@@ -36,6 +36,15 @@ export interface VariantRow {
 	sku: string;
 	price: number;
 	stock: number;
+	/**
+	 * The revision paired with `stock` when the row was read.
+	 *
+	 * A stock write must state it: the backend compares it while holding the
+	 * variant lock, so an edit based on stock that has since changed is refused
+	 * instead of overwriting a checkout. Null means the response did not carry
+	 * one; a stock edit then has no safe baseline and is refused before sending.
+	 */
+	stockRevision: number | null;
 	/** The variant's attribute picks, reused by the shared `AttributePicker`. */
 	attributes: VariantDetail["attributes"];
 	/** The variant's images, most recent last, as the backend returns them. */
@@ -56,6 +65,7 @@ export function toVariantRows(variants: readonly VariantDetail[]): VariantRow[] 
 		sku: variant.sku,
 		price: variant.price,
 		stock: variant.stock,
+		stockRevision: variant.stockRevision,
 		attributes: variant.attributes,
 		images: variant.media.map((media) => ({
 			mediaId: media.mediaId,
@@ -203,13 +213,24 @@ export function buildVariantUpdate(
 
 	if (next.stock !== saved.stock) {
 		update.stock = next.stock;
+		if (saved.stockRevision !== null) {
+			// The baseline the edit was made against, not whatever a later read
+			// would return: pairing a fresh revision with this older absolute
+			// stock would let the request overwrite an intervening checkout.
+			update.expectedStockRevision = saved.stockRevision;
+		}
 	}
 
 	return Object.keys(update).length === 0 ? null : update;
 }
 
+/** What a saved `VariantResponse` replaces on a row: its fields and baseline. */
+export type VariantRowFields = VariantRowValues & {
+	stockRevision: number | null;
+};
+
 /**
- * The three mutable fields from a `VariantResponse` — the DTO that
+ * The mutable fields from a `VariantResponse` — the DTO that
  * `POST /variants` and `PATCH /variants/{id}` both return.
  *
  * Its `stock` is a **nullable** `Integer` (`ProductService` overlays a scrubbed
@@ -218,15 +239,19 @@ export function buildVariantUpdate(
  * tell us", not "zero". A create has nothing to fall back to, so it passes `0`;
  * a patch must pass the row's current stock, because writing `0` there would
  * invent a stock level and silently zero the total.
+ *
+ * The revision is returned with the stock so a successful save moves the row's
+ * baseline too; keeping an old revision after a save would fail the next edit.
  */
 export function variantFieldsFromRecord(
 	record: VariantRecord,
 	fallbackStock: number,
-): VariantRowValues {
+): VariantRowFields {
 	return {
 		sku: record.sku,
 		price: record.price,
 		stock: record.stock ?? fallbackStock,
+		stockRevision: record.stockRevision,
 	};
 }
 

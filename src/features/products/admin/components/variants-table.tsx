@@ -32,6 +32,7 @@ import {
 	variantFieldsFromRecord,
 	variantImageFromUpload,
 	variantLabel,
+	type VariantRowFields,
 	type VariantImage,
 	type VariantRow,
 	type VariantRowErrors,
@@ -54,8 +55,8 @@ type VariantsTableProps = {
 	mayDelete: boolean;
 	/** Hides the image control without `media:create`. */
 	mayUploadImage: boolean;
-	/** Reported with only the three fields a `VariantResponse` describes. */
-	onFieldsSaved: (variantId: string, fields: VariantRowValues) => void;
+	/** Reported with the fields a `VariantResponse` describes, including its baseline. */
+	onFieldsSaved: (variantId: string, fields: VariantRowFields) => void;
 	onRemoved: (variantId: string) => void;
 	onEditAttributes: (variantId: string) => void;
 	/** Reported with just the new image, so a concurrent row edit survives. */
@@ -177,8 +178,16 @@ export function VariantsTable({
 			clearFeedback(row.variantId);
 		} catch (caught) {
 			if (isConflict(caught)) {
-				// The request carries three fields and only the SKU is unique, so a
-				// 409 is that duplicate. The server's own wording goes on the field.
+				if (update.stock !== undefined) {
+					// A stale stock revision and a duplicate SKU both answer 409,
+					// and only the server knows which. Leave the draft in place and
+					// report the server's wording; never retry with a newer revision,
+					// which would overwrite whatever changed while this row was open.
+					message.error(caught.message);
+					return;
+				}
+
+				// Without a stock write, a 409 is the globally unique SKU.
 				setRowErrors(row.variantId, { sku: caught.message });
 				return;
 			}

@@ -9,7 +9,7 @@ import {
 	totalVariantStock,
 	type VariantImage,
 	type VariantRow,
-	type VariantRowValues,
+	type VariantRowFields,
 } from "../model/variants";
 import { useCatalogPermissions } from "../use-catalog-permissions";
 import { VariantAttributesModal } from "./variant-attributes-modal";
@@ -29,11 +29,12 @@ type VariantsCardProps = {
 	variants: VariantRow[];
 	onVariantAdded: (row: VariantRow) => void;
 	/**
-	 * The three fields a `VariantResponse` can describe. Reported separately from
-	 * the picks because the response carries no attributes: merging the whole
-	 * row would revert picks added while the PATCH was in flight.
+	 * The fields a `VariantResponse` can describe, including the stock revision
+	 * that becomes the next edit's baseline. Reported separately from the picks
+	 * because the response carries no attributes: merging the whole row would
+	 * revert picks added while the PATCH was in flight.
 	 */
-	onVariantFieldsSaved: (variantId: string, fields: VariantRowValues) => void;
+	onVariantFieldsSaved: (variantId: string, fields: VariantRowFields) => void;
 	onVariantAttributesChanged: (
 		variantId: string,
 		attributes: VariantRow["attributes"],

@@ -107,6 +107,12 @@ export const VariantDetailSchema = z.object({
 	sku: z.string(),
 	price: z.number(),
 	stock: z.number().int(),
+	/**
+	 * The database revision paired with `stock`. The detail read overlays both
+	 * live, so an editor can send the revision it actually edited against;
+	 * cached aggregate rows carry null for both.
+	 */
+	stockRevision: z.number().int().nonnegative().nullable(),
 	attributes: z.array(VariantAttributeValueSchema),
 	media: z.array(MediaSchema),
 });

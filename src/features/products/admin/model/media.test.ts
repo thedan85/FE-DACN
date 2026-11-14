@@ -166,6 +166,7 @@ const variantWithImage: VariantDetail = {
 	sku: "MEDIA-PROBE-1",
 	price: 1000,
 	stock: 1,
+	stockRevision: 0,
 	attributes: [],
 	media: [
 		{

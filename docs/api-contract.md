@@ -48,11 +48,13 @@ updates and bodyless deletion need no revision. Current identical-stock writes
 do not advance the revision.
 
 `VariantResponse.stockRevision` is a nullable nonnegative number. Cached payloads
-scrub stock and revision; a live variant read overlays both. The existing editor
-receives a detail embed without revision, so `patchVariant` reads the authoritative
-variant immediately before a stock patch when the caller has no revision.
-Supplied revisions are never refreshed/replaced automatically. There is no retry
-after a conflict and no fabricated revision zero.
+scrub stock and revision; a live variant read overlays both. The detail embed's
+`variants[]` carries the same paired `stockRevision`, and the editor keeps it
+with the stock value it displayed, so a stock PATCH sends the revision the
+manager actually edited against. `patchVariant` refuses a stock write with no
+expected revision instead of reading a newer one; supplied revisions are never
+refreshed or replaced automatically. There is no retry after a conflict and no
+fabricated revision zero.
 
 Before the shapes: **the API on `localhost:8080` is local, the stores behind it are not.** PostgreSQL is a Supabase pooler in ap-southeast-2 and Redis is hosted, both shared with the whole team. That changes how this contract has to be used:
 

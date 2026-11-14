@@ -53,27 +53,18 @@ export async function patchVariant(
 	variantId: string,
 	input: VariantUpdateInput,
 ): Promise<VariantRecord> {
-	let body = input;
 	if (input.stock !== undefined && input.expectedStockRevision === undefined) {
-		// The detail embed has no revision; use the authoritative variant read, never a default.
-		const currentPayload = await apiFetch<unknown>(
-			`variants/${encodeURIComponent(variantId)}`,
-			{ headers: getAuthHeaders(), cache: "no-store" },
-		);
-		const current = parseOrThrow(
-			variantResponseSchema, currentPayload, "The current variant response",
-		).data;
-		if (current.stockRevision === null) {
-			throw new Error("Stock revision unavailable; refresh this variant.");
-		}
-		body = { ...input, expectedStockRevision: current.stockRevision };
+		// The revision belongs to the stock value the caller actually edited.
+		// Reading a newer one here would pair it with older absolute stock and
+		// overwrite whatever changed in between, so refuse instead of guessing.
+		throw new Error("Stock revision unavailable; refresh this variant.");
 	}
 	const payload = await apiFetch<unknown>(
 		`variants/${encodeURIComponent(variantId)}`,
 		{
 			method: "PATCH",
 			headers: getAuthHeaders(),
-			body: JSON.stringify(body),
+			body: JSON.stringify(input),
 		},
 	);
 

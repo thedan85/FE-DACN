@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api/client";
 
+import { buildVariantUpdate, toVariantRows } from "../model/variants";
 import { createVariant, deleteVariant, patchVariant } from "./variants.api";
 
 /**
@@ -74,38 +75,46 @@ it("creates a variant under /variants and returns its generated id", async () =>
 	});
 });
 
-it("patches an existing variant by its own id", async () => {
+it("patches an existing variant by its own id, sending the caller's revision", async () => {
 	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
 	const fetch = vi
 		.fn()
-		.mockResolvedValueOnce(jsonResponse(ok(created)))
 		.mockResolvedValueOnce(jsonResponse(ok({ ...created, stock: 9, stockRevision: 18 })));
 	vi.stubGlobal("fetch", fetch);
 
-	const variant = await patchVariant("VAR_FISH-NEW", { stock: 9 });
+	const variant = await patchVariant("VAR_FISH-NEW", {
+		stock: 9,
+		expectedStockRevision: 17,
+	});
 
 	expect(variant.stock).toBe(9);
 	expect(variant.stockRevision).toBe(18);
-	const [readUrl, readInit] = fetch.mock.calls[0];
-	expect(new URL(String(readUrl)).pathname).toBe("/api/v1/variants/VAR_FISH-NEW");
-	expect(readInit.method ?? "GET").toBe("GET");
-	const [url, init] = fetch.mock.calls[1];
+	// One request: the revision travels with the stock it belongs to, so there
+	// is no read that could replace it with a newer one.
+	expect(fetch).toHaveBeenCalledTimes(1);
+	const [url, init] = fetch.mock.calls[0];
 	expect(new URL(String(url)).pathname).toBe("/api/v1/variants/VAR_FISH-NEW");
 	// PATCH, not PUT: `VariantService.replace` delegates to `update`, so the two
 	// are the same request and there is no method choice to make.
 	expect(init.method).toBe("PATCH");
-	expect(JSON.parse(String(init.body))).toEqual({ stock: 9, expectedStockRevision: 17 });
+	expect(JSON.parse(String(init.body))).toEqual({
+		stock: 9,
+		expectedStockRevision: 17,
+	});
 });
 
-it("preserves a supplied revision rather than fetching a newer one", async () => {
+it("refuses a stock write that has no expected revision", async () => {
+	// A revision read at save time would describe a different stock value than
+	// the one being written; refusing keeps an old absolute edit from undoing a
+	// checkout. The caller must refresh and edit against the current row.
 	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
-	const fetch = vi.fn().mockResolvedValueOnce(jsonResponse(ok(created)));
+	const fetch = vi.fn();
 	vi.stubGlobal("fetch", fetch);
-	await patchVariant("v", { stock: 9, expectedStockRevision: 4 });
-	expect(fetch).toHaveBeenCalledTimes(1);
-	expect(JSON.parse(String(fetch.mock.calls[0]![1].body))).toEqual({
-		stock: 9, expectedStockRevision: 4,
-	});
+
+	await expect(patchVariant("v", { stock: 9 })).rejects.toThrow(
+		"Stock revision unavailable; refresh this variant.",
+	);
+	expect(fetch).not.toHaveBeenCalled();
 });
 
 it("does not fetch or invent a revision for a metadata-only patch", async () => {
@@ -117,11 +126,48 @@ it("does not fetch or invent a revision for a metadata-only patch", async () => 
 	expect(JSON.parse(String(fetch.mock.calls[0]![1].body))).toEqual({ sku: "new" });
 });
 
-it("refuses a stock write when the authoritative response has no revision", async () => {
+it("does not rebase an old stock edit onto a revision read at save", async () => {
+	// The full editor path: load stock 10/revision 0, edit to 9, and let a
+	// checkout commit stock 7/revision 1 before the blur. The request must carry
+	// the baseline the user saw, so the backend refuses it instead of letting
+	// the old absolute value restore two units of available stock.
 	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
-	const fetch = vi.fn().mockResolvedValueOnce(jsonResponse(ok({ ...created, stockRevision: null })));
+	const loaded = { ...created, stock: 10, stockRevision: 0 };
+	const row = toVariantRows([
+		{
+			variantId: loaded.variantId,
+			sku: loaded.sku,
+			price: loaded.price,
+			stock: loaded.stock,
+			stockRevision: loaded.stockRevision,
+			attributes: [],
+			media: [],
+		},
+	])[0]!;
+	const server = { ...loaded, stock: 7, stockRevision: 1 };
+	const fetch = vi.fn(async (_input: unknown, init?: RequestInit) => {
+		if (init?.method !== "PATCH") return jsonResponse(ok(server));
+		const body = JSON.parse(String(init.body)) as {
+			stock: number;
+			expectedStockRevision: number;
+		};
+		if (body.expectedStockRevision !== server.stockRevision) {
+			return jsonResponse(
+				{ code: 409, message: "Resource is busy; refresh state before trying again.", data: null },
+				409,
+			);
+		}
+		server.stock = body.stock;
+		server.stockRevision++;
+		return jsonResponse(ok(server));
+	});
 	vi.stubGlobal("fetch", fetch);
-	await expect(patchVariant("v", { stock: 9 })).rejects.toThrow("Stock revision unavailable; refresh this variant.");
+
+	const update = buildVariantUpdate(row, { sku: row.sku, price: row.price, stock: 9 });
+	if (update === null) throw new Error("The stock edit must produce a request");
+
+	await expect(patchVariant(row.variantId, update)).rejects.toMatchObject({ status: 409 });
+	expect(server.stock).toBe(7);
 	expect(fetch).toHaveBeenCalledTimes(1);
 });
 
