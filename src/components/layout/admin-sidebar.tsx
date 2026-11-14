@@ -4,6 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "antd";
+
+import {
+	ORDER_PERMISSIONS,
+	type OrderPermission,
+} from "@/features/orders/admin/model/order-permissions";
+import { useOrderPermissions } from "@/features/orders/admin/use-order-permissions";
+
 import styles from "./admin-sidebar.module.css";
 
 type AdminSidebarProps = {
@@ -20,6 +27,8 @@ type NavItem = {
 	icon: string;
 	/** Present only for items that route; inert items render with no destination. */
 	href?: string;
+	/** When set, the item renders only for accounts holding this permission. */
+	permission?: OrderPermission;
 };
 
 /** Static design data — the 11 nav items from the Figma admin design. */
@@ -29,7 +38,12 @@ const navItems: NavItem[] = [
 		icon: "/images/admin/nav/layout-dashboard.svg",
 		href: "/admin/dashboard",
 	},
-	{ label: "Orders", icon: "/images/admin/nav/shopping-bag.svg" },
+	{
+		label: "Orders",
+		icon: "/images/admin/nav/shopping-bag.svg",
+		href: "/admin/orders",
+		permission: ORDER_PERMISSIONS.read,
+	},
 	{
 		label: "Products & Variants",
 		icon: "/images/admin/nav/fish.svg",
@@ -62,6 +76,10 @@ export function AdminSidebar({
 	inDrawer = false,
 }: AdminSidebarProps) {
 	const pathname = usePathname();
+	const { can } = useOrderPermissions();
+	const visibleNavItems = navItems.filter(
+		(item) => item.permission === undefined || can(item.permission),
+	);
 
 	return (
 		<aside
@@ -78,7 +96,7 @@ export function AdminSidebar({
 
 			<nav className={styles.nav} aria-label="Admin sections">
 				<ul className={styles.navList}>
-					{navItems.map((item) => {
+					{visibleNavItems.map((item) => {
 						const isActive =
 							item.href !== undefined && isActivePath(pathname, item.href);
 						const icon = (
