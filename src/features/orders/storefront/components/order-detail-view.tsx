@@ -32,6 +32,7 @@ import type { OrderPayment, OrderView } from "../../types";
 import {
 	ORDER_STATUS_COPY,
 	PAYMENT_STATUS_COPY,
+	paymentBadgeLabel,
 	paymentMethodLabel,
 } from "../model/order-display";
 import { PayNowButton } from "./pay-now-button";
@@ -156,14 +157,6 @@ function paymentNote(payment: OrderPayment | null): string | null {
 	}
 
 	return null;
-}
-
-function paymentBadge(payment: OrderPayment): string {
-	if (payment.method === "CREDIT_CARD") {
-		return "VN";
-	}
-
-	return payment.method === "COD" ? "COD" : "PAY";
 }
 
 function PageFrame({ children }: { children: ReactNode }) {
@@ -323,7 +316,7 @@ function DeliveryAndPayment({ order }: { order: OrderView }) {
 					<>
 						<div className={styles.paymentRow}>
 							<span className={styles.paymentBadge} aria-hidden="true">
-								{paymentBadge(order.payment)}
+								{paymentBadgeLabel(order.payment)}
 							</span>
 							<span className={styles.paymentMethod}>
 								{paymentMethodLabel(order.payment.method)}
