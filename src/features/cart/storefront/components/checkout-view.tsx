@@ -23,12 +23,13 @@ import { useGhnAddress } from "@/features/shipping/hooks/use-ghn-address";
 import { useAuthStore } from "@/stores/auth-store";
 
 import { checkoutCart, createVnpayPaymentUrl } from "../../api/cart.api";
+import { VietQrPaymentModal } from "@/features/payments/storefront/components/vietqr-payment-modal";
 import { useCart } from "../hooks/use-cart";
 import styles from "./checkout-view.module.css";
 
 const PHONE_PATTERN = /^\+?[0-9]{10,15}$/;
 
-type PaymentChoice = "CREDIT_CARD" | "COD";
+type PaymentChoice = "CREDIT_CARD" | "COD" | "VIETQR";
 
 type CheckoutForm = {
 	recipientName: string;
@@ -57,6 +58,12 @@ const PAYMENT_OPTIONS: {
 		title: "COD – Cash on Delivery",
 		description: "Pay when you receive your order",
 		badge: "COD",
+	},
+	{
+		value: "VIETQR",
+		title: "VietQR bank transfer",
+		description: "Scan a QR code with your banking app",
+		badge: "QR",
 	},
 ];
 
@@ -149,6 +156,8 @@ export function CheckoutView() {
 	const [payment, setPayment] = useState<PaymentChoice>("CREDIT_CARD");
 	const [submitting, setSubmitting] = useState(false);
 	const [orderPlaced, setOrderPlaced] = useState(false);
+	const [placedQrOrderId, setPlacedQrOrderId] = useState<string | null>(null);
+	const [qrModalOpen, setQrModalOpen] = useState(false);
 	const [submitError, setSubmitError] = useState<SubmitError | null>(null);
 	const [provinceId, setProvinceId] = useState<number | null>(null);
 	const ghnAddress = useGhnAddress(provinceId);
@@ -265,6 +274,13 @@ export function CheckoutView() {
 		if (payment === "COD") {
 			message.success(`Order ${orderId} placed successfully.`);
 			router.replace("/account/orders");
+			return;
+		}
+
+		if (payment === "VIETQR") {
+			setSubmitting(false);
+			setPlacedQrOrderId(orderId);
+			setQrModalOpen(true);
 			return;
 		}
 
@@ -461,6 +477,20 @@ export function CheckoutView() {
 						</fieldset>
 					</section>
 
+					{placedQrOrderId && (
+						<Alert
+							type="success"
+							showIcon
+							role="alert"
+							title={`Order ${placedQrOrderId} placed. Scan the QR to pay.`}
+							description={
+								<Link className={styles.errorLink} href="/account/orders">
+									View your orders
+								</Link>
+							}
+						/>
+					)}
+
 					{submitError && (
 						<Alert
 							type="error"
@@ -562,6 +592,12 @@ export function CheckoutView() {
 					</ul>
 				</aside>
 			</form>
+
+			<VietQrPaymentModal
+				orderId={placedQrOrderId}
+				open={qrModalOpen}
+				onClose={() => setQrModalOpen(false)}
+			/>
 		</CheckoutFrame>
 	);
 }
