@@ -50,7 +50,7 @@ Details and measurements: `docs/verification.md` § The database and Redis are h
 |---|---|
 | Success shape | `ApiResponse {code, message, data}` — the payload is under `data`, never at the top. **[both]** |
 | `429` | An ordinary `ApiResponse` with `code: 429`, `data: null`, so `apiFetch` surfaces it as `ApiError(429)`. **[both]** |
-| `403` | **Empty body** on a permission failure, so there is no `message` to show. `apiFetch` falls back to a status-only message. **[both]** |
+| `403` | `ApiResponse{code:403, message:"Access denied"}`, via `CustomAccessDeniedHandler` (filter chain) / `GlobalExceptionHandler` (`@PreAuthorize`) — not an empty payload. **[source]** until re-verified live |
 | `409` duplicate slug | Carries `slug already exists: …` in `message`. **[both]** |
 | `409` duplicate SKU | Carries a message naming the SKU. **[both]** |
 
@@ -247,6 +247,25 @@ processed.
   browser talks only to these backend endpoints; both secrets stay in the
   backend `.env`. **[source]**
 
+### VietQR payment
+
+Verified against the `feature/payment` controller and service. The rows below
+are **[source]** until re-verified live.
+
+| Fact | Behaviour | Mark |
+|---|---|---|
+| `POST /payments/vietqr/{orderId}` | Requires a customer-owned order with method `VIETQR`, payment `PENDING`, and order `PENDING`; otherwise `400` (wrong method/payment/order state) or `404` (order or payment missing for this customer). The response is `{qrUrl, bankId, accountNo, accountName, amount, addInfo}` and `addInfo` is the order id | **[source]** |
+| Missing VietQR config | Missing `payment.vietqr.bank-id`, `account-no`, or `account-name` returns `503` (`VietQrNotConfiguredException` via `GlobalExceptionHandler`) | **[source]** |
+| `POST /staff/orders/{orderId}/payment/confirm` | Requires `order:update`; idempotent; may return `REFUND_REQUIRED` when the order was cancelled before settlement. It never returns `409`; an amount mismatch is a generic `500`. A successful confirm moves the order `PENDING` → `CONFIRMED`, so it also accepts the order | **[source]** |
+| `GET /staff/orders` | Requires `order:read`; uses 0-based pages with a maximum size of 100, and returns the normal `OrderPage` envelope | **[source]** |
+| QR image URL host | Public display data returned by the backend. Its host comes from backend config `payment.vietqr.image-base-url` (default `https://img.vietqr.io/image`), so the frontend must not assume `img.vietqr.io` in production copy or tests. Only the confirm response changes payment state | **[source]** |
+| `403` from confirm | A missing `order:update`. The backend body is `ApiResponse{code:403, message:"Access denied"}` from both `CustomAccessDeniedHandler` (filter chain) and `GlobalExceptionHandler` (`@PreAuthorize`), not an empty payload | **[source]** |
+
+The dedicated "You do not have permission to confirm payments." `message.error`
+stays as a UX choice, because it names the missing permission; the generic
+normalizer would show only "Access denied". This is recorded as a deliberate
+deviation from the normalizer, not as a body-shape fact.
+
 ## Permissions
 
 | Fact | Behaviour | Mark |
@@ -254,7 +273,7 @@ processed.
 | Codes | `product:create/update/delete`, `variant:*`, `category:*`, `attribute:*`, `attribute-value:*`, `media:*`, `order:read/update/complete`, exposed by `GET /auth/me` as `permissions[]` | **[both]** |
 | Enforced twice | `@PreAuthorize` on the controller method **and** URL rules in `SecurityConfig` | **[source]** |
 | Admin vs Employee | Both seeded accounts hold identical catalog rights; Admin's only extra is `order:complete`, so a catalog difference between them is **not observable** | **[both]** |
-| `403` shape | Empty body (not an `ApiResponse`), so the UI reports a status-only message | **[both]** |
+| `403` shape | `ApiResponse{code:403, message:"Access denied"}` via `CustomAccessDeniedHandler` (filter chain) / `GlobalExceptionHandler` (`@PreAuthorize`) | **[source]** until re-verified live |
 
 ## antd naming that reads like a backend fact
 
