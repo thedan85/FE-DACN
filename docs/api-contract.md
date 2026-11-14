@@ -38,6 +38,22 @@ shapes, not the behaviour.
 
 ## Envelope and errors
 
+### Manual variant stock writes (Inventory Task10, source verified)
+
+`PATCH` and `PUT /variants/{id}` require `expectedStockRevision` only when
+`stock` is supplied. Missing revision returns 400. A mismatched revision returns
+409 (`resource is busy; refresh state before trying again`), including an
+identical-stock stale write, with no partial SKU/price write. Metadata-only
+updates and bodyless deletion need no revision. Current identical-stock writes
+do not advance the revision.
+
+`VariantResponse.stockRevision` is a nullable nonnegative number. Cached payloads
+scrub stock and revision; a live variant read overlays both. The existing editor
+receives a detail embed without revision, so `patchVariant` reads the authoritative
+variant immediately before a stock patch when the caller has no revision.
+Supplied revisions are never refreshed/replaced automatically. There is no retry
+after a conflict and no fabricated revision zero.
+
 Before the shapes: **the API on `localhost:8080` is local, the stores behind it are not.** PostgreSQL is a Supabase pooler in ap-southeast-2 and Redis is hosted, both shared with the whole team. That changes how this contract has to be used:
 
 - **A `DELETE` is permanent.** `DELETE /products/{id}` sets `status = DELETED` and the row survives with its slug still reserved. A throwaway probe product is still there tomorrow, and still holding its slug. Creating such products is fine **in an agent session** (the coursework database is re-seeded before submission), but never from CI/CD — see `docs/verification.md` § Never put live end-to-end tests in CI.

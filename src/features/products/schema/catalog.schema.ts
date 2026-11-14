@@ -186,6 +186,7 @@ export const VariantSchema = z.object({
 	sku: z.string(),
 	price: z.number(),
 	stock: z.number().int().nullable(),
+	stockRevision: z.number().int().nonnegative().nullable(),
 	productId: z.string(),
 	productName: z.string(),
 	deleted: z.boolean().nullable(),
@@ -257,6 +258,7 @@ export const VariantUpdateRequestSchema = z.object({
 	sku: z.string().min(1).optional(),
 	price: z.number().nonnegative().optional(),
 	stock: z.number().int().nonnegative().optional(),
+	expectedStockRevision: z.number().int().nonnegative().optional(),
 });
 
 /** `ProductAttributeValueCreateRequest` — links a product to an attribute value. */

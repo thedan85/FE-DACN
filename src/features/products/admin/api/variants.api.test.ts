@@ -40,6 +40,7 @@ const created = {
 	sku: "FISH-NEW",
 	price: 15000,
 	stock: 4,
+	stockRevision: 17,
 	productId: "PRD_172",
 	productName: "Penguin Tetra",
 	deleted: false,
@@ -77,18 +78,62 @@ it("patches an existing variant by its own id", async () => {
 	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
 	const fetch = vi
 		.fn()
-		.mockResolvedValueOnce(jsonResponse(ok({ ...created, stock: 9 })));
+		.mockResolvedValueOnce(jsonResponse(ok(created)))
+		.mockResolvedValueOnce(jsonResponse(ok({ ...created, stock: 9, stockRevision: 18 })));
 	vi.stubGlobal("fetch", fetch);
 
 	const variant = await patchVariant("VAR_FISH-NEW", { stock: 9 });
 
 	expect(variant.stock).toBe(9);
-	const [url, init] = fetch.mock.calls[0];
+	expect(variant.stockRevision).toBe(18);
+	const [readUrl, readInit] = fetch.mock.calls[0];
+	expect(new URL(String(readUrl)).pathname).toBe("/api/v1/variants/VAR_FISH-NEW");
+	expect(readInit.method ?? "GET").toBe("GET");
+	const [url, init] = fetch.mock.calls[1];
 	expect(new URL(String(url)).pathname).toBe("/api/v1/variants/VAR_FISH-NEW");
 	// PATCH, not PUT: `VariantService.replace` delegates to `update`, so the two
 	// are the same request and there is no method choice to make.
 	expect(init.method).toBe("PATCH");
-	expect(JSON.parse(String(init.body))).toEqual({ stock: 9 });
+	expect(JSON.parse(String(init.body))).toEqual({ stock: 9, expectedStockRevision: 17 });
+});
+
+it("preserves a supplied revision rather than fetching a newer one", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = vi.fn().mockResolvedValueOnce(jsonResponse(ok(created)));
+	vi.stubGlobal("fetch", fetch);
+	await patchVariant("v", { stock: 9, expectedStockRevision: 4 });
+	expect(fetch).toHaveBeenCalledTimes(1);
+	expect(JSON.parse(String(fetch.mock.calls[0]![1].body))).toEqual({
+		stock: 9, expectedStockRevision: 4,
+	});
+});
+
+it("does not fetch or invent a revision for a metadata-only patch", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = vi.fn().mockResolvedValueOnce(jsonResponse(ok(created)));
+	vi.stubGlobal("fetch", fetch);
+	await patchVariant("v", { sku: "new" });
+	expect(fetch).toHaveBeenCalledTimes(1);
+	expect(JSON.parse(String(fetch.mock.calls[0]![1].body))).toEqual({ sku: "new" });
+});
+
+it("refuses a stock write when the authoritative response has no revision", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = vi.fn().mockResolvedValueOnce(jsonResponse(ok({ ...created, stockRevision: null })));
+	vi.stubGlobal("fetch", fetch);
+	await expect(patchVariant("v", { stock: 9 })).rejects.toThrow("Stock revision unavailable; refresh this variant.");
+	expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("surfaces a stock conflict without reading a newer revision or retrying", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = vi.fn().mockResolvedValueOnce(jsonResponse({
+		code: 409, message: "resource is busy; refresh state before trying again", data: null,
+	}, 409));
+	vi.stubGlobal("fetch", fetch);
+	await expect(patchVariant("v", { stock: 9, expectedStockRevision: 17 }))
+		.rejects.toMatchObject({ status: 409 });
+	expect(fetch).toHaveBeenCalledTimes(1);
 });
 
 it("deletes a variant by id", async () => {
