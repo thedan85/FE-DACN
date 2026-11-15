@@ -221,6 +221,20 @@ The optional ship body is `{address?, province?, ward?}`: a non-blank value
 repairs the stored order before shipping, which is how orders created before
 the migration get a GHN address.
 
+### Admin booking controls
+
+On `/admin/orders`, select **Confirmed** to find orders ready for shipping.
+**Ship with GHN** requires `order:update`, no existing GHN code, and either COD
+or a confirmed payment. Staff review the recipient and stored address before
+booking. **Edit delivery address** requires fresh province and ward selections;
+changing the province clears the ward. Legacy orders without those fields
+open the address editor automatically.
+
+Booking disables submission and dismissal while the request is in flight.
+Failures stay in the dialog for correction or retry. Success refreshes the
+queue and displays the GHN code, without changing the status to `SHIPPING`.
+Existing VietQR payment confirmation is unchanged.
+
 ### GHN webhook
 
 `POST /webhooks/ghn` is public but authenticated by the `X-GHN-Webhook-Token`

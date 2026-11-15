@@ -6,8 +6,8 @@ import { parseOrThrow } from "@/lib/api/parse";
 import { createApiResponseSchema } from "@/lib/api/schema";
 import type { OrderStatus } from "@/types";
 
-import { OrderPageSchema, PaymentStatusSchema } from "../../schema/order.schema";
-import type { OrderPage } from "../../types";
+import { OrderPageSchema, OrderSchema, PaymentStatusSchema } from "../../schema/order.schema";
+import type { Order, OrderPage } from "../../types";
 
 /**
  * Staff order API, verified against the backend `staff/orders` endpoints.
@@ -67,4 +67,30 @@ export async function confirmStaffPayment(
 		payload,
 		"The staff payment confirm response",
 	).data;
+}
+
+export type ShipOrderAddress = {
+	address: string;
+	province: string;
+	ward: string;
+};
+
+const shipOrderResponseSchema = createApiResponseSchema(
+	OrderSchema.extend({ ghnOrderCode: z.string().trim().min(1) }),
+);
+
+export async function shipStaffOrder(
+	orderId: string,
+	address?: ShipOrderAddress,
+): Promise<Order> {
+	const payload = await apiFetch<unknown>(
+		`staff/orders/${encodeURIComponent(orderId)}/ship`,
+		{
+			method: "POST",
+			headers: getAuthHeaders(),
+			...(address ? { body: JSON.stringify(address) } : {}),
+		},
+	);
+
+	return parseOrThrow(shipOrderResponseSchema, payload, "The GHN booking response").data;
 }

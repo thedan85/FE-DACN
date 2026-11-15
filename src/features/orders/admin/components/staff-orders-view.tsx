@@ -25,6 +25,7 @@ import {
 import { ORDER_PERMISSIONS } from "../model/order-permissions";
 import { useOrderPermissions } from "../use-order-permissions";
 import type { Order, OrderPage } from "../../types";
+import { ShipOrderModal } from "./ship-order-modal";
 import styles from "./staff-orders-view.module.css";
 
 const { Title, Text } = Typography;
@@ -66,6 +67,7 @@ export function StaffOrdersView() {
 	const [page, setPage] = useState(0);
 	const [reloadKey, setReloadKey] = useState(0);
 	const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+	const [shippingOrder, setShippingOrder] = useState<Order | null>(null);
 	const [state, setState] = useState<StaffOrdersState>({ status: "loading" });
 
 	useEffect(() => {
@@ -204,6 +206,11 @@ export function StaffOrdersView() {
 				order.payment ? PAYMENT_STATUS_LABELS[order.payment.status] : "—",
 		},
 		{
+			title: "GHN code",
+			key: "ghnOrderCode",
+			render: (_, order) => order.ghnOrderCode ? <Text code>{order.ghnOrderCode}</Text> : "—",
+		},
+		{
 			title: "Created",
 			key: "created",
 			render: (_, order) =>
@@ -212,9 +219,29 @@ export function StaffOrdersView() {
 		{
 			title: "Action",
 			key: "action",
-			width: 130,
+			width: 160,
 			render: (_, order) => {
 				const payment = order.payment;
+				const mayShip =
+					can(ORDER_PERMISSIONS.update) &&
+					order.status === "CONFIRMED" &&
+					order.ghnOrderCode === null &&
+					payment != null &&
+					(payment.method === "COD" || payment.status === "CONFIRMED");
+
+				if (mayShip) {
+					return (
+						<Button
+							type="primary"
+							size="small"
+							disabled={confirmingOrderId !== null}
+							onClick={() => setShippingOrder(order)}
+						>
+							Ship with GHN
+						</Button>
+					);
+				}
+
 				const mayConfirm =
 					can(ORDER_PERMISSIONS.update) &&
 					payment?.method === "VIETQR" &&
@@ -258,7 +285,7 @@ export function StaffOrdersView() {
 						Orders
 					</Title>
 					<Text type="secondary" className={styles.subtitle}>
-						Review the queue and confirm VietQR payments after checking the bank transfer.
+						Review the queue, confirm VietQR payments, and book confirmed orders with GHN.
 					</Text>
 				</div>
 			</header>
@@ -309,13 +336,25 @@ export function StaffOrdersView() {
 					rowKey="orderId"
 					columns={columns}
 					dataSource={state.page.content}
-					scroll={{ x: 960 }}
+					scroll={{ x: 1120 }}
 					pagination={{
 						current: page + 1,
 						total: state.page.totalElements,
 						pageSize: PAGE_SIZE,
 						showSizeChanger: false,
 						onChange: (next) => setPage(next - 1),
+					}}
+				/>
+			)}
+			{shippingOrder && can(ORDER_PERMISSIONS.update) && (
+				<ShipOrderModal
+					key={shippingOrder.orderId}
+					order={shippingOrder}
+					onClose={() => setShippingOrder(null)}
+					onBooked={(booked) => {
+						setShippingOrder(null);
+						message.success(`GHN shipment booked: ${booked.ghnOrderCode}. Awaiting pickup.`);
+						setReloadKey((key) => key + 1);
 					}}
 				/>
 			)}

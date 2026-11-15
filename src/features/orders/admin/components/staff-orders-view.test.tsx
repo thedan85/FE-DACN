@@ -1,17 +1,24 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "antd";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
-import { confirmStaffPayment, listStaffOrders } from "../api/staff-orders.api";
+import { confirmStaffPayment, listStaffOrders, shipStaffOrder } from "../api/staff-orders.api";
+import { getGhnProvinces, getGhnWards } from "@/features/shipping/api/shipping.api";
 import type { Order, OrderPage } from "@/features/orders/types";
 import { StaffOrdersView } from "./staff-orders-view";
 
 vi.mock("../api/staff-orders.api", () => ({
 	listStaffOrders: vi.fn(),
 	confirmStaffPayment: vi.fn(),
+	shipStaffOrder: vi.fn(),
+}));
+
+vi.mock("@/features/shipping/api/shipping.api", () => ({
+	getGhnProvinces: vi.fn(),
+	getGhnWards: vi.fn(),
 }));
 
 const user = {
@@ -61,6 +68,17 @@ const cancelledVietQrOrder: Order = {
 	},
 };
 
+const confirmedOrder: Order = {
+	...vietQrOrder,
+	orderId: "ORD_SHIP",
+	status: "CONFIRMED",
+	shippingProvince: "Hồ Chí Minh",
+	shippingWard: "Phường Sài Gòn",
+	payment: { ...vietQrOrder.payment!, method: "COD" },
+};
+
+const bookedOrder: Order = { ...confirmedOrder, ghnOrderCode: "GHN123" };
+
 function page(
 	orders = [vietQrOrder],
 	pageNumber = 0,
@@ -89,8 +107,20 @@ function renderView() {
 }
 
 beforeEach(() => {
+	// jsdom has no pseudo-element styles; Ant Design reads them to measure scrollbars.
+	const getComputedStyle = window.getComputedStyle;
+	vi.stubGlobal("getComputedStyle", (element: Element) => getComputedStyle(element));
 	vi.mocked(listStaffOrders).mockReset().mockResolvedValue(page());
 	vi.mocked(confirmStaffPayment).mockReset().mockResolvedValue({ status: "CONFIRMED" });
+	vi.mocked(shipStaffOrder).mockReset().mockResolvedValue(bookedOrder);
+	vi.mocked(getGhnProvinces).mockReset().mockResolvedValue([
+		{ id: 1, name: "Hồ Chí Minh" }, { id: 2, name: "Hanoi" },
+	]);
+	vi.mocked(getGhnWards).mockReset().mockImplementation(async (provinceId) =>
+		provinceId === 1
+			? [{ id: 10, name: "Phường Sài Gòn" }]
+			: [{ id: 20, name: "Ba Dinh" }],
+	);
 	useAuthStore.setState({ status: "authenticated", user });
 	vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
 		matches: false,
@@ -297,4 +327,209 @@ it("steps back when the confirmed row empties the last page", async () => {
 	await flush();
 
 	expect(listStaffOrders).toHaveBeenLastCalledWith({ page: 0, size: 20, status: "PENDING" });
+});
+
+it.each([
+	{ label: "confirmed COD", order: confirmedOrder, allowed: true },
+	{
+		label: "confirmed prepaid",
+		order: { ...confirmedOrder, payment: { ...confirmedOrder.payment!, method: "VIETQR" as const, status: "CONFIRMED" as const } },
+		allowed: true,
+	},
+	{ label: "pending", order: { ...confirmedOrder, status: "PENDING" as const }, allowed: false },
+	{ label: "in transit", order: { ...confirmedOrder, status: "SHIPPING" as const }, allowed: false },
+	{ label: "completed", order: { ...confirmedOrder, status: "COMPLETED" as const }, allowed: false },
+	{ label: "cancelled", order: { ...confirmedOrder, status: "CANCELLED" as const }, allowed: false },
+	{ label: "booked", order: bookedOrder, allowed: false },
+	{ label: "missing payment", order: { ...confirmedOrder, payment: null }, allowed: false },
+	{
+		label: "unpaid prepaid",
+		order: { ...confirmedOrder, payment: { ...confirmedOrder.payment!, method: "CREDIT_CARD" as const } },
+		allowed: false,
+	},
+])("gates GHN booking for $label orders", async ({ order, allowed }) => {
+	vi.mocked(listStaffOrders).mockResolvedValue(page([order]));
+	renderView();
+	await flush();
+
+	expect(Boolean(screen.queryByRole("button", { name: "Ship with GHN" }))).toBe(allowed);
+});
+
+it("hides shipping without order:update", async () => {
+	vi.mocked(listStaffOrders).mockResolvedValue(page([confirmedOrder]));
+	useAuthStore.setState({ user: { ...user, permissions: ["order:read"] } });
+	renderView();
+	await flush();
+
+	expect(screen.queryByRole("button", { name: "Ship with GHN" })).toBeNull();
+});
+
+it("requires confirmation and preserves the stored address without master-data calls", async () => {
+	vi.mocked(listStaffOrders).mockResolvedValue(page([confirmedOrder]));
+	renderView();
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Ship with GHN" }));
+
+	// Ant Design uses the same generated id for every component under NODE_ENV=test.
+	const dialog = screen.getByRole("dialog");
+	expect(within(dialog).getByText("Book GHN shipment")).toBeTruthy();
+	expect(within(dialog).getByText("Jane · 0900000000")).toBeTruthy();
+	expect(within(dialog).getByText("12 Le Loi, Phường Sài Gòn, Hồ Chí Minh")).toBeTruthy();
+	expect(within(dialog).getByText(/remains Confirmed until GHN reports pickup/)).toBeTruthy();
+	expect(shipStaffOrder).not.toHaveBeenCalled();
+	expect(getGhnProvinces).not.toHaveBeenCalled();
+
+	fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+	await flush();
+	expect(screen.queryByRole("dialog")).toBeNull();
+	expect(shipStaffOrder).not.toHaveBeenCalled();
+});
+
+it("books once, refreshes, and shows the code without claiming pickup", async () => {
+	vi.mocked(listStaffOrders)
+		.mockResolvedValueOnce(page([confirmedOrder]))
+		.mockResolvedValue(page([bookedOrder]));
+	renderView();
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Ship with GHN" }));
+	fireEvent.click(screen.getByRole("button", { name: "Book shipment" }));
+
+	await waitFor(() => expect(screen.getByText("GHN123")).toBeTruthy());
+	expect(shipStaffOrder).toHaveBeenCalledExactlyOnceWith("ORD_SHIP", undefined);
+	expect(listStaffOrders).toHaveBeenCalledTimes(2);
+	expect(screen.queryByRole("dialog")).toBeNull();
+	expect(screen.queryByRole("button", { name: "Ship with GHN" })).toBeNull();
+	expect(screen.getByText("Confirmed")).toBeTruthy();
+	expect(screen.queryByText("Shipping")).toBeNull();
+});
+
+it.each([
+	{ status: 403, message: "Forbidden", expected: "You do not have permission to book shipments." },
+	{ status: 409, message: "order already has GHN order: GHN456", expected: "order already has GHN order: GHN456" },
+	{ status: 502, message: "GHN is not configured", expected: "GHN is not configured" },
+	{ status: 0, message: "offline", expected: "Unable to reach the server. Please check your connection and try again." },
+])("keeps the booking dialog open on $status with an error", async ({ status, message, expected }) => {
+	vi.mocked(listStaffOrders).mockResolvedValue(page([confirmedOrder]));
+	vi.mocked(shipStaffOrder).mockRejectedValue(new ApiError(message, status));
+	renderView();
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Ship with GHN" }));
+	fireEvent.click(screen.getByRole("button", { name: "Book shipment" }));
+
+	expect(await screen.findByText(expected)).toBeTruthy();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+	expect(screen.queryByText(/GHN shipment booked:/)).toBeNull();
+	expect(shipStaffOrder).toHaveBeenCalledTimes(1);
+});
+
+it("blocks duplicate booking and dismissal while GHN is responding", async () => {
+	let resolveBooking!: (order: Order) => void;
+	vi.mocked(shipStaffOrder).mockReturnValue(new Promise((resolve) => { resolveBooking = resolve; }));
+	vi.mocked(listStaffOrders).mockResolvedValue(page([confirmedOrder]));
+	renderView();
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Ship with GHN" }));
+	const bookButton = screen.getByRole("button", { name: "Book shipment" });
+	fireEvent.click(bookButton);
+	fireEvent.click(bookButton);
+	await waitFor(() => expect(shipStaffOrder).toHaveBeenCalledTimes(1));
+
+	expect(bookButton.hasAttribute("disabled")).toBe(true);
+	expect(screen.getByRole("button", { name: "Cancel" }).hasAttribute("disabled")).toBe(true);
+	expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+
+	await act(async () => { resolveBooking(bookedOrder); });
+});
+
+it("repairs a legacy address and never submits a ward from the previous province", async () => {
+	vi.mocked(listStaffOrders).mockResolvedValue(page([{
+		...confirmedOrder, shippingProvince: null, shippingWard: null,
+	}]));
+	renderView();
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Ship with GHN" }));
+	fireEvent.click(screen.getByRole("button", { name: "Book shipment" }));
+	expect(await screen.findByText("Select a province or city.")).toBeTruthy();
+	expect(shipStaffOrder).not.toHaveBeenCalled();
+
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Province or city" }));
+	fireEvent.click(await screen.findByTitle("Hồ Chí Minh"));
+	await flush();
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Ward or commune" }));
+	fireEvent.click(await screen.findByTitle("Phường Sài Gòn"));
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Province or city" }));
+	fireEvent.click(await screen.findByTitle("Hanoi"));
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Book shipment" }));
+	expect(await screen.findByText("Select a ward or commune.")).toBeTruthy();
+	expect(shipStaffOrder).not.toHaveBeenCalled();
+
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Ward or commune" }));
+	fireEvent.click(await screen.findByTitle("Ba Dinh"));
+	fireEvent.change(screen.getByRole("textbox", { name: "Street address" }), {
+		target: { value: "   " },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Book shipment" }));
+	expect(await screen.findByText("Enter a street address.")).toBeTruthy();
+	expect(shipStaffOrder).not.toHaveBeenCalled();
+	fireEvent.change(screen.getByRole("textbox", { name: "Street address" }), {
+		target: { value: "  20 Tran Hung Dao  " },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Book shipment" }));
+	await waitFor(() => expect(shipStaffOrder).toHaveBeenCalledExactlyOnceWith("ORD_SHIP", {
+		address: "20 Tran Hung Dao", province: "Hanoi", ward: "Ba Dinh",
+	}));
+});
+
+it("lets staff edit a valid stored address before booking", async () => {
+	vi.mocked(listStaffOrders).mockResolvedValue(page([confirmedOrder]));
+	renderView();
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Ship with GHN" }));
+	fireEvent.click(screen.getByRole("button", { name: "Edit delivery address" }));
+
+	expect(await screen.findByRole("combobox", { name: "Province or city" })).toBeTruthy();
+	expect(screen.getByRole("textbox", { name: "Street address" }).getAttribute("value")).toBe("12 Le Loi");
+	fireEvent.click(screen.getByRole("button", { name: "Book shipment" }));
+	expect(await screen.findByText("Select a province or city.")).toBeTruthy();
+	expect(shipStaffOrder).not.toHaveBeenCalled();
+});
+
+it("offers Retry when address options fail to load", async () => {
+	vi.mocked(listStaffOrders).mockResolvedValue(page([{
+		...confirmedOrder, shippingProvince: null, shippingWard: null,
+	}]));
+	vi.mocked(getGhnProvinces).mockRejectedValueOnce(new ApiError("GHN unavailable", 502));
+	renderView();
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Ship with GHN" }));
+	expect(await screen.findByText("Could not load provinces. Please try again.")).toBeTruthy();
+	fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+	await waitFor(() => expect(screen.queryByText("Could not load provinces. Please try again.")).toBeNull());
+	expect(getGhnProvinces).toHaveBeenCalledTimes(2);
+});
+
+it("locks the corrected address while booking is in flight", async () => {
+	let resolveBooking!: (order: Order) => void;
+	vi.mocked(shipStaffOrder).mockReturnValue(new Promise((resolve) => { resolveBooking = resolve; }));
+	vi.mocked(listStaffOrders).mockResolvedValue(page([confirmedOrder]));
+	renderView();
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Ship with GHN" }));
+	fireEvent.click(screen.getByRole("button", { name: "Edit delivery address" }));
+	await flush();
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Province or city" }));
+	fireEvent.click(await screen.findByTitle("Hồ Chí Minh"));
+	await flush();
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Ward or commune" }));
+	fireEvent.click(await screen.findByTitle("Phường Sài Gòn"));
+	fireEvent.click(screen.getByRole("button", { name: "Book shipment" }));
+	await waitFor(() => expect(shipStaffOrder).toHaveBeenCalledTimes(1));
+
+	expect(screen.getByRole("textbox", { name: "Street address" }).hasAttribute("disabled")).toBe(true);
+	expect(screen.getByRole("combobox", { name: "Province or city" }).hasAttribute("disabled")).toBe(true);
+	expect(screen.getByRole("combobox", { name: "Ward or commune" }).hasAttribute("disabled")).toBe(true);
+
+	await act(async () => { resolveBooking(bookedOrder); });
 });

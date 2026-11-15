@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api/client";
 
-import { confirmStaffPayment, listStaffOrders } from "./staff-orders.api";
+import { confirmStaffPayment, listStaffOrders, shipStaffOrder } from "./staff-orders.api";
 
 vi.mock("@/features/auth/session", () => ({
 	getAuthHeaders: () => ({ Authorization: "Bearer test-token" }),
@@ -77,4 +77,83 @@ it("rejects a malformed confirm response", async () => {
 	vi.stubGlobal("fetch", fetch);
 
 	await expect(confirmStaffPayment("ORD_1")).rejects.toBeInstanceOf(ApiError);
+});
+
+const bookedOrder = {
+	orderId: "ORD_1",
+	customerId: "CUS_1",
+	customerName: "Jane",
+	status: "CONFIRMED",
+	total: 100000,
+	address: "12 Le Loi",
+	recipientName: "Jane",
+	phone: "0900000000",
+	shippingProvince: "Hồ Chí Minh",
+	shippingWard: "Phường Sài Gòn",
+	ghnOrderCode: "GHN123",
+	items: [],
+	createdAt: "2026-11-15T00:00:00Z",
+	updatedAt: "2026-11-15T00:00:00Z",
+	payment: {
+		method: "COD",
+		status: "PENDING",
+		transactionId: null,
+		paidAt: null,
+	},
+};
+
+it("books GHN with the stored address and returns the confirmed order", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+		code: 200, message: "OK", data: bookedOrder,
+	})));
+	vi.stubGlobal("fetch", fetch);
+
+	const result = await shipStaffOrder("ORD /1");
+
+	expect(result.ghnOrderCode).toBe("GHN123");
+	expect(result.status).toBe("CONFIRMED");
+	const [url, init] = fetch.mock.calls[0];
+	expect(String(url)).toBe("http://localhost:8080/api/v1/staff/orders/ORD%20%2F1/ship");
+	expect(init.method).toBe("POST");
+	expect(init.body).toBeUndefined();
+	expect(init.headers.get("Authorization")).toBe("Bearer test-token");
+});
+
+it("sends address corrections as names in the ship body", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+		code: 200, message: "OK", data: bookedOrder,
+	})));
+	vi.stubGlobal("fetch", fetch);
+
+	await shipStaffOrder("ORD_1", {
+		address: "12 Le Loi", province: "Hồ Chí Minh", ward: "Phường Sài Gòn",
+	});
+
+	expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+		address: "12 Le Loi", province: "Hồ Chí Minh", ward: "Phường Sài Gòn",
+	});
+});
+
+it("does not treat an order without a GHN code as a successful booking", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+		code: 200, message: "OK", data: { ...bookedOrder, ghnOrderCode: null },
+	}))));
+
+	await expect(shipStaffOrder("ORD_1")).rejects.toBeInstanceOf(ApiError);
+});
+
+it("surfaces a GHN failure without retrying the booking automatically", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+		code: 502, message: "GHN is not configured", data: null,
+	}), { status: 502 }));
+	vi.stubGlobal("fetch", fetch);
+
+	await expect(shipStaffOrder("ORD_1")).rejects.toMatchObject({
+		status: 502, message: "GHN is not configured",
+	});
+	expect(fetch).toHaveBeenCalledTimes(1);
 });
