@@ -10,7 +10,11 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { RealtimeConnectionManager } from "./connection-manager";
 import type { RealtimeCredential } from "./schema";
-import type { ReconcileContext } from "./types";
+import type {
+	RealtimeInterest,
+	RealtimeInterestState,
+	ReconcileContext,
+} from "./types";
 
 const NOW = 1_000_000;
 
@@ -1194,5 +1198,387 @@ describe("RealtimeConnectionManager lifecycle", () => {
 		await client.realtime.setAuth();
 
 		expect(client.realtime.accessTokenValue).toBeNull();
+	});
+
+	describe("interest readiness lifecycle", () => {
+		const stockP1: RealtimeInterest = { kind: "stock", productId: "p1" };
+
+		function observe(
+			instance: RealtimeConnectionManager,
+			interest: RealtimeInterest = stockP1,
+		) {
+			const states: RealtimeInterestState[] = [];
+			const contexts: ReconcileContext[] = [];
+			const off = instance.onInterestState(interest, (state, context) => {
+				states.push(state);
+				contexts.push(context);
+			});
+			return { states, contexts, off };
+		}
+
+		it("cancels each superseded delivery independently and suppresses unchanged snapshots", async () => {
+			const fetchCredentials = vi.fn<CredentialFetcher>(async () =>
+				credential(NOW + 300_000, { admittedProductIds: ["p1"] }),
+			);
+			const instance = manager(fetchCredentials);
+			instance.start();
+			const first = observe(instance);
+			const second = observe(instance);
+			const initial = first.contexts.at(-1)!;
+			const unsubscribe = instance.subscribeStock("p1", () => {});
+			expect(initial.signal.aborted).toBe(true);
+			expect(initial.isCurrent()).toBe(false);
+			const pending = first.contexts.at(-1)!;
+			expect(pending.signal.aborted).toBe(false);
+			await vi.advanceTimersByTimeAsync(0);
+			expect(pending.signal.aborted).toBe(true);
+			expect(pending.isCurrent()).toBe(false);
+			const admitted = first.contexts.at(-1)!;
+			const ack = fake.channels[0].subscribe.mock.calls[0][0];
+			ack("SUBSCRIBED");
+			expect(admitted.signal.aborted).toBe(true);
+			expect(admitted.isCurrent()).toBe(false);
+			const live = first.contexts.at(-1)!;
+			const otherLive = second.contexts.at(-1)!;
+			const count = first.states.length;
+			ack("SUBSCRIBED");
+			expect(first.states).toHaveLength(count);
+			expect(first.contexts.at(-1)).toBe(live);
+			expect(live.isCurrent()).toBe(true);
+			first.off();
+			expect(live.signal.aborted).toBe(true);
+			expect(live.isCurrent()).toBe(false);
+			expect(otherLive.signal.aborted).toBe(false);
+			expect(otherLive.isCurrent()).toBe(true);
+			unsubscribe();
+			expect(otherLive.signal.aborted).toBe(true);
+			expect(otherLive.isCurrent()).toBe(false);
+			expect(second.states.at(-1)?.status).toBe("disabled");
+			instance.stop();
+		});
+
+		it("coalesces independent stock and inbox ACKs without waiting for denied stock", async () => {
+			const fetchCredentials = vi.fn<CredentialFetcher>(async () =>
+				credential(NOW + 300_000, {
+					admittedProductIds: ["p1", "p2"],
+					inboxTopic: "inbox:test",
+				}),
+			);
+			const instance = manager(fetchCredentials);
+			instance.onInterestState(stockP1, () => {
+				throw new Error("observer failed");
+			});
+			const stock = observe(instance);
+			const secondStock = observe(instance, { kind: "stock", productId: "p2" });
+			const denied = observe(instance, { kind: "stock", productId: "p3" });
+			const inbox = observe(instance, { kind: "inbox" });
+			const reconcile = vi.fn();
+			instance.onReconcile(reconcile);
+			instance.subscribeStock("p1", () => {});
+			instance.subscribeStock("p2", () => {});
+			instance.subscribeStock("p3", () => {});
+			instance.subscribeInbox(() => {});
+			instance.start();
+			await vi.advanceTimersByTimeAsync(1_000);
+			fake.channels[0].subscribe.mock.calls[0][0]("SUBSCRIBED");
+			expect(stock.states.at(-1)?.status).toBe("live");
+			expect(secondStock.states.at(-1)).toEqual({
+				admission: "admitted", acknowledged: false, status: "connecting",
+			});
+			expect(inbox.states.at(-1)?.acknowledged).toBe(false);
+			fake.channels[1].subscribe.mock.calls[0][0]("SUBSCRIBED");
+			fake.channels[2].subscribe.mock.calls[0][0]("SUBSCRIBED");
+			await vi.advanceTimersByTimeAsync(0);
+			expect(reconcile).toHaveBeenCalledTimes(1);
+			expect(inbox.states.at(-1)).toEqual({
+				admission: "admitted", acknowledged: true, status: "live",
+			});
+			expect(instance.getStatus()).toBe("rest-only");
+			const deniedDeliveries = denied.states.length;
+			fake.channels[0].subscribe.mock.calls[0][0]("CHANNEL_ERROR");
+			expect(stock.states.at(-1)?.admission).toBe("pending");
+			expect(inbox.states.at(-1)?.admission).toBe("pending");
+			expect(denied.states).toHaveLength(deniedDeliveries);
+			expect(denied.states.at(-1)).toEqual({
+				admission: "denied", acknowledged: false, status: "rest-only",
+			});
+			instance.stop();
+		});
+
+		it("marks the existing coalescer dirty on the first ACK only", async () => {
+			const fetchCredentials = vi.fn<CredentialFetcher>(async () =>
+				credential(NOW + 300_000, { admittedProductIds: ["p1"] }),
+			);
+			const instance = manager(fetchCredentials);
+			const reconcile = vi.fn();
+			instance.onReconcile(reconcile);
+			instance.start();
+			instance.subscribeStock("p1", () => {});
+			await vi.advanceTimersByTimeAsync(0);
+			expect(fake.channel).toHaveBeenCalledTimes(1);
+			expect(reconcile).not.toHaveBeenCalled();
+
+			const ack = fake.channels[0].subscribe.mock.calls[0][0];
+			ack("SUBSCRIBED");
+			await vi.advanceTimersByTimeAsync(0);
+			expect(reconcile).toHaveBeenCalledTimes(1);
+
+			ack("SUBSCRIBED");
+			await vi.advanceTimersByTimeAsync(0);
+			expect(reconcile).toHaveBeenCalledTimes(1);
+
+			instance.stop();
+		});
+
+		it("retains an ACK while hidden and reconciles exactly once on focus", async () => {
+			let visibility: DocumentVisibilityState = "visible";
+			const fetchCredentials = vi.fn<CredentialFetcher>(async () =>
+				credential(NOW + 300_000, { admittedProductIds: ["p1"] }),
+			);
+			const instance = manager(fetchCredentials, {
+				visibility: () => visibility,
+			});
+			const reconcile = vi.fn();
+			instance.onReconcile(reconcile);
+			instance.start();
+			instance.subscribeStock("p1", () => {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			visibility = "hidden";
+			instance.notifyVisibilityChange();
+			fake.channels[0].subscribe.mock.calls[0][0]("SUBSCRIBED");
+			await vi.advanceTimersByTimeAsync(0);
+			expect(reconcile).not.toHaveBeenCalled();
+
+			visibility = "visible";
+			instance.notifyVisibilityChange();
+			await vi.advanceTimersByTimeAsync(0);
+			expect(reconcile).toHaveBeenCalledTimes(1);
+
+			instance.stop();
+		});
+
+		it("schedules one dirty follow-up for an ACK during an in-flight reconcile", async () => {
+			const fetchCredentials = vi.fn<CredentialFetcher>(async () =>
+				credential(NOW + 300_000, { admittedProductIds: ["p1"] }),
+			);
+			const instance = manager(fetchCredentials);
+			const pending: Array<() => void> = [];
+			const reconcile = vi.fn(
+				() =>
+					new Promise<void>((resolve) => {
+						pending.push(resolve);
+					}),
+			);
+			instance.onReconcile(reconcile);
+			instance.start();
+			instance.subscribeStock("p1", () => {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			await vi.advanceTimersByTimeAsync(30_000);
+			expect(reconcile).toHaveBeenCalledTimes(1);
+
+			const ack = fake.channels[0].subscribe.mock.calls[0][0];
+			ack("SUBSCRIBED");
+			ack("SUBSCRIBED");
+			await vi.advanceTimersByTimeAsync(0);
+			expect(reconcile).toHaveBeenCalledTimes(1);
+
+			pending[0]();
+			await vi.advanceTimersByTimeAsync(0);
+			expect(reconcile).toHaveBeenCalledTimes(2);
+			expect(pending).toHaveLength(2);
+
+			pending[1]();
+			await vi.advanceTimersByTimeAsync(0);
+			expect(reconcile).toHaveBeenCalledTimes(2);
+
+			instance.stop();
+		});
+
+		it("returns an admitted interest to pending on readiness loss and live on the next ACK", async () => {
+			const fetchCredentials = vi.fn<CredentialFetcher>(async () =>
+				credential(NOW + 300_000, { admittedProductIds: ["p1"] }),
+			);
+			const instance = manager(fetchCredentials);
+			const { states } = observe(instance);
+			instance.start();
+			instance.subscribeStock("p1", () => {});
+			await vi.advanceTimersByTimeAsync(0);
+			fake.channels[0].subscribe.mock.calls[0][0]("SUBSCRIBED");
+			expect(states.at(-1)?.status).toBe("live");
+
+			fake.channels[0].subscribe.mock.calls[0][0]("CHANNEL_ERROR");
+			expect(instance.getStatus()).toBe("connecting");
+			expect(states.at(-1)).toEqual({
+				admission: "pending",
+				acknowledged: false,
+				status: "connecting",
+			});
+
+			await vi.advanceTimersByTimeAsync(1_000);
+			await vi.advanceTimersByTimeAsync(500);
+			await vi.advanceTimersByTimeAsync(0);
+			expect(fake.channel).toHaveBeenCalledTimes(2);
+			expect(states.at(-1)).toEqual({
+				admission: "admitted",
+				acknowledged: false,
+				status: "connecting",
+			});
+
+			fake.channels[1].subscribe.mock.calls[0][0]("SUBSCRIBED");
+			expect(states.at(-1)).toEqual({
+				admission: "admitted",
+				acknowledged: true,
+				status: "live",
+			});
+
+			instance.stop();
+		});
+
+		it("returns an admitted interest to pending while a renewal is unresolved", async () => {
+			const pending: Array<(value: RealtimeCredential) => void> = [];
+			const fetchCredentials = vi
+				.fn<CredentialFetcher>()
+				.mockResolvedValueOnce(
+					credential(NOW + 300_000, { admittedProductIds: ["p1"] }),
+				)
+				.mockImplementationOnce(
+					() =>
+						new Promise<RealtimeCredential>((resolve) =>
+							pending.push(resolve),
+						),
+				);
+			const instance = manager(fetchCredentials);
+			const { states } = observe(instance);
+			instance.start();
+			instance.subscribeStock("p1", () => {});
+			await vi.advanceTimersByTimeAsync(0);
+			fake.channels[0].subscribe.mock.calls[0][0]("SUBSCRIBED");
+			expect(states.at(-1)?.status).toBe("live");
+
+			await vi.advanceTimersByTimeAsync(270_000);
+			expect(pending).toHaveLength(1);
+			expect(states.at(-1)).toEqual({
+				admission: "pending",
+				acknowledged: false,
+				status: "connecting",
+			});
+
+			pending[0](
+				credential(NOW + 600_000, { admittedProductIds: ["p1"] }),
+			);
+			await vi.advanceTimersByTimeAsync(0);
+			expect(states.at(-1)).toEqual({
+				admission: "admitted",
+				acknowledged: true,
+				status: "live",
+			});
+
+			instance.stop();
+		});
+
+		it("publishes the synchronous account reset, stop, and restart snapshots", async () => {
+			const fetchCredentials = vi.fn<CredentialFetcher>(async () =>
+				credential(NOW + 300_000, {
+					accessToken: "token-1",
+					admittedProductIds: ["p1"],
+				}),
+			);
+			const instance = manager(fetchCredentials);
+			const deliveries: Array<{
+				state: RealtimeInterestState;
+				context: ReconcileContext;
+			}> = [];
+			instance.onInterestState(stockP1, (state, context) => {
+				deliveries.push({ state, context });
+			});
+			instance.start();
+			instance.subscribeStock("p1", () => {});
+			await vi.advanceTimersByTimeAsync(0);
+			const oldAck = fake.channels[0].subscribe.mock.calls[0][0];
+			oldAck("SUBSCRIBED");
+			const live = deliveries.at(-1)!;
+			expect(live.state).toEqual({
+				admission: "admitted",
+				acknowledged: true,
+				status: "live",
+			});
+			expect(live.context.isCurrent()).toBe(true);
+
+			instance.setAccount("customer-2");
+			expect(live.context.signal.aborted).toBe(true);
+			expect(live.context.isCurrent()).toBe(false);
+			expect(deliveries.at(-1)?.state).toEqual({
+				admission: "pending",
+				acknowledged: false,
+				status: "connecting",
+			});
+
+			oldAck("SUBSCRIBED");
+			expect(deliveries.at(-1)?.state.acknowledged).toBe(false);
+
+			await vi.advanceTimersByTimeAsync(0);
+			const admittedAfterSwitch = deliveries.at(-1)!;
+			expect(admittedAfterSwitch.state).toEqual({
+				admission: "admitted",
+				acknowledged: false,
+				status: "connecting",
+			});
+
+			instance.stop();
+			expect(admittedAfterSwitch.context.signal.aborted).toBe(true);
+			expect(admittedAfterSwitch.context.isCurrent()).toBe(false);
+			const stopped = deliveries.at(-1)!;
+			expect(stopped.state).toEqual({
+				admission: "unavailable",
+				acknowledged: false,
+				status: "disabled",
+			});
+			expect(stopped.context.isCurrent()).toBe(false);
+
+			instance.start();
+			const restarted = deliveries.at(-1)!;
+			expect(restarted.state).toEqual({
+				admission: "unavailable",
+				acknowledged: false,
+				status: "disabled",
+			});
+			expect(restarted.context).not.toBe(stopped.context);
+			expect(restarted.context.isCurrent()).toBe(true);
+
+			instance.stop();
+		});
+
+		it("keeps the signal reference when an observer alone unsubscribes", async () => {
+			const fetchCredentials = vi.fn<CredentialFetcher>(async () =>
+				credential(NOW + 300_000, { admittedProductIds: ["p1"] }),
+			);
+			const instance = manager(fetchCredentials);
+			instance.start();
+			const unsubscribe = instance.subscribeStock("p1", () => {});
+			await vi.advanceTimersByTimeAsync(0);
+			fake.channels[0].subscribe.mock.calls[0][0]("SUBSCRIBED");
+			const first = observe(instance);
+			const second = observe(instance);
+			expect(first.states.at(-1)?.status).toBe("live");
+			expect(second.states.at(-1)?.status).toBe("live");
+
+			first.off();
+			expect(fake.removeChannel).not.toHaveBeenCalled();
+			expect(second.states.at(-1)?.status).toBe("live");
+			expect(instance.getInterestState(stockP1).status).toBe("live");
+
+			unsubscribe();
+			expect(second.states.at(-1)).toEqual({
+				admission: "unavailable",
+				acknowledged: false,
+				status: "disabled",
+			});
+			expect(fake.removeChannel).toHaveBeenCalledTimes(1);
+
+			second.off();
+			instance.stop();
+		});
 	});
 });

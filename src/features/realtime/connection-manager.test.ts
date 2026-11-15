@@ -14,6 +14,11 @@ import {
 } from "./connection-manager";
 import { JoinScheduler } from "./join-scheduler";
 import type { RealtimeCredential } from "./schema";
+import type {
+	RealtimeInterest,
+	RealtimeInterestState,
+	ReconcileContext,
+} from "./types";
 
 const { createClientMock } = vi.hoisted(() => ({ createClientMock: vi.fn() }));
 vi.mock("@supabase/supabase-js", () => ({ createClient: createClientMock }));
@@ -541,5 +546,320 @@ describe("RealtimeConnectionManager core", () => {
 
 		expect(fake.removeChannel).toHaveBeenCalled();
 		expect(instance.getStatus()).toBe("rest-only");
+	});
+
+	describe("interest readiness observation", () => {
+		const stockP1: RealtimeInterest = { kind: "stock", productId: "p1" };
+		const stockP2: RealtimeInterest = { kind: "stock", productId: "p2" };
+		const inbox: RealtimeInterest = { kind: "inbox" };
+
+		function observe(
+			instance: RealtimeConnectionManager,
+			interest: RealtimeInterest,
+		) {
+			const states: RealtimeInterestState[] = [];
+			const contexts: ReconcileContext[] = [];
+			const off = instance.onInterestState(interest, (state, context) => {
+				states.push(state);
+				contexts.push(context);
+			});
+			return { states, contexts, off };
+		}
+
+		it("observes without creating a signal reference, credential, client, or channel", async () => {
+			const instance = manager({ createClient: createClientMock });
+			instance.start();
+			const { states, contexts, off } = observe(instance, stockP1);
+
+			expect(states).toEqual([
+				{ admission: "unavailable", acknowledged: false, status: "disabled" },
+			]);
+			expect(contexts[0].isCurrent()).toBe(true);
+			expect(instance.getInterestState(stockP1)).toEqual(states[0]);
+			await Promise.resolve();
+			await Promise.resolve();
+			expect(fetchCredentials).not.toHaveBeenCalled();
+			expect(createClientMock).not.toHaveBeenCalled();
+			expect(fake.channel).not.toHaveBeenCalled();
+			expect(instance.getStatus()).toBe("rest-only");
+
+			off();
+			expect(contexts[0].isCurrent()).toBe(false);
+			expect(contexts[0].signal.aborted).toBe(true);
+			instance.stop();
+		});
+
+		it("reports unavailable/disabled while stopped even with realtime config", () => {
+			const instance = manager({ env: () => null });
+			const { states } = observe(instance, stockP1);
+
+			expect(instance.getInterestState(stockP1)).toEqual({
+				admission: "unavailable",
+				acknowledged: false,
+				status: "disabled",
+			});
+			expect(states).toHaveLength(1);
+
+			instance.stop();
+			expect(instance.getInterestState(stockP1)).toEqual(states[0]);
+		});
+
+		it("keeps an interest unavailable until its own signal reference exists", async () => {
+			const instance = manager({ joinScheduler: fastScheduler() });
+			const { states } = observe(instance, stockP1);
+			instance.start();
+
+			expect(states.at(-1)).toEqual({
+				admission: "unavailable",
+				acknowledged: false,
+				status: "disabled",
+			});
+			expect(fetchCredentials).not.toHaveBeenCalled();
+
+			instance.subscribeStock("p1", () => {});
+			expect(states.at(-1)).toEqual({
+				admission: "pending",
+				acknowledged: false,
+				status: "connecting",
+			});
+			await vi.waitFor(() => expect(fake.channel).toHaveBeenCalledTimes(1));
+			expect(states.at(-1)).toEqual({
+				admission: "admitted",
+				acknowledged: false,
+				status: "connecting",
+			});
+
+			fake.channels[0].subscribe.mock.calls[0][0]("SUBSCRIBED");
+			expect(states.at(-1)).toEqual({
+				admission: "admitted",
+				acknowledged: true,
+				status: "live",
+			});
+			expect(instance.getStatus()).toBe("live");
+
+			instance.stop();
+		});
+
+		it("reports disabled without a reference and degraded with a reference when config is absent", () => {
+			const instance = manager({ env: () => null });
+			instance.start();
+			const { states } = observe(instance, stockP1);
+			expect(states.at(-1)).toEqual({
+				admission: "unavailable",
+				acknowledged: false,
+				status: "disabled",
+			});
+			instance.subscribeStock("p1", () => {});
+
+			expect(states.at(-1)).toEqual({
+				admission: "unavailable",
+				acknowledged: false,
+				status: "degraded",
+			});
+			expect(instance.getStatus()).toBe("degraded");
+			instance.stop();
+		});
+
+		it("reports unavailable/degraded for a failed credential fetch", async () => {
+			fetchCredentials.mockRejectedValue(new Error("503"));
+			const instance = manager();
+			const { states } = observe(instance, stockP1);
+			instance.start();
+			instance.subscribeStock("p1", () => {});
+
+			await vi.waitFor(() =>
+				expect(states.at(-1)).toEqual({
+					admission: "unavailable",
+					acknowledged: false,
+					status: "degraded",
+				}),
+			);
+			expect(instance.getStatus()).toBe("degraded");
+			expect(fake.channel).not.toHaveBeenCalled();
+			instance.stop();
+		});
+
+		it("reports pending then admitted before the exact channel ACK", async () => {
+			const instance = manager({ joinScheduler: fastScheduler() });
+			const { states } = observe(instance, stockP1);
+			instance.start();
+			instance.subscribeStock("p1", () => {});
+
+			expect(states.at(-1)?.admission).toBe("pending");
+			await vi.waitFor(() => expect(fake.channel).toHaveBeenCalledTimes(1));
+			expect(states.at(-1)).toEqual({
+				admission: "admitted",
+				acknowledged: false,
+				status: "connecting",
+			});
+
+			const ack = fake.channels[0].subscribe.mock.calls[0][0];
+			ack("SUBSCRIBED");
+			expect(states.at(-1)).toEqual({
+				admission: "admitted",
+				acknowledged: true,
+				status: "live",
+			});
+			ack("SUBSCRIBED");
+			expect(
+				states.filter((state) => state.acknowledged),
+			).toHaveLength(1);
+
+			instance.stop();
+		});
+
+		it("does not let a stale ACK from a removed reference go live", async () => {
+			const instance = manager({ joinScheduler: fastScheduler() });
+			const { states } = observe(instance, stockP1);
+			instance.start();
+			const unsubscribe = instance.subscribeStock("p1", () => {});
+			await vi.waitFor(() => expect(fake.channel).toHaveBeenCalledTimes(1));
+			const ack = fake.channels[0].subscribe.mock.calls[0][0];
+			const beforeRemoval = states.length;
+
+			unsubscribe();
+			expect(states.at(-1)).toEqual({
+				admission: "unavailable",
+				acknowledged: false,
+				status: "disabled",
+			});
+
+			ack("SUBSCRIBED");
+			expect(states.length).toBe(beforeRemoval + 1);
+			expect(states.at(-1)?.acknowledged).toBe(false);
+			expect(instance.getInterestState(stockP1).acknowledged).toBe(false);
+			instance.stop();
+		});
+
+		it("keeps per-interest state independent from the aggregate status for mixed admission", async () => {
+			fetchCredentials.mockResolvedValue(
+				credential({ admittedProductIds: ["p1"], inboxTopic: null }),
+			);
+			const instance = manager({ joinScheduler: fastScheduler() });
+			const admitted = observe(instance, stockP1);
+			const denied = observe(instance, stockP2);
+			const guestInbox = observe(instance, inbox);
+			instance.start();
+			instance.subscribeStock("p1", () => {});
+			instance.subscribeStock("p2", () => {});
+			instance.subscribeInbox(() => {});
+
+			await vi.waitFor(() => expect(fake.channel).toHaveBeenCalledTimes(1));
+			expect(admitted.states.at(-1)).toEqual({
+				admission: "admitted",
+				acknowledged: false,
+				status: "connecting",
+			});
+			expect(denied.states.at(-1)).toEqual({
+				admission: "denied",
+				acknowledged: false,
+				status: "rest-only",
+			});
+			expect(guestInbox.states.at(-1)).toEqual({
+				admission: "denied",
+				acknowledged: false,
+				status: "rest-only",
+			});
+			expect(instance.getStatus()).toBe("rest-only");
+
+			fake.channels[0].subscribe.mock.calls[0][0]("SUBSCRIBED");
+			expect(admitted.states.at(-1)).toEqual({
+				admission: "admitted",
+				acknowledged: true,
+				status: "live",
+			});
+			expect(instance.getStatus()).toBe("rest-only");
+			expect(denied.states.at(-1)?.admission).toBe("denied");
+
+			instance.stop();
+		});
+
+		it("denies stock beyond the 24-topic cap while admitting the accepted topic", async () => {
+			const instance = manager({ joinScheduler: fastScheduler() });
+			const beyondCap = observe(instance, {
+				kind: "stock",
+				productId: "p24",
+			});
+			const accepted = observe(instance, stockP1);
+			instance.start();
+			for (let index = 0; index < 25; index += 1) {
+				instance.subscribeStock(`p${index}`, () => {});
+			}
+			await vi.waitFor(() =>
+				expect(fake.channel).toHaveBeenCalledTimes(24),
+			);
+
+			expect(beyondCap.states.at(-1)).toEqual({
+				admission: "denied",
+				acknowledged: false,
+				status: "rest-only",
+			});
+			expect(accepted.states.at(-1)?.admission).toBe("admitted");
+			fake.channels.find((channel) => channel.topic === "stock:p1")!
+				.subscribe.mock.calls[0][0]("SUBSCRIBED");
+			expect(accepted.states.at(-1)).toEqual({
+				admission: "admitted",
+				acknowledged: true,
+				status: "live",
+			});
+			expect(instance.getStatus()).toBe("rest-only");
+
+			instance.stop();
+		});
+
+		it("returns immutable snapshots that do not change on later transitions", async () => {
+			const instance = manager({ joinScheduler: fastScheduler() });
+			const { states } = observe(instance, stockP1);
+			instance.start();
+			const initial = states[0];
+			instance.subscribeStock("p1", () => {});
+			await vi.waitFor(() => expect(fake.channel).toHaveBeenCalledTimes(1));
+			const admitted = states.at(-1)!;
+			fake.channels[0].subscribe.mock.calls[0][0]("SUBSCRIBED");
+			const live = states.at(-1)!;
+
+			expect(initial).toEqual({
+				admission: "unavailable",
+				acknowledged: false,
+				status: "disabled",
+			});
+			expect(admitted).toEqual({
+				admission: "admitted",
+				acknowledged: false,
+				status: "connecting",
+			});
+			expect(live).toEqual({
+				admission: "admitted",
+				acknowledged: true,
+				status: "live",
+			});
+			expect(Object.isFrozen(live)).toBe(true);
+			expect(instance.getInterestState(stockP1)).not.toBe(live);
+
+			instance.stop();
+		});
+
+		it("isolates a throwing observer and still delivers to later observers", async () => {
+			const instance = manager({ joinScheduler: fastScheduler() });
+			instance.start();
+			const throwing = vi.fn(() => {
+				throw new Error("observer failed");
+			});
+			expect(() => instance.onInterestState(stockP1, throwing)).not.toThrow();
+			const { states } = observe(instance, stockP1);
+			expect(() => instance.subscribeStock("p1", () => {})).not.toThrow();
+			await vi.waitFor(() => expect(fake.channel).toHaveBeenCalledTimes(1));
+			fake.channels[0].subscribe.mock.calls[0][0]("SUBSCRIBED");
+
+			expect(throwing.mock.calls.length).toBeGreaterThanOrEqual(3);
+			expect(states.at(-1)).toEqual({
+				admission: "admitted",
+				acknowledged: true,
+				status: "live",
+			});
+			expect(instance.getStatus()).toBe("live");
+
+			instance.stop();
+		});
 	});
 });

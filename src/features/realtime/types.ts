@@ -24,5 +24,21 @@ export type ReconcileListener = (
 	context: ReconcileContext,
 ) => void | Promise<void>;
 
+/** A read-only readiness query. Observers never register a signal interest. */
+export type RealtimeInterest =
+	| { kind: "stock"; productId: string }
+	| { kind: "inbox" };
+
+export type RealtimeInterestState = Readonly<{
+	admission: "pending" | "admitted" | "denied" | "unavailable";
+	acknowledged: boolean;
+	status: RealtimeStatus;
+}>;
+
+export type RealtimeInterestListener = (
+	state: RealtimeInterestState,
+	context: ReconcileContext,
+) => void;
+
 export const STOCK_EVENT = "stock.changed";
 export const INBOX_EVENT = "inbox.changed";

@@ -13,6 +13,9 @@ import type { RealtimeCredential } from "./schema";
 import {
 	INBOX_EVENT,
 	STOCK_EVENT,
+	type RealtimeInterest,
+	type RealtimeInterestListener,
+	type RealtimeInterestState,
 	type RealtimeListener,
 	type RealtimeSignal,
 	type RealtimeStatus,
@@ -65,6 +68,34 @@ type OpenWaiter = {
 	timer: ReturnType<typeof setTimeout> | null;
 };
 
+type InterestObservation = {
+	listener: RealtimeInterestListener;
+	controller: AbortController | null;
+};
+
+function interestKey(interest: RealtimeInterest): string {
+	return interest.kind === "stock" ? `stock:${interest.productId}` : "inbox";
+}
+
+function snapshot(
+	admission: RealtimeInterestState["admission"],
+	acknowledged: boolean,
+	status: RealtimeStatus,
+): RealtimeInterestState {
+	return Object.freeze({ admission, acknowledged, status });
+}
+
+function sameSnapshot(
+	left: RealtimeInterestState,
+	right: RealtimeInterestState,
+): boolean {
+	return (
+		left.admission === right.admission &&
+		left.acknowledged === right.acknowledged &&
+		left.status === right.status
+	);
+}
+
 export type RealtimeManagerDeps = {
 	createClient?: (url: string, key: string) => SupabaseClient;
 	fetchCredentials?: (productIds: string[]) => Promise<RealtimeCredential>;
@@ -108,6 +139,17 @@ export class RealtimeConnectionManager {
 	private readonly stockRefs = new Map<string, Set<RealtimeListener>>();
 	private readonly inboxRefs = new Set<RealtimeListener>();
 	private readonly reconcileListeners = new Set<ReconcileListener>();
+	private readonly interestObservers = new Map<
+		string,
+		Set<InterestObservation>
+	>();
+	private readonly deliveredInterestStates = new Map<
+		string,
+		RealtimeInterestState
+	>();
+	private readonly lastAdmission = new Map<string, "admitted" | "denied">();
+	private phase: "idle" | "pending" | "resolved" = "idle";
+	private failure: "degraded" | "connecting" | null = null;
 	private generation = 0;
 	private attempt = 0;
 	private account: string | null = null;
@@ -178,9 +220,11 @@ export class RealtimeConnectionManager {
 		this.scheduleReconcile();
 		if (!this.env()) {
 			this.status = "degraded";
+			this.publishInterests(true);
 			return;
 		}
 		this.status = "rest-only";
+		this.publishInterests(true);
 		void this.sync();
 	}
 
@@ -204,11 +248,139 @@ export class RealtimeConnectionManager {
 		this.followUp = false;
 		this.reconcileInFlight = false;
 		this.syncRequested = false;
+		this.phase = "idle";
+		this.failure = null;
+		this.lastAdmission.clear();
 		this.status = this.env() ? "rest-only" : "degraded";
+		this.abortInterestDeliveries();
+		this.publishInterests(true);
 	}
 
 	getStatus(): RealtimeStatus {
 		return this.status;
+	}
+
+	getInterestState(interest: RealtimeInterest): RealtimeInterestState {
+		return this.computeInterestState(interestKey(interest));
+	}
+
+	private computeInterestState(key: string): RealtimeInterestState {
+		const referenced =
+			key === "inbox"
+				? this.inboxRefs.size > 0
+				: this.stockRefs.has(key.slice("stock:".length));
+		if (!this.started || !referenced) {
+			return snapshot("unavailable", false, "disabled");
+		}
+		if (!this.env() || this.failure === "degraded") {
+			return snapshot("unavailable", false, "degraded");
+		}
+		const admission = this.lastAdmission.get(key);
+		if (admission === "denied") {
+			return snapshot("denied", false, "rest-only");
+		}
+		if (this.phase !== "resolved" || !admission) {
+			return snapshot("pending", false, "connecting");
+		}
+		const topic = key === "inbox" ? this.credential?.inboxTopic : key;
+		const channel = topic ? this.channels.get(topic) : undefined;
+		const acknowledged =
+			topic !== null &&
+			topic !== undefined &&
+			channel !== undefined &&
+			this.acknowledged.get(topic) === channel;
+		return snapshot(
+			"admitted",
+			acknowledged,
+			acknowledged ? "live" : "connecting",
+		);
+	}
+
+	private deliverInterest(
+		observation: InterestObservation,
+		state: RealtimeInterestState,
+	): void {
+		observation.controller?.abort();
+		const controller = new AbortController();
+		const generation = this.generation;
+		observation.controller = controller;
+		const context: ReconcileContext = {
+			signal: controller.signal,
+			isCurrent: () =>
+				this.started &&
+				generation === this.generation &&
+				!controller.signal.aborted &&
+				observation.controller === controller,
+		};
+		try {
+			observation.listener(state, context);
+		} catch {
+			// Observation must not interrupt other resources or reconciliation.
+		}
+	}
+
+	private abortInterestDeliveries(): void {
+		for (const observations of this.interestObservers.values()) {
+			for (const observation of observations) {
+				observation.controller?.abort();
+			}
+		}
+	}
+
+	private publishInterests(force = false): void {
+		for (const [key, observations] of this.interestObservers) {
+			const state = this.computeInterestState(key);
+			const previous = this.deliveredInterestStates.get(key);
+			if (!force && previous && sameSnapshot(previous, state)) {
+				continue;
+			}
+			this.deliveredInterestStates.set(key, state);
+			for (const observation of [...observations]) {
+				// A listener may synchronously remove an observer or reset the account.
+				if (
+					this.deliveredInterestStates.get(key) !== state ||
+					!sameSnapshot(state, this.computeInterestState(key))
+				) {
+					break;
+				}
+				if (observations.has(observation)) {
+					this.deliverInterest(observation, state);
+				}
+			}
+		}
+	}
+
+	/** Observers survive stop/restart; they never own signal references. */
+	onInterestState(
+		interest: RealtimeInterest,
+		listener: RealtimeInterestListener,
+	): () => void {
+		const key = interestKey(interest);
+		let observations = this.interestObservers.get(key);
+		if (!observations) {
+			observations = new Set();
+			this.interestObservers.set(key, observations);
+		}
+		const observation: InterestObservation = { listener, controller: null };
+		observations.add(observation);
+		const state = this.computeInterestState(key);
+		if (!this.deliveredInterestStates.has(key)) {
+			this.deliveredInterestStates.set(key, state);
+		}
+		this.deliverInterest(observation, state);
+
+		return () => {
+			const current = this.interestObservers.get(key);
+			if (!current?.delete(observation)) {
+				return;
+			}
+			observation.controller?.abort();
+			observation.controller = null;
+			if (current.size === 0) {
+				this.interestObservers.delete(key);
+				this.deliveredInterestStates.delete(key);
+			}
+		};
 	}
 
 	subscribeStock(productId: string, listener: RealtimeListener): () => void {
@@ -219,6 +391,7 @@ export class RealtimeConnectionManager {
 		}
 		listeners.add(listener);
 		void this.sync();
+		this.publishInterests();
 
 		return () => {
 			const current = this.stockRefs.get(productId);
@@ -228,6 +401,8 @@ export class RealtimeConnectionManager {
 			current.delete(listener);
 			if (current.size === 0) {
 				this.stockRefs.delete(productId);
+				this.lastAdmission.delete(`stock:${productId}`);
+				this.publishInterests();
 				void this.removeChannel(`stock:${productId}`);
 				void this.sync();
 			}
@@ -237,10 +412,13 @@ export class RealtimeConnectionManager {
 	subscribeInbox(listener: RealtimeListener): () => void {
 		this.inboxRefs.add(listener);
 		void this.sync();
+		this.publishInterests();
 
 		return () => {
 			this.inboxRefs.delete(listener);
 			if (this.inboxRefs.size === 0) {
+				this.lastAdmission.delete("inbox");
+				this.publishInterests();
 				void this.removeChannel(this.credential?.inboxTopic ?? "");
 				void this.sync();
 			}
@@ -261,6 +439,8 @@ export class RealtimeConnectionManager {
 		}
 		this.account = next;
 		if (!this.started) {
+			this.abortInterestDeliveries();
+			this.publishInterests(true);
 			return;
 		}
 		this.generation += 1;
@@ -277,14 +457,20 @@ export class RealtimeConnectionManager {
 		this.denied = false;
 		this.teardown = this.teardownTransport();
 		this.reconnectAttempt = 0;
+		this.phase = "pending";
+		this.failure = null;
+		this.lastAdmission.clear();
+		this.abortInterestDeliveries();
 
 		const env = this.env();
 		if (!env) {
 			this.status = "degraded";
+			this.publishInterests(true);
 			this.scheduleReconcile();
 			return;
 		}
 		this.status = "rest-only";
+		this.publishInterests(true);
 		this.scheduleReconcile();
 		if (next !== null && (this.stockRefs.size > 0 || this.inboxRefs.size > 0)) {
 			void this.sync();
@@ -332,9 +518,15 @@ export class RealtimeConnectionManager {
 	private async doSync(generation: number, attempt: number): Promise<void> {
 		const env = this.env();
 		if (!env) {
+			this.phase = "idle";
+			this.failure = "degraded";
 			this.status = "degraded";
+			this.publishInterests();
 			return;
 		}
+		this.phase = "pending";
+		this.failure = null;
+		this.publishInterests();
 		const teardown = this.teardown;
 		const requestedAll = [...this.stockRefs.keys()];
 		const requested = requestedAll.slice(0, MAX_STOCK_TOPICS);
@@ -349,11 +541,14 @@ export class RealtimeConnectionManager {
 			this.expectedTopics.clear();
 			this.acknowledged.clear();
 			this.denied = false;
+			this.phase = "idle";
+			this.failure = null;
 			await this.disconnectIfIdle();
 			if (!this.isCurrent(generation, attempt)) {
 				return;
 			}
 			this.status = "rest-only";
+			this.publishInterests();
 			return;
 		}
 
@@ -370,6 +565,7 @@ export class RealtimeConnectionManager {
 		}
 
 		this.credential = credential;
+		this.phase = "resolved";
 		this.clearReconnectTimer();
 
 		const granted = new Set(credential.admittedProductIds);
@@ -385,6 +581,18 @@ export class RealtimeConnectionManager {
 			expected.add(inboxTopic);
 		}
 
+		this.expectedTopics = expected;
+		for (const id of requestedAll) {
+			if (this.stockRefs.has(id)) {
+				this.lastAdmission.set(
+					`stock:${id}`,
+					expected.has(`stock:${id}`) ? "admitted" : "denied",
+				);
+			}
+		}
+		if (wantsInbox && this.inboxRefs.size > 0) {
+			this.lastAdmission.set("inbox", inboxTopic ? "admitted" : "denied");
+		}
 		for (const topic of [...this.channels.keys()]) {
 			if (!expected.has(topic)) {
 				void this.removeChannel(topic);
@@ -395,11 +603,14 @@ export class RealtimeConnectionManager {
 				this.acknowledged.delete(topic);
 			}
 		}
-		this.expectedTopics = expected;
 		this.denied =
 			requestedAll.length > MAX_STOCK_TOPICS ||
 			requested.some((id) => !granted.has(id)) ||
 			(wantsInbox && !inboxTopic);
+		this.publishInterests();
+		if (!this.isCurrent(generation, attempt)) {
+			return;
+		}
 
 		if (expected.size === 0) {
 			this.clearRenewalTimer();
@@ -408,6 +619,7 @@ export class RealtimeConnectionManager {
 				return;
 			}
 			this.status = "rest-only";
+			this.publishInterests();
 			return;
 		}
 
@@ -503,9 +715,19 @@ export class RealtimeConnectionManager {
 				return;
 			}
 			if (state === "SUBSCRIBED") {
+				if (this.acknowledged.get(topic) === channel) {
+					return;
+				}
 				this.reconnectAttempt = 0;
 				this.acknowledged.set(topic, channel);
 				this.refreshStatus();
+				this.publishInterests();
+				if (
+					this.isCurrent(generation, attempt) &&
+					this.channels.get(topic) === channel
+				) {
+					this.markDirty();
+				}
 			} else if (
 				state === "CHANNEL_ERROR" ||
 				state === "TIMED_OUT" ||
@@ -561,6 +783,8 @@ export class RealtimeConnectionManager {
 			return;
 		}
 		this.attempt += 1;
+		this.phase = "pending";
+		this.failure = status === "degraded" ? "degraded" : "connecting";
 		this.credential = null;
 		this.expectedTopics.clear();
 		this.acknowledged.clear();
@@ -568,6 +792,7 @@ export class RealtimeConnectionManager {
 		this.clearRenewalTimer();
 		this.teardown = this.teardownTransport();
 		this.status = status;
+		this.publishInterests();
 		this.scheduleReconnect();
 	}
 
@@ -651,6 +876,12 @@ export class RealtimeConnectionManager {
 			this.dirty = true;
 			return;
 		}
+		this.dirty = false;
+		if (this.signalTimer) {
+			this.timers.clearTimeout(this.signalTimer);
+			this.signalTimer = null;
+		}
+		this.clearFollowUpTimer();
 		const run = ++this.reconcileRun;
 		const controller = new AbortController();
 		this.reconcileController = controller;
@@ -696,6 +927,10 @@ export class RealtimeConnectionManager {
 
 	private markDirty(): void {
 		if (!this.started) {
+			return;
+		}
+		if (this.visibility() === "hidden") {
+			this.dirty = true;
 			return;
 		}
 		if (this.reconcileInFlight) {
