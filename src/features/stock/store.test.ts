@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { RealtimeConnectionManager } from "@/features/realtime/connection-manager";
 import { JoinScheduler } from "@/features/realtime/join-scheduler";
 import { getSessionGeneration, setAccessToken, updateAccessToken, clearSession } from "@/features/auth/session";
+import * as session from "@/features/auth/session";
 import { useAuthStore } from "@/stores/auth-store";
 import { createStockStore } from "./store";
 import type { StockSnapshotInterest } from "./schema";
@@ -418,5 +419,105 @@ describe("shared stock store with accepted real manager", () => {
 		s.pending[1].resolve(payload(s.calls[1].input, 8));
 		await flush();
 		expect(s.store.getSnapshot(product("p")).stock).toBe(8);
+	});
+
+	it("contract gap: eagerly aborts a token-only session replacement without an auth-store notification", async () => {
+		const s = setup({ configured: false, auto: false });
+		s.register(product("p"));
+		await flush();
+		setAccessToken("token-only-replacement");
+		expect(s.calls[0].signal.aborted).toBe(true);
+	});
+
+	it.each(["replace", "clear"] as const)(
+		"synchronously invalidates a token-only %s, clears known stock, and waits for abort-ignoring settlement before a current full wave",
+		async (change) => {
+			setAccessToken("initial-session");
+			const s = setup({ configured: false, auto: false });
+			const releases = Array.from({ length: 201 }, (_, i) => s.register(product(`p${String(i).padStart(3, "0")}`)));
+			await flush();
+			s.pending[0].resolve(payload(s.calls[0].input, 4));
+			await flush();
+			expect(s.calls).toHaveLength(2);
+			expect(s.store.getSnapshot(product("p000")).stock).toBe(4);
+			if (change === "replace") setAccessToken("other-session");
+			else clearSession();
+			expect(s.calls[1].signal.aborted).toBe(true);
+			expect(s.store.getSnapshot(product("p000"))).toMatchObject({ stock: null, stockRevision: null, omitted: false });
+			// A changing viewport must replace the queue, not revive the old 201-ID wave.
+			for (const release of releases) release();
+			s.register(product("current"));
+			await flush();
+			expect(s.calls).toHaveLength(2);
+			s.pending[1].resolve(payload(s.calls[1].input, 999));
+			await flush();
+			expect(s.calls).toHaveLength(3);
+			expect(s.calls[2].input).toEqual({ productIds: ["current"], variantIds: [] });
+			expect(s.store.getSnapshot(product("p000")).stock).toBeNull();
+			expect(s.store.getSnapshot(product("current")).stock).toBeNull();
+			s.pending[2].resolve(payload(s.calls[2].input, 8));
+			await flush();
+			expect(s.store.getSnapshot(product("current")).stock).toBe(8);
+			expect(s.maximum()).toBe(1);
+		},
+	);
+
+	it("preserves an active wave across accepted and rejected refresh without abort or replacement dispatch", async () => {
+		setAccessToken("initial");
+		const s = setup({ configured: false, auto: false });
+		s.register(product("p"));
+		await flush();
+		const generation = getSessionGeneration();
+		expect(updateAccessToken("refreshed", generation)).toBe(true);
+		expect(updateAccessToken("obsolete", generation - 1)).toBe(false);
+		expect(s.calls[0].signal.aborted).toBe(false);
+		await flush();
+		expect(s.calls).toHaveLength(1);
+		s.pending[0].resolve(payload(s.calls[0].input, 6));
+		await flush();
+		expect(s.store.getSnapshot(product("p")).stock).toBe(6);
+		expect(s.calls).toHaveLength(1);
+	});
+
+	it("shares one canonical session observer and releases it only on the last stock reference", async () => {
+		const actualSubscribe = session.onSessionChange;
+		const unsubscriptions: Array<Mock<() => void>> = [];
+		const subscribe = vi.spyOn(session, "onSessionChange").mockImplementation((listener) => {
+			const unsubscribe = vi.fn(actualSubscribe(listener));
+			unsubscriptions.push(unsubscribe);
+			return unsubscribe;
+		});
+		const s = setup({ configured: false });
+		const first = s.register(product("p"));
+		const duplicate = s.register(product("p"));
+		const second = s.register(variant("v"));
+		await flush();
+		expect(subscribe).toHaveBeenCalledTimes(1);
+		const unsubscribe = unsubscriptions[0];
+		// Register a separate observer to verify stock cleanup does not clear other owners.
+		const unrelated = vi.fn();
+		const releaseUnrelated = session.onSessionChange(unrelated);
+		cleanups.push(releaseUnrelated);
+		first();
+		duplicate();
+		await flush();
+		expect(unsubscribe).not.toHaveBeenCalled();
+		expect(s.store.getSnapshot(variant("v")).stock).toBe(5);
+		second();
+		await flush();
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
+		const calls = s.calls.length;
+		setAccessToken("after-last-release");
+		await flush();
+		expect(unrelated).toHaveBeenCalledTimes(1);
+		expect(s.calls).toHaveLength(calls);
+		const again = s.register(product("p"));
+		await flush();
+		expect(subscribe).toHaveBeenCalledTimes(3);
+		// Calling the previous cleanup again must not remove the new subscription.
+		unsubscribe();
+		setAccessToken("after-reregistration");
+		expect(s.store.getSnapshot(product("p")).stock).toBeNull();
+		again();
 	});
 });

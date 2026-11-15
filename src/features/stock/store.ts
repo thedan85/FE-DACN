@@ -2,7 +2,7 @@
 
 import { realtimeManager, type RealtimeConnectionManager } from "@/features/realtime/connection-manager";
 import type { RealtimeInterestState, ReconcileContext } from "@/features/realtime/types";
-import { getSessionGeneration } from "@/features/auth/session";
+import { getSessionGeneration, onSessionChange } from "@/features/auth/session";
 import { useAuthStore } from "@/stores/auth-store";
 import { fetchStockSnapshots } from "./api/stock.api";
 import { stockIdSchema, type StockSnapshotInterest, type StockSnapshotState } from "./schema";
@@ -41,6 +41,7 @@ export function createStockStore(manager: RealtimeConnectionManager = realtimeMa
 	let nextContext: ReconcileContext | undefined;
 	let releaseReconcile: (() => void) | undefined;
 	let releaseAuth: (() => void) | undefined;
+	let releaseSession: (() => void) | undefined;
 
 	function emit() {
 		for (const listener of [...listeners]) listener();
@@ -179,6 +180,7 @@ export function createStockStore(manager: RealtimeConnectionManager = realtimeMa
 					account = owner();
 					releaseReconcile = manager.onReconcile((context) => request(context));
 					releaseAuth = useAuthStore.subscribe(accountChanged);
+					releaseSession = onSessionChange(accountChanged);
 				}
 				let parent = parents.get(interest.productId);
 				if (!parent) {
@@ -211,8 +213,10 @@ export function createStockStore(manager: RealtimeConnectionManager = realtimeMa
 				if (entries.size === 0) {
 					releaseReconcile?.();
 					releaseAuth?.();
+					releaseSession?.();
 					releaseReconcile = undefined;
 					releaseAuth = undefined;
+					releaseSession = undefined;
 				}
 				void request();
 				emit();
