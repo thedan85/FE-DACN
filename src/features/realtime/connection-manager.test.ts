@@ -553,6 +553,176 @@ describe("RealtimeConnectionManager core", () => {
 		const stockP2: RealtimeInterest = { kind: "stock", productId: "p2" };
 		const inbox: RealtimeInterest = { kind: "inbox" };
 
+		async function liveManager() {
+			vi.useFakeTimers();
+			vi.setSystemTime(0);
+			fetchCredentials.mockImplementation(async (ids) =>
+				credential({
+					admittedProductIds: ids,
+					expiresAt: new Date(Date.now() + 300_000).toISOString(),
+				}),
+			);
+			const instance = manager({ joinScheduler: fastScheduler() });
+			instance.subscribeStock("p1", () => {});
+			instance.start();
+			await vi.advanceTimersByTimeAsync(0);
+			const ack = fake.channels[0].subscribe.mock.calls[0][0];
+			ack("SUBSCRIBED");
+			await vi.advanceTimersByTimeAsync(0);
+			return { instance, ack };
+		}
+
+		it("serializes credential work when a pending observer registers another interest", async () => {
+			const { instance } = await liveManager();
+			let armed = false;
+			instance.onInterestState(stockP1, (state) => {
+				if (armed && state.admission === "pending") {
+					armed = false;
+					instance.subscribeStock("p3", () => {});
+				}
+			});
+			const pending: Array<{
+				ids: string[];
+				resolve: (ids: string[]) => void;
+			}> = [];
+			let active = 0;
+			let maximumActive = 0;
+			fetchCredentials.mockImplementation(
+				(ids) => {
+					active += 1;
+					maximumActive = Math.max(maximumActive, active);
+					return new Promise<RealtimeCredential>((resolve) => pending.push({
+						ids,
+						resolve: (admittedProductIds) => {
+							active -= 1;
+							resolve(credential({
+								admittedProductIds,
+								expiresAt: new Date(Date.now() + 300_000).toISOString(),
+							}));
+						},
+					}));
+				},
+			);
+			armed = true;
+			instance.subscribeStock("p2", () => {});
+			try {
+				expect(instance.getInterestState(stockP1).admission).toBe("pending");
+				await vi.advanceTimersByTimeAsync(0);
+				expect(pending).toHaveLength(1);
+				expect(pending[0].ids).toEqual(["p1", "p2", "p3"]);
+				instance.subscribeStock("p4", () => {});
+				await vi.advanceTimersByTimeAsync(0);
+				expect(pending).toHaveLength(1);
+				pending[0].resolve([]);
+				await vi.advanceTimersByTimeAsync(0);
+				expect(pending).toHaveLength(2);
+				expect(pending[1].ids).toEqual(["p1", "p2", "p3", "p4"]);
+				pending[1].resolve(pending[1].ids);
+				await vi.advanceTimersByTimeAsync(0);
+				expect(maximumActive).toBe(1);
+				expect(active).toBe(0);
+				expect(fetchCredentials).toHaveBeenCalledTimes(3);
+				expect(instance.getInterestState({ kind: "stock", productId: "p3" }))
+					.toEqual({ admission: "admitted", acknowledged: false, status: "connecting" });
+				fake.channels.findLast((channel) => channel.topic === "stock:p3")!
+					.subscribe.mock.calls[0][0]("SUBSCRIBED");
+				expect(instance.getInterestState({ kind: "stock", productId: "p3" }).status)
+					.toBe("live");
+				await vi.advanceTimersByTimeAsync(0);
+				expect(pending).toHaveLength(2);
+			} finally {
+				instance.stop();
+			}
+		});
+
+		it("preserves the replacement flight when a pending observer resets the account", async () => {
+			const { instance, ack: oldAck } = await liveManager();
+			let armed = false;
+			let resetContext: ReconcileContext | undefined;
+			instance.onInterestState(stockP1, (state, context) => {
+				if (armed && state.admission === "pending") {
+					armed = false;
+					resetContext = context;
+					instance.setAccount("replacement");
+				}
+			});
+			const pending: Array<{
+				ids: string[];
+				resolve: (value: RealtimeCredential) => void;
+			}> = [];
+			fetchCredentials.mockImplementation((ids) =>
+				new Promise<RealtimeCredential>((resolve) => pending.push({ ids, resolve })),
+			);
+			armed = true;
+			instance.subscribeStock("p2", () => {});
+			try {
+				expect(resetContext).toBeDefined();
+				expect(resetContext!.signal.aborted).toBe(true);
+				expect(resetContext!.isCurrent()).toBe(false);
+				await vi.advanceTimersByTimeAsync(0);
+				expect(pending).toHaveLength(1);
+				oldAck("SUBSCRIBED");
+				expect(instance.getInterestState(stockP1).acknowledged).toBe(false);
+
+				instance.subscribeStock("p3", () => {});
+				await vi.advanceTimersByTimeAsync(0);
+				expect(pending).toHaveLength(1);
+				pending[0].resolve(credential({
+					admittedProductIds: ["p2"],
+					expiresAt: new Date(Date.now() + 300_000).toISOString(),
+				}));
+				await vi.advanceTimersByTimeAsync(0);
+				expect(pending).toHaveLength(2);
+				expect(pending[1].ids).toEqual(["p1", "p2", "p3"]);
+				pending[1].resolve(credential({
+					admittedProductIds: ["p2", "p3"],
+					expiresAt: new Date(Date.now() + 300_000).toISOString(),
+				}));
+				await vi.advanceTimersByTimeAsync(0);
+				oldAck("SUBSCRIBED");
+				expect(instance.getInterestState(stockP1)).toEqual({
+					admission: "denied", acknowledged: false, status: "rest-only",
+				});
+				expect(instance.getInterestState({ kind: "stock", productId: "p3" }).admission)
+					.toBe("admitted");
+				expect(fake.channels.filter((channel) => channel.topic === "stock:p1"))
+					.toHaveLength(1);
+				expect(fetchCredentials).toHaveBeenCalledTimes(3);
+			} finally {
+				instance.stop();
+			}
+		});
+
+		it("issues no stale work when a pending observer stops the manager", async () => {
+			const { instance, ack: oldAck } = await liveManager();
+			let armed = false;
+			let stoppedContext: ReconcileContext | undefined;
+			const liveContexts: ReconcileContext[] = [];
+			instance.onInterestState(stockP1, (state, context) => {
+				if (state.status === "live") liveContexts.push(context);
+				if (armed && state.admission === "pending") {
+					armed = false;
+					stoppedContext = context;
+					instance.stop();
+				}
+			});
+			armed = true;
+			instance.subscribeStock("p2", () => {});
+			expect(stoppedContext).toBeDefined();
+			expect(stoppedContext!.signal.aborted).toBe(true);
+			expect(stoppedContext!.isCurrent()).toBe(false);
+			expect(liveContexts[0].signal.aborted).toBe(true);
+			expect(liveContexts[0].isCurrent()).toBe(false);
+			oldAck("SUBSCRIBED");
+			await vi.advanceTimersByTimeAsync(0);
+			expect(fetchCredentials).toHaveBeenCalledTimes(1);
+			expect(fake.channel).toHaveBeenCalledTimes(1);
+			expect(fake.client.realtime.setAuth).toHaveBeenCalledTimes(1);
+			expect(instance.getInterestState(stockP1)).toEqual({
+				admission: "unavailable", acknowledged: false, status: "disabled",
+			});
+		});
+
 		function observe(
 			instance: RealtimeConnectionManager,
 			interest: RealtimeInterest,

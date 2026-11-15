@@ -501,7 +501,12 @@ export class RealtimeConnectionManager {
 		this.syncRequested = false;
 		const generation = this.generation;
 		const attempt = this.attempt;
-		const promise = this.doSync(generation, attempt).finally(() => {
+		let resolveFlight!: () => void;
+		let rejectFlight!: (reason: unknown) => void;
+		const promise = new Promise<void>((resolve, reject) => {
+			resolveFlight = resolve;
+			rejectFlight = reject;
+		}).finally(() => {
 			if (this.syncInFlight?.promise !== promise) {
 				return;
 			}
@@ -512,6 +517,8 @@ export class RealtimeConnectionManager {
 			}
 		});
 		this.syncInFlight = { attempt, promise };
+		// Pending observers may synchronously register, reset the account, or stop.
+		void this.doSync(generation, attempt).then(resolveFlight, rejectFlight);
 		return promise;
 	}
 
