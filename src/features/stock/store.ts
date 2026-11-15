@@ -75,7 +75,7 @@ export function createStockStore(manager: RealtimeConnectionManager = realtimeMa
 	function observeParent(productId: string, readiness: RealtimeInterestState) {
 		const affected = [...entries.values()].filter((entry) => entry.interest.productId === productId);
 		if (!affected.some((entry) => !sameReadiness(entry.state.readiness, readiness))) return;
-		invalidate();
+		// Readiness is not a stock change; foundation's ACK barrier owns fresh reads.
 		for (const entry of affected) {
 			if (!sameReadiness(entry.state.readiness, readiness)) update(entry, { readiness });
 		}

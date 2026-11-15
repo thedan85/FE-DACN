@@ -143,6 +143,147 @@ describe("shared stock store with accepted real manager", () => {
 		expect(s.maximum()).toBe(1);
 	});
 
+	it("review: preserves the initial REST snapshot when delayed admission denies every topic", async () => {
+		const s = setup({ auto: false });
+		const lease = deferred<{
+			accessToken: string;
+			expiresAt: string;
+			admittedProductIds: string[];
+			inboxTopic: null;
+		}>();
+		s.credentials.mockImplementation(() => lease.promise);
+		s.register(product("p"));
+		await flush();
+		expect(s.calls).toHaveLength(1);
+		expect(s.store.getSnapshot(product("p")).readiness.admission).toBe("pending");
+
+		lease.resolve({
+			accessToken: "local-denied-lease",
+			expiresAt: new Date(Date.now() + 300_000).toISOString(),
+			admittedProductIds: [],
+			inboxTopic: null,
+		});
+		await flush();
+		expect(s.store.getSnapshot(product("p")).readiness.admission).toBe("denied");
+		s.pending[0].resolve(payload(s.calls[0].input, 7));
+		await flush();
+		expect(s.store.getSnapshot(product("p"))).toMatchObject({
+			stock: 7,
+			loading: false,
+			readiness: { admission: "denied", acknowledged: false, status: "rest-only" },
+		});
+		expect(s.calls[0].signal.aborted).toBe(false);
+		expect(s.calls).toHaveLength(1);
+		expect(s.channels).toHaveLength(0);
+		expect(s.maximum()).toBe(1);
+	});
+
+	it("preserves REST across delayed admitted readiness without ACK, then rereads only through the ACK barrier", async () => {
+		const s = setup({ auto: false });
+		const lease = deferred<Awaited<ReturnType<typeof s.credentials>>>();
+		s.credentials.mockImplementation(() => lease.promise);
+		s.register(product("p"));
+		await flush();
+		expect(s.calls).toHaveLength(1);
+		expect(s.store.getSnapshot(product("p")).readiness.admission).toBe("pending");
+		lease.resolve({
+			accessToken: "local-admitted-lease",
+			expiresAt: new Date(Date.now() + 300_000).toISOString(),
+			admittedProductIds: ["p"], inboxTopic: null,
+		});
+		await flush();
+		expect(s.store.getSnapshot(product("p")).readiness).toMatchObject({
+			admission: "admitted", acknowledged: false, status: "connecting",
+		});
+		expect(s.calls[0].signal.aborted).toBe(false);
+		expect(s.calls).toHaveLength(1);
+		s.pending[0].resolve(payload(s.calls[0].input, 7));
+		await flush();
+		expect(s.store.getSnapshot(product("p")).stock).toBe(7);
+		expect(s.calls).toHaveLength(1);
+		s.channels[0].status("SUBSCRIBED");
+		expect(s.store.getSnapshot(product("p")).readiness.status).toBe("live");
+		expect(s.calls).toHaveLength(1);
+		await vi.advanceTimersByTimeAsync(0);
+		await flush();
+		expect(s.calls).toHaveLength(2);
+		s.pending[1].resolve(payload(s.calls[1].input, 9));
+		await flush();
+		expect(s.store.getSnapshot(product("p")).stock).toBe(9);
+		expect(s.maximum()).toBe(1);
+	});
+
+	it("preserves an active full wave across ACK and awaits a fresh full follow-up before foundation continues", async () => {
+		const s = setup({ auto: false });
+		for (let i = 0; i < 101; i += 1) s.register(variant(`v${String(i).padStart(3, "0")}`));
+		await flush();
+		expect(s.calls).toHaveLength(1);
+		const afterStock = vi.fn();
+		s.manager.onReconcile(afterStock);
+		s.channels[0].status("SUBSCRIBED");
+		expect(s.calls[0].signal.aborted).toBe(false);
+		expect(s.calls).toHaveLength(1);
+		await vi.advanceTimersByTimeAsync(0);
+		await flush();
+		expect(s.calls).toHaveLength(1);
+		expect(afterStock).not.toHaveBeenCalled();
+		for (let i = 0; i < 2; i += 1) {
+			s.pending[i].resolve(payload(s.calls[i].input, 7));
+			await flush();
+		}
+		expect(s.store.getSnapshot(variant("v000")).stock).toBe(7);
+		expect(s.store.getSnapshot(variant("v100")).stock).toBe(7);
+		expect(s.calls).toHaveLength(3);
+		expect(s.calls[2].input).toEqual(s.calls[0].input);
+		expect(afterStock).not.toHaveBeenCalled();
+		for (let i = 2; i < 4; i += 1) {
+			s.pending[i].resolve(payload(s.calls[i].input, 9));
+			await flush();
+		}
+		expect(s.calls.map(({ input }) => input.variantIds.length)).toEqual([100, 1, 100, 1]);
+		expect(s.store.getSnapshot(variant("v000")).stock).toBe(9);
+		expect(s.store.getSnapshot(variant("v100")).stock).toBe(9);
+		expect(afterStock).toHaveBeenCalledTimes(1);
+		expect(s.maximum()).toBe(1);
+	});
+
+	it("preserves an active same-owner REST read across renewal pending and admitted readiness without ACK", async () => {
+		const s = setup({ auto: false });
+		const renewal = deferred<Awaited<ReturnType<typeof s.credentials>>>();
+		s.credentials.mockResolvedValueOnce({
+			accessToken: "local-short-lease",
+			expiresAt: new Date(31_000).toISOString(),
+			admittedProductIds: ["p"], inboxTopic: null,
+		}).mockImplementation(() => renewal.promise);
+		s.register(product("p"));
+		await flush();
+		s.pending[0].resolve(payload(s.calls[0].input, 5));
+		await flush();
+		s.manager.notifyVisibilityChange();
+		await flush();
+		expect(s.calls).toHaveLength(2);
+		await vi.advanceTimersByTimeAsync(1_000);
+		await flush();
+		expect(s.credentials).toHaveBeenCalledTimes(2);
+		expect(s.store.getSnapshot(product("p")).readiness.admission).toBe("pending");
+		expect(s.calls[1].signal.aborted).toBe(false);
+		s.pending[1].resolve(payload(s.calls[1].input, 7));
+		await flush();
+		expect(s.store.getSnapshot(product("p")).stock).toBe(7);
+		renewal.resolve({
+			accessToken: "local-renewed-lease",
+			expiresAt: new Date(Date.now() + 300_000).toISOString(),
+			admittedProductIds: ["p"], inboxTopic: null,
+		});
+		await flush();
+		expect(s.store.getSnapshot(product("p"))).toMatchObject({
+			stock: 7, loading: false,
+			readiness: { admission: "admitted", acknowledged: false, status: "connecting" },
+		});
+		expect(s.calls).toHaveLength(2);
+		expect(s.maximum()).toBe(1);
+	});
+
 	it("reacts to readiness loss, renewal and rejoin without hints or direct listener HTTP", async () => {
 		const s = setup();
 		s.register(product("parent"));
@@ -302,35 +443,39 @@ describe("shared stock store with accepted real manager", () => {
 		await flush();
 		s.channels[0].status("SUBSCRIBED");
 		await vi.advanceTimersByTimeAsync(0);
-		// ACK fences registration work. Its abort-ignoring HTTP must settle first.
+		// ACK preserves registration work and awaits a fresh full foundation wave.
 		expect(s.calls).toHaveLength(1);
-		s.pending[0].resolve(payload(s.calls[0].input, 0));
-		await flush();
-		expect(s.calls).toHaveLength(2);
-		s.pending[1].resolve(payload(s.calls[1].input, 1));
+		expect(s.calls[0].signal.aborted).toBe(false);
+		for (let i = 0; i < 3; i += 1) {
+			s.pending[i].resolve(payload(s.calls[i].input, 0));
+			await flush();
+		}
+		expect(s.calls).toHaveLength(4);
+		s.pending[3].resolve(payload(s.calls[3].input, 1));
 		await flush();
 		expect(s.store.getSnapshot(variant("v000")).stock).toBe(1);
-		expect(s.calls).toHaveLength(3);
+		expect(s.calls).toHaveLength(5);
 		s.channels[0].hint();
-		expect(s.calls[2].signal.aborted).toBe(true);
-		s.pending[2].resolve(payload(s.calls[2].input, 999));
-		await flush();
-		await vi.advanceTimersByTimeAsync(0);
-		await flush();
-		expect(s.calls[3].input.variantIds[0]).toBe("v000");
-		s.pending[3].resolve(payload(s.calls[3].input, 2));
-		await flush();
-		s.channels[0].hint();
+		expect(s.calls[4].signal.aborted).toBe(true);
 		s.pending[4].resolve(payload(s.calls[4].input, 999));
 		await flush();
 		await vi.advanceTimersByTimeAsync(0);
 		await flush();
 		expect(s.calls[5].input.variantIds[0]).toBe("v000");
-		for (let i = 5; i < 8; i += 1) {
+		s.pending[5].resolve(payload(s.calls[5].input, 2));
+		await flush();
+		s.channels[0].hint();
+		expect(s.calls[6].signal.aborted).toBe(true);
+		s.pending[6].resolve(payload(s.calls[6].input, 999));
+		await flush();
+		await vi.advanceTimersByTimeAsync(0);
+		await flush();
+		expect(s.calls[7].input.variantIds[0]).toBe("v000");
+		for (let i = 7; i < 10; i += 1) {
 			s.pending[i].resolve(payload(s.calls[i].input, 3));
 			await flush();
 		}
-		expect(s.calls.map(({ input }) => input.variantIds.length)).toEqual([100, 100, 100, 100, 100, 100, 100, 1]);
+		expect(s.calls.map(({ input }) => input.variantIds.length)).toEqual([100, 100, 1, 100, 100, 100, 100, 100, 100, 1]);
 		expect(s.store.getSnapshot(variant("v000")).stock).toBe(3);
 		expect(s.store.getSnapshot(variant("v200")).stock).toBe(3);
 		expect(s.maximum()).toBe(1);
