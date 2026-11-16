@@ -82,6 +82,17 @@ describe("plural stock snapshot hook", () => {
 		await settle();
 	});
 
+	it("uses denied/rest-only snapshot values instead of the stale server DTO", async () => {
+		manager.getInterestState.mockReturnValue({ admission: "denied", acknowledged: false, status: "rest-only" });
+		apiFetchMock.mockImplementation(async (_: string, init: RequestInit) =>
+			payload(JSON.parse(String(init.body)) as Input, 0));
+		const hook = renderHook(() => useStockSnapshots([product("capped")]));
+		await settle();
+		const snapshot = hook.result.current.get(stockInterestKey(product("capped")));
+		expect(snapshot?.readiness.admission).toBe("denied");
+		expect(effectiveStock(snapshot, 9)).toBe(0);
+	});
+
 	it("returns a referentially stable snapshot and never renders in a loop", async () => {
 		const interests = [variant("v1"), variant("v2")];
 		const hook = renderHook(({ list }) => useStockSnapshots(list), { initialProps: { list: interests } });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import { useAuthStore } from "@/stores/auth-store";
@@ -70,9 +70,25 @@ export function useCart() {
 		setLoad({ status: "ready", cart });
 	}, []);
 
-	/** Silent refetch: keeps the current view instead of flashing a loading state. */
+	/**
+	 * Silent reconciliation refetch. Fetches directly instead of driving the
+	 * load effect, so a rejection keeps the current ready cart and the checkout
+	 * form is never replaced by an error or loading state. Only the latest
+	 * refresh may commit a response. `reload` stays the explicit retry path.
+	 */
+	const refreshToken = useRef(0);
 	const refresh = useCallback(() => {
-		setReloadKey((current) => current + 1);
+		const token = refreshToken.current + 1;
+		refreshToken.current = token;
+		getCart()
+			.then((next) => {
+				if (token === refreshToken.current) {
+					setLoad({ status: "ready", cart: next });
+				}
+			})
+			.catch(() => {
+				// Silent by contract: keep the cart and form the user is seeing.
+			});
 	}, []);
 
 	const state: CartState =

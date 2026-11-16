@@ -148,10 +148,13 @@ it("preserves the online checkout form and cart on the real pause conflict witho
 	expect(assign).not.toHaveBeenCalled();
 	expect(replace).not.toHaveBeenCalled();
 	expect((screen.getByRole("button", { name: /Place Order/ }) as HTMLButtonElement).disabled).toBe(false);
-	// Rejection silently reconciles cart and stock without a loading screen.
+	// Rejection silently reconciles cart and stock without a loading screen,
+	// even when the reconciliation fetch fails (a no-op refresh mock here).
 	expect(refresh).toHaveBeenCalledTimes(1);
 	expect(reconcileStock).toHaveBeenCalledTimes(1);
 	expect(reload).not.toHaveBeenCalled();
+	expect(screen.queryByText(/Loading checkout/)).toBeNull();
+	expect(screen.queryByText(/Could not load your cart/)).toBeNull();
 });
 
 it("keeps the created order authoritative and shows temporary URL unavailability with the existing orders link", async () => {
@@ -169,6 +172,13 @@ it("keeps the created order authoritative and shows temporary URL unavailability
 	expect(replace).not.toHaveBeenCalled();
 	expect((screen.getByRole("button", { name: /Place Order/ }) as HTMLButtonElement).disabled).toBe(true);
 	expect(screen.queryByText(/Paid|Cancelled|Expired/i)).toBeNull();
+	// The cart was deleted by checkout: refreshing here would blank the page
+	// and hide the order-created confirmation and its orders link.
+	expect(refresh).not.toHaveBeenCalled();
+	expect(reconcileStock).not.toHaveBeenCalled();
+	expect(reload).not.toHaveBeenCalled();
+	expect(screen.getByText("Order ORD_1 was created")).toBeTruthy();
+	expect(screen.getByRole("link", { name: "View your orders" }).getAttribute("href")).toBe("/account/orders");
 	fireEvent.click(screen.getByRole("button", { name: /Place Order/ }));
 	expect(fetch).toHaveBeenCalledTimes(2);
 });

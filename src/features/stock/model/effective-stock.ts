@@ -3,30 +3,22 @@ import type { StockSnapshotState } from "../schema";
 /**
  * Display-only effective stock.
  *
- * A realtime signal is an invalidation hint, never a stock delta and never a
- * payment authority. The numeric value comes from the server: the shared REST
- * snapshot first, then the DTO value rendered by the server component.
+ * A Realtime signal is an invalidation hint, never a stock delta and never a
+ * payment authority. The numeric value comes from the server REST snapshot;
+ * the DTO value rendered by the server component is only a fallback.
  *
- * `stock === null`, `omitted`, `loading`, `error` and non-admitted readiness
- * all mean "no trustworthy live value yet", so they resolve to the server
- * value — never zero and never an invented delta. A genuine live `0` is a
- * real sold-out state and is kept.
+ * `stock === null` (including omitted reads, which the store clears to null)
+ * and an absent snapshot fall back to the DTO. Readiness, `loading` and `error`
+ * are metadata about the Realtime channel and about in-flight reads — not a
+ * trust gate for a number already read from the authoritative server. The
+ * accepted store retains known stock across denied/capped/rest-only/pending
+ * readiness and later read errors, so those values stay usable here. A live
+ * `0` is a genuine sold-out state and is preserved.
  */
 export function effectiveStock(
 	snapshot: StockSnapshotState | undefined,
 	serverStock: number | null | undefined,
 ): number | null {
-	const serverValue = serverStock ?? null;
-	if (!snapshot) return serverValue;
-	if (snapshot.stock == null || snapshot.omitted || snapshot.loading || snapshot.error != null) {
-		return serverValue;
-	}
-	if (
-		snapshot.readiness.admission !== "admitted" ||
-		!snapshot.readiness.acknowledged ||
-		snapshot.readiness.status !== "live"
-	) {
-		return serverValue;
-	}
+	if (!snapshot || snapshot.stock == null) return serverStock ?? null;
 	return snapshot.stock;
 }

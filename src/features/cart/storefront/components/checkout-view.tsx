@@ -314,8 +314,9 @@ export function CheckoutView() {
 				orderId,
 			});
 			setSubmitting(false);
-			refresh();
-			reconcileStock();
+			// The order already exists and checkout deleted the cart. Do not
+			// refresh here: an empty-cart state would hide the order-created
+			// alert and the link to the placed order.
 		}
 	}
 

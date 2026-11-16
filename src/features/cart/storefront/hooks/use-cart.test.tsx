@@ -54,6 +54,37 @@ describe("useCart", () => {
 		});
 	});
 
+	it("keeps the ready cart when a silent refresh rejects", async () => {
+		vi.mocked(getCart).mockResolvedValueOnce(cart);
+		const { result } = renderHook(() => useCart());
+		await waitFor(() => {
+			expect(result.current.state).toEqual({ status: "ready", cart });
+		});
+
+		vi.mocked(getCart).mockRejectedValueOnce(new Error("network"));
+		await act(async () => {
+			result.current.refresh();
+		});
+
+		expect(getCart).toHaveBeenCalledTimes(2);
+		expect(result.current.state).toEqual({ status: "ready", cart });
+	});
+
+	it("applies a successful silent refresh without a loading state", async () => {
+		const updated: Cart = { ...cart, totalQuantity: 3 };
+		vi.mocked(getCart).mockResolvedValueOnce(cart).mockResolvedValueOnce(updated);
+		const { result } = renderHook(() => useCart());
+		await waitFor(() => {
+			expect(result.current.state).toEqual({ status: "ready", cart });
+		});
+
+		await act(async () => {
+			result.current.refresh();
+		});
+
+		expect(result.current.state).toEqual({ status: "ready", cart: updated });
+	});
+
 	it("does not refetch when the profile resolves after the cart", async () => {
 		useAuthStore.setState({ sessionReady: false });
 		vi.mocked(getCart).mockResolvedValue(cart);
