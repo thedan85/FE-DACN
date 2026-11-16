@@ -207,7 +207,12 @@ export class RealtimeConnectionManager {
 				typeof document === "undefined" ? "visible" : document.visibilityState);
 		this.random = deps.random ?? Math.random;
 		this.now = deps.now ?? Date.now;
-		this.timers = deps.timers ?? { setTimeout, clearTimeout };
+		// Browser timer operations are bound to the global object; a detached
+		// reference throws "Illegal invocation" on the first scheduled reconcile.
+		this.timers = deps.timers ?? {
+			setTimeout: setTimeout.bind(globalThis),
+			clearTimeout: clearTimeout.bind(globalThis),
+		};
 		this.joinScheduler = deps.joinScheduler ?? new JoinScheduler(this.now);
 	}
 

@@ -101,6 +101,41 @@ describe("RealtimeConnectionManager lifecycle", () => {
 		});
 	}
 
+	it("binds the default timers to the global object", () => {
+		const originalSetTimeout = globalThis.setTimeout;
+		const originalClearTimeout = globalThis.clearTimeout;
+		let detachedCall = false;
+		const wrappedSetTimeout = function (
+			this: unknown,
+			handler: () => void,
+			timeout: number,
+		) {
+			if (this !== globalThis) detachedCall = true;
+			return originalSetTimeout(handler, timeout);
+		};
+		const wrappedClearTimeout = function (
+			this: unknown,
+			handle: ReturnType<typeof setTimeout>,
+		) {
+			if (this !== globalThis) detachedCall = true;
+			originalClearTimeout(handle);
+		};
+		vi.stubGlobal("setTimeout", wrappedSetTimeout);
+		vi.stubGlobal("clearTimeout", wrappedClearTimeout);
+		try {
+			const instance = new RealtimeConnectionManager({
+				env: () => null,
+				fetchCredentials: vi.fn(),
+				createClient: () => fake.client,
+			});
+			instance.start();
+			expect(detachedCall).toBe(false);
+			instance.stop();
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	it("renews the lease 30 seconds before expiry", async () => {
 		const fetchCredentials = vi
 			.fn()
