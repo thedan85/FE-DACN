@@ -165,7 +165,12 @@ export class RealtimeConnectionManager {
 				typeof document === "undefined" ? "visible" : document.visibilityState);
 		this.random = deps.random ?? Math.random;
 		this.now = deps.now ?? Date.now;
-		this.timers = deps.timers ?? { setTimeout, clearTimeout };
+		// Stored as methods, so the globals must not be called with the plain object as receiver.
+		this.timers =
+			deps.timers ?? {
+				setTimeout: (handler, timeout) => setTimeout(handler, timeout),
+				clearTimeout: (handle) => clearTimeout(handle),
+			};
 		this.joinScheduler = deps.joinScheduler ?? new JoinScheduler(this.now);
 	}
 

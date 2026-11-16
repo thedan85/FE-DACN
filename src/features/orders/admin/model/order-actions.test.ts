@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 
-import { getOrderActions, hasOrderPermission } from "./order-actions";
+import { getOrderActions } from "./order-actions";
+import { hasOrderPermission } from "./order-permissions";
 
 const ALL_PERMISSIONS = ["order:read", "order:update", "order:complete"];
 

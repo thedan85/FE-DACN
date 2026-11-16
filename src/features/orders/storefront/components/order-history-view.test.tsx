@@ -10,6 +10,23 @@ import { listOrders } from "../../api/orders.api";
 import type { OrderPage, OrderView } from "../../types";
 import { OrderHistoryView } from "./order-history-view";
 
+vi.mock("@/features/payments/storefront/components/vietqr-payment-modal", () => ({
+	VietQrPaymentModal: ({
+		orderId,
+		open,
+		onClose,
+	}: {
+		orderId: string | null;
+		open: boolean;
+		onClose: () => void;
+	}) =>
+		open ? (
+			<div>
+				<p>QR modal for {orderId}</p>
+				<button type="button" onClick={onClose}>Close QR</button>
+			</div>
+		) : null,
+}));
 vi.mock("../../api/orders.api", () => ({ listOrders: vi.fn() }));
 vi.mock("@/features/cart/api/cart.api", () => ({
 	addToCart: vi.fn(),
@@ -241,6 +258,45 @@ it("shows Pay Now for a pending VN Pay order and opens the payment page", async 
 	expect(assign).toHaveBeenCalledWith(
 		"https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
 	);
+});
+
+it("opens the QR modal and reloads the list when it closes", async () => {
+	const vietQr: OrderView = {
+		...order,
+		orderId: "ORD_QR",
+		status: "PENDING",
+		payment: { method: "VIETQR", status: "PENDING", transactionId: null, paidAt: null },
+	};
+	vi.mocked(listOrders).mockResolvedValue({
+		content: [vietQr], page: 0, size: 10, totalElements: 1, totalPages: 1,
+	});
+
+	await mount();
+	expect(screen.queryByRole("button", { name: "Pay Now" })).toBeNull();
+	fireEvent.click(screen.getByRole("button", { name: "Show QR" }));
+	expect(screen.getByText("QR modal for ORD_QR")).toBeTruthy();
+
+	vi.mocked(listOrders).mockClear();
+	fireEvent.click(screen.getByRole("button", { name: "Close QR" }));
+	await flush();
+
+	expect(listOrders).toHaveBeenCalledExactlyOnceWith({ page: 0, size: 10 });
+});
+
+it("does not show Show QR for a pending VN Pay order", async () => {
+	const vnpay: OrderView = {
+		...order,
+		orderId: "ORD_PAY",
+		status: "PENDING",
+		payment: { method: "CREDIT_CARD", status: "PENDING", transactionId: null, paidAt: null },
+	};
+	vi.mocked(listOrders).mockResolvedValue({
+		content: [vnpay], page: 0, size: 10, totalElements: 1, totalPages: 1,
+	});
+
+	await mount();
+
+	expect(screen.queryByRole("button", { name: "Show QR" })).toBeNull();
 });
 
 it("hides Pay Now when the order is not awaiting VN Pay payment", async () => {

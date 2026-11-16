@@ -19,6 +19,7 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
 import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import { addToCart } from "@/features/cart/api/cart.api";
+import { VietQrPaymentModal } from "@/features/payments/storefront/components/vietqr-payment-modal";
 import {
 	formatDate,
 	formatVndPrice,
@@ -28,7 +29,7 @@ import type { OrderStatus } from "@/types";
 
 import { listOrders } from "../../api/orders.api";
 import type { OrderPage, OrderView } from "../../types";
-import { ORDER_STATUS_COPY, paymentLabel } from "../model/order-display";
+import { ORDER_STATUS_COPY, canShowVietQr, paymentLabel } from "../model/order-display";
 import { OrderHistorySkeleton } from "./order-history-skeleton";
 import { PayNowButton } from "./pay-now-button";
 import styles from "./order-history-view.module.css";
@@ -135,6 +136,7 @@ export function OrderHistoryView() {
 	const [page, setPage] = useState(0);
 	const [debouncedQuery, setDebouncedQuery] = useState("");
 	const [buyingOrderId, setBuyingOrderId] = useState<string | null>(null);
+	const [qrOrderId, setQrOrderId] = useState<string | null>(null);
 	const queryTooLong = query.trim().length > MAX_ORDER_SEARCH_LENGTH;
 	const requestKey = JSON.stringify([status, page, statusFilter, createdAfter, debouncedQuery, reloadKey]);
 	const isFetching = state.status === "loading" ||
@@ -322,6 +324,7 @@ export function OrderHistoryView() {
 	}
 
 	return (
+		<>
 		<PageFrame>
 			<div className={styles.filters}>
 				<div
@@ -495,6 +498,12 @@ export function OrderHistoryView() {
 													className={styles.detailsButton}
 												/>
 
+												{canShowVietQr(order) && (
+													<Button onClick={() => setQrOrderId(order.orderId)}>
+														Show QR
+													</Button>
+												)}
+
 												{order.status === "COMPLETED" && (
 													<button
 														type="button"
@@ -542,5 +551,14 @@ export function OrderHistoryView() {
 				</p>
 			</div>
 		</PageFrame>
+		<VietQrPaymentModal
+			orderId={qrOrderId}
+			open={qrOrderId !== null}
+			onClose={() => {
+				setQrOrderId(null);
+				setReloadKey((current) => current + 1);
+			}}
+		/>
+		</>
 	);
 }

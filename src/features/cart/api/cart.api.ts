@@ -169,9 +169,9 @@ export type CheckoutInput = {
 	ward: string;
 	/**
 	 * VN Pay is stored as `CREDIT_CARD` because the backend payment enum has
-	 * no dedicated `VNPAY` value. COD keeps its own enum name.
+	 * no dedicated `VNPAY` value. COD and VietQR keep their own enum names.
 	 */
-	method: "COD" | "CREDIT_CARD";
+	method: "COD" | "CREDIT_CARD" | "VIETQR";
 };
 
 export async function checkoutCart(input: CheckoutInput): Promise<Order> {

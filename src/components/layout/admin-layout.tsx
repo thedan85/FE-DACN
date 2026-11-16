@@ -19,6 +19,7 @@ type AdminLayoutProps = {
  */
 const PAGE_TITLES: { href: string; title: string }[] = [
 	{ href: "/admin/dashboard", title: "Dashboard" },
+	{ href: "/admin/orders", title: "Orders" },
 	{ href: "/admin/products", title: "Products & Variants" },
 ];
 

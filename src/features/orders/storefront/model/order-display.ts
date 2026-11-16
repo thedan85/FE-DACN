@@ -49,6 +49,34 @@ export function canPayNow(order: OrderView): boolean {
 		order.status === "PENDING" &&
 		payment !== null &&
 		payment.status === "PENDING" &&
-		payment.method !== "COD"
+		payment.method === "CREDIT_CARD"
 	);
+}
+
+/** A VietQR payment shows its QR action only while the order is still pending. */
+export function canShowVietQr(order: OrderView): boolean {
+	const payment = order.payment;
+
+	return (
+		order.status === "PENDING" &&
+		payment !== null &&
+		payment.status === "PENDING" &&
+		payment.method === "VIETQR"
+	);
+}
+
+export function paymentBadgeLabel(payment: OrderPayment): string {
+	if (payment.method === "CREDIT_CARD") {
+		return "VN";
+	}
+
+	if (payment.method === "VIETQR") {
+		return "QR";
+	}
+
+	if (payment.method === "COD") {
+		return "COD";
+	}
+
+	return "PAY";
 }
