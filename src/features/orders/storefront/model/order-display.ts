@@ -3,6 +3,32 @@ import type { OrderStatus } from "@/types";
 
 import type { OrderPayment, OrderView, PaymentStatus } from "../../types";
 
+export function orderFact(order: OrderView): string | null {
+	if (order.status === "CANCELLED" && order.cancellationReason) {
+		switch (order.cancellationReason) {
+			case "STAFF_REJECTED":
+				return "Cancellation reason: The store could not accept this order.";
+			case "PAYMENT_EXPIRED":
+				return "Cancellation reason: Payment deadline passed.";
+			case "PAYMENT_FAILED":
+				return "Cancellation reason: Payment failed.";
+			default:
+				return "Cancellation reason unavailable.";
+		}
+	}
+
+	if (canPayNow(order) && order.paymentExpiresAt) {
+		const deadline = new Intl.DateTimeFormat("en-GB", {
+			day: "numeric", month: "short", year: "numeric",
+			hour: "2-digit", minute: "2-digit", hour12: false,
+			timeZone: "UTC", timeZoneName: "short",
+		}).format(new Date(order.paymentExpiresAt));
+		return `Payment deadline: ${deadline}.`;
+	}
+
+	return null;
+}
+
 /** Design labels differ from the backend enum names. */
 export const ORDER_STATUS_COPY: Record<OrderStatus, string> = {
 	PENDING: "Pending",

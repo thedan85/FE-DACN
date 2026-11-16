@@ -5,9 +5,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
-import { createVnpayPaymentUrl } from "@/features/cart/api/cart.api";
+import { addToCart, createVnpayPaymentUrl } from "@/features/cart/api/cart.api";
 import { listOrders } from "../../api/orders.api";
 import type { OrderPage, OrderView } from "../../types";
+import { OrderSchema } from "../../schema/order.schema";
 import { OrderHistoryView } from "./order-history-view";
 
 vi.mock("../../api/orders.api", () => ({ listOrders: vi.fn() }));
@@ -22,6 +23,7 @@ const order: OrderView = {
 	phone: "090", shippingProvince: null, shippingWard: null, ghnOrderCode: null,
 	items: [], createdAt: "2026-11-01T00:00:00Z",
 	updatedAt: "2026-11-01T00:00:00Z", payment: null,
+	paymentExpiresAt: null, cancellationReason: null,
 };
 
 function page(orderId = "ORD_NEWEST", pageNumber = 0): OrderPage {
@@ -41,6 +43,68 @@ beforeEach(() => {
 		matches: false, addListener() {}, removeListener() {},
 		addEventListener() {}, removeEventListener() {},
 	}));
+});
+
+it("shows a pending online deadline without issuing payment or changing the order", async () => {
+	const pending = OrderSchema.parse({
+		...order, status: "PENDING", paymentExpiresAt: "2026-11-11T10:15:00Z",
+		payment: { method: "CREDIT_CARD", status: "PENDING", transactionId: null, paidAt: null },
+	});
+	vi.mocked(listOrders).mockResolvedValue({ ...page(), content: [pending] });
+	vi.mocked(createVnpayPaymentUrl).mockClear();
+	await mount();
+	expect(screen.getByText(/Payment deadline:/).textContent).toContain("11 Nov 2026");
+	expect(screen.getByText(/Payment deadline:/).textContent).toContain("10:15");
+	expect(screen.getByRole("button", { name: "Pay Now" })).toBeTruthy();
+	expect(screen.getByRole("link", { name: "View Details" }).getAttribute("href")).toBe("/account/orders/ORD_NEWEST");
+	expect(screen.getByText(/10[.,]000/)).toBeTruthy();
+	expect(createVnpayPaymentUrl).not.toHaveBeenCalled();
+	expect(listOrders).toHaveBeenCalledTimes(1);
+	expect(pending.status).toBe("PENDING");
+});
+
+it.each(["PAYMENT_EXPIRED", "STAFF_REJECTED", "PAYMENT_FAILED"])(
+	"shows cancelled order reason %s",
+	async (cancellationReason) => {
+		const cancelled = OrderSchema.parse({ ...order, status: "CANCELLED", cancellationReason });
+		vi.mocked(listOrders).mockResolvedValue({ ...page(), content: [cancelled] });
+		await mount();
+		expect(screen.getByText(/Cancellation reason:/)).toBeTruthy();
+		expect(screen.getByRole("link", { name: "View Details" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Pay Now" })).toBeNull();
+	},
+);
+
+it.each([
+	{ status: "PENDING", payment: { method: "COD", status: "PENDING", transactionId: null, paidAt: null }, paymentExpiresAt: "2026-11-11T10:15:00Z" },
+	{ status: "PENDING", paymentExpiresAt: null },
+	{ status: "CANCELLED", cancellationReason: null },
+])("does not invent extra order facts for %j", async (facts) => {
+	vi.mocked(listOrders).mockResolvedValue({
+		...page(), content: [OrderSchema.parse({ ...order, ...facts })],
+	});
+	await mount();
+	expect(screen.queryByText(/Payment deadline:|Cancellation reason:/)).toBeNull();
+});
+
+it("preserves completed-order buy-again items, quantities, total, and route", async () => {
+	const completed = OrderSchema.parse({
+		...order, status: "COMPLETED",
+		items: [{
+			orderId: order.orderId, variantId: "VAR_1", sku: "GUPPY",
+			quantity: 2, unitPrice: 5000, createdAt: order.createdAt,
+		}],
+	});
+	vi.mocked(listOrders).mockResolvedValue({ ...page(), content: [completed] });
+	vi.mocked(addToCart).mockResolvedValue({ status: "auth-required" });
+	await mount();
+	expect(screen.getByText(/10[.,]000/)).toBeTruthy();
+	expect(screen.getByRole("link", { name: "View Details" }).getAttribute("href")).toBe("/account/orders/ORD_NEWEST");
+	fireEvent.click(screen.getByRole("button", { name: "Buy Again" }));
+	await flush();
+	expect(addToCart).toHaveBeenCalledExactlyOnceWith({ variantId: "VAR_1", quantity: 2 });
+	expect(screen.getByText("Please sign in again to add these items to your cart.")).toBeTruthy();
+	expect(screen.getByRole("button", { name: "Buy Again" })).toBeTruthy();
 });
 
 afterEach(() => {

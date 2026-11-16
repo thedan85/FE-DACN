@@ -20,6 +20,7 @@ import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import type { MeData } from "@/features/auth/types";
 import { formatVndPrice } from "@/features/products/storefront/model/product-format";
 import { useGhnAddress } from "@/features/shipping/hooks/use-ghn-address";
+import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
 import { checkoutCart, createVnpayPaymentUrl } from "../../api/cart.api";
@@ -274,10 +275,13 @@ export function CheckoutView() {
 				throw new Error("Unsafe payment URL.");
 			}
 			window.location.assign(payUrl);
-		} catch {
+		} catch (error) {
 			setSubmitError({
 				message:
-					"Your order was placed, but we could not open the VN Pay payment page.",
+					error instanceof ApiError && error.status === 409 &&
+					error.message.toLowerCase().includes("temporarily unavailable")
+						? error.message
+						: "Your order was placed, but we could not open the VN Pay payment page.",
 				orderId,
 			});
 			setSubmitting(false);

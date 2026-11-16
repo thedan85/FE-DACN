@@ -392,6 +392,11 @@
 	gap: 10px;
 }
 
+.orderFact {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
 .detailsButton {
 	display: inline-flex;
 	align-items: center;

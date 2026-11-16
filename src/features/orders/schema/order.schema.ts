@@ -47,6 +47,10 @@ export const OrderSchema = z.object({
 	createdAt: z.string(),
 	updatedAt: z.string(),
 	payment: OrderPaymentSchema.nullable().default(null),
+	paymentExpiresAt: z.iso.datetime({ offset: true }).nullable().default(null),
+	cancellationReason: z.enum([
+		"STAFF_REJECTED", "PAYMENT_EXPIRED", "PAYMENT_FAILED",
+	]).nullable().default(null),
 });
 
 export const OrderPageSchema = createPageResponseSchema(OrderSchema);

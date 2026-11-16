@@ -28,7 +28,7 @@ import type { OrderStatus } from "@/types";
 
 import { listOrders } from "../../api/orders.api";
 import type { OrderPage, OrderView } from "../../types";
-import { ORDER_STATUS_COPY, paymentLabel } from "../model/order-display";
+import { ORDER_STATUS_COPY, orderFact, paymentLabel } from "../model/order-display";
 import { OrderHistorySkeleton } from "./order-history-skeleton";
 import { PayNowButton } from "./pay-now-button";
 import styles from "./order-history-view.module.css";
@@ -417,6 +417,7 @@ export function OrderHistoryView() {
 						<ul className={styles.list}>
 							{orders.map((order) => {
 								const firstItem = order.items[0];
+								const fact = orderFact(order);
 
 								return (
 									<li key={order.orderId} className={styles.order}>
@@ -480,6 +481,7 @@ export function OrderHistoryView() {
 												<p className={styles.paymentMeta}>
 													{paymentLabel(order.payment)}
 												</p>
+												{fact && <p className={`${styles.paymentMeta} ${styles.orderFact}`}>{fact}</p>}
 											</div>
 
 											<div className={styles.actions}>

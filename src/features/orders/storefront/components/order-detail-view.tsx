@@ -32,6 +32,7 @@ import type { OrderPayment, OrderView } from "../../types";
 import {
 	ORDER_STATUS_COPY,
 	PAYMENT_STATUS_COPY,
+	orderFact,
 	paymentMethodLabel,
 } from "../model/order-display";
 import { PayNowButton } from "./pay-now-button";
@@ -508,6 +509,7 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
 	const shipment = SHIPMENT_COPY[order.status];
 	const lastUpdated = formatDate(order.updatedAt);
 	const placedOn = formatDate(order.createdAt);
+	const fact = orderFact(order);
 
 	return (
 		<PageFrame>
@@ -526,6 +528,7 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
 				<div className={styles.mainCard}>
 					<section>
 						<h2 className={styles.sectionTitle}>Order status</h2>
+						{fact && <p className={styles.paymentNote}>{fact}</p>}
 						{order.status === "CANCELLED" ? (
 							<p className={styles.cancelledNote}>
 								This order was cancelled
