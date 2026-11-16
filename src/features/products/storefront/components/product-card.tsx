@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Card, Tag } from "antd";
 
+import { StockAvailability } from "@/features/stock/components/stock-availability";
+
 import type { Product } from "../../types";
 import { formatPriceRange } from "../model/product-format";
 import styles from "./product-card.module.css";
@@ -74,9 +76,11 @@ export function ProductCard({
 						</span>
 					)}
 
-					{isOutOfStock && (
-						<Tag className={styles.stockTag}>Out of stock</Tag>
-					)}
+					<StockAvailability
+						interest={{ kind: "product", productId: product.productId }}
+						serverStock={product.stock}
+						className={styles.stockTag}
+					/>
 				</div>
 			}
 		>

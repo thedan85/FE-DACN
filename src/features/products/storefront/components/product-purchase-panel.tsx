@@ -8,12 +8,13 @@ import { useAuthStore } from "@/stores/auth-store";
 import { addToCart } from "@/features/cart/api/cart.api";
 import type { VariantDetail } from "../../types";
 import { formatVndPrice } from "../model/product-format";
-import { variantSoldOut } from "../model/product-stock";
 
 import styles from "./product-purchase-panel.module.css";
 
 type ProductPurchasePanelProps = {
 	variant: VariantDetail;
+	/** Live effective stock supplied by the detail view; DTO value when absent. */
+	effectiveStock?: number | null;
 };
 
 type Notice = { kind: "auth" } | { kind: "error"; text: string };
@@ -39,6 +40,7 @@ type Notice = { kind: "auth" } | { kind: "error"; text: string };
  */
 export function ProductPurchasePanel({
 	variant,
+	effectiveStock,
 }: ProductPurchasePanelProps) {
 	const { message } = App.useApp();
 	const authStatus = useAuthStore((state) => state.status);
@@ -47,9 +49,12 @@ export function ProductPurchasePanel({
 	const [submitting, setSubmitting] = useState(false);
 	const [notice, setNotice] = useState<Notice | null>(null);
 
-	const soldOut = variantSoldOut(variant);
+	const available = effectiveStock == null ? variant.stock : effectiveStock;
+	const soldOut = available <= 0;
+	const short = !soldOut && quantity > available;
 	const canSubmit =
 		!soldOut &&
+		!short &&
 		quantity >= 1 &&
 		!submitting &&
 		authStatus !== "loading";
@@ -60,7 +65,7 @@ export function ProductPurchasePanel({
 
 	function increaseQuantity() {
 		setQuantity((current) =>
-			Math.min(Math.max(variant.stock, 1), current + 1),
+			Math.min(Math.max(available, 1), current + 1),
 		);
 	}
 
@@ -123,7 +128,7 @@ export function ProductPurchasePanel({
 						type="button"
 						className={styles.stepButton}
 						aria-label="Increase quantity"
-						disabled={soldOut || quantity >= variant.stock}
+						disabled={soldOut || quantity >= available}
 						onClick={increaseQuantity}
 					>
 						+
@@ -143,6 +148,17 @@ export function ProductPurchasePanel({
 
 			{soldOut && (
 				<p className={styles.soldOut}>This variant is out of stock.</p>
+			)}
+
+			{short && (
+				<Alert
+					className={styles.notice}
+					role="alert"
+					type="warning"
+					showIcon
+					title={`Only ${available} left in stock`}
+					description="Reduce the quantity to add this item to your cart. Your quantity was not changed."
+				/>
 			)}
 
 			{notice?.kind === "auth" && (

@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent, ReactNode } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,12 +18,16 @@ import { LoadingState } from "@/components/feedback/loading-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
 import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import type { MeData } from "@/features/auth/types";
+import { effectiveStock } from "@/features/stock/model/effective-stock";
+import { reconcileStock } from "@/features/stock/reconcile";
+import { stockInterestKey, useStockSnapshots } from "@/features/stock/use-stock-snapshots";
 import { formatVndPrice } from "@/features/products/storefront/model/product-format";
 import { useGhnAddress } from "@/features/shipping/hooks/use-ghn-address";
 import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
 import { checkoutCart, createVnpayPaymentUrl } from "../../api/cart.api";
+import type { Cart } from "../../types";
 import { useCart } from "../hooks/use-cart";
 import styles from "./checkout-view.module.css";
 
@@ -138,11 +142,33 @@ type SubmitError = {
 	orderId?: string;
 };
 
+const NO_ITEMS: Cart["items"] = [];
+
 export function CheckoutView() {
-	const { state, reload } = useCart();
+	const { state, reload, refresh } = useCart();
 	const { user } = useAuthStore();
 	const router = useRouter();
 	const { message } = App.useApp();
+
+	const items = state.status === "ready" ? state.cart.items : NO_ITEMS;
+	const interests = useMemo(() => items.map((item) => ({
+		kind: "variant" as const,
+		productId: item.productId,
+		variantId: item.variantId,
+	})), [items]);
+	const snapshots = useStockSnapshots(interests);
+	const effectiveByLine = useMemo(() => {
+		const result = new Map<string, number | null>();
+		for (const item of items) {
+			result.set(item.cartItemId, effectiveStock(snapshots.get(stockInterestKey({
+				kind: "variant", productId: item.productId, variantId: item.variantId,
+			})), item.stock));
+		}
+		return result;
+	}, [items, snapshots]);
+	const hasStockShortage = items.some((item) =>
+		(effectiveByLine.get(item.cartItemId) ?? item.stock) < item.quantity,
+	);
 
 	const [form, setForm] = useState<CheckoutForm>(() => formFromUser(user));
 	const [syncedUserId, setSyncedUserId] = useState(user?.userId ?? null);
@@ -260,6 +286,9 @@ export function CheckoutView() {
 		} catch (error) {
 			setSubmitError({ message: getAuthErrorMessage(error) });
 			setSubmitting(false);
+			// Silent reconciliation only; the form and cart view stay intact.
+			refresh();
+			reconcileStock();
 			return;
 		}
 
@@ -285,6 +314,8 @@ export function CheckoutView() {
 				orderId,
 			});
 			setSubmitting(false);
+			refresh();
+			reconcileStock();
 		}
 	}
 
@@ -493,6 +524,16 @@ export function CheckoutView() {
 							}
 						/>
 					)}
+
+					{hasStockShortage && (
+						<Alert
+							type="warning"
+							showIcon
+							role="alert"
+							title="Some items are no longer available in the requested quantity"
+							description="Return to your cart to adjust or remove them. Your details and payment choice have been kept."
+						/>
+					)}
 				</div>
 
 				<aside className={styles.summary} aria-labelledby="checkout-summary-title">
@@ -545,7 +586,7 @@ export function CheckoutView() {
 						htmlType="submit"
 						block
 						loading={submitting}
-						disabled={submitting || orderPlaced}
+						disabled={submitting || orderPlaced || hasStockShortage}
 						className={styles.placeOrder}
 					>
 						Place Order ({formatVndPrice(cart.totalAmount)})

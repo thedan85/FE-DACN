@@ -1,9 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "antd";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAuthStore } from "@/stores/auth-store";
 
+import { reconcileStock } from "@/features/stock/reconcile";
+import { stockInterestKey, useStockSnapshots } from "@/features/stock/use-stock-snapshots";
+import type { StockSnapshotState } from "@/features/stock/schema";
 import * as cartApi from "../../api/cart.api";
 import { CartDetailSchema } from "../../schema/cart.schema";
 import { useCart } from "../hooks/use-cart";
@@ -11,7 +14,15 @@ import { CheckoutView } from "./checkout-view";
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
-vi.mock("@/features/auth/session", () => ({ getAuthHeaders: () => ({}) }));
+vi.mock("@/features/auth/session", async (importOriginal) => ({
+	...await importOriginal<typeof import("@/features/auth/session")>(),
+	getAuthHeaders: () => ({}),
+}));
+vi.mock("@/features/stock/reconcile", () => ({ reconcileStock: vi.fn() }));
+vi.mock("@/features/stock/use-stock-snapshots", async (importOriginal) => ({
+	...await importOriginal<typeof import("@/features/stock/use-stock-snapshots")>(),
+	useStockSnapshots: vi.fn(() => new Map()),
+}));
 vi.mock("../hooks/use-cart", () => ({ useCart: vi.fn() }));
 vi.mock("@/features/shipping/hooks/use-ghn-address", () => ({
 	useGhnAddress: () => ({
@@ -41,6 +52,7 @@ const order = {
 };
 const reload = vi.fn();
 const setCart = vi.fn();
+const refresh = vi.fn();
 const assign = vi.fn();
 let pauseCheckout: boolean;
 let malformedOrder: boolean;
@@ -56,6 +68,7 @@ beforeEach(() => {
 	replace.mockReset();
 	reload.mockReset();
 	setCart.mockReset();
+	refresh.mockReset();
 	assign.mockReset();
 	vi.spyOn(cartApi, "createVnpayPaymentUrl");
 	fetch.mockReset().mockImplementation(async (url, init) => {
@@ -79,7 +92,11 @@ beforeEach(() => {
 	vi.stubGlobal("location", { ...window.location, assign });
 	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
 	useAuthStore.setState({ status: "authenticated", user: null });
-	vi.mocked(useCart).mockReturnValue({ state: { status: "ready", cart }, reload, setCart });
+	vi.mocked(reconcileStock).mockReset();
+	vi.mocked(useStockSnapshots).mockReturnValue(new Map());
+	vi.mocked(useCart).mockReturnValue({
+		state: { status: "ready", cart }, reload, setCart, refresh,
+	});
 	vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
 		matches: false, addListener() {}, removeListener() {},
 		addEventListener() {}, removeEventListener() {},
@@ -131,6 +148,10 @@ it("preserves the online checkout form and cart on the real pause conflict witho
 	expect(assign).not.toHaveBeenCalled();
 	expect(replace).not.toHaveBeenCalled();
 	expect((screen.getByRole("button", { name: /Place Order/ }) as HTMLButtonElement).disabled).toBe(false);
+	// Rejection silently reconciles cart and stock without a loading screen.
+	expect(refresh).toHaveBeenCalledTimes(1);
+	expect(reconcileStock).toHaveBeenCalledTimes(1);
+	expect(reload).not.toHaveBeenCalled();
 });
 
 it("keeps the created order authoritative and shows temporary URL unavailability with the existing orders link", async () => {
@@ -173,4 +194,42 @@ it("rejects malformed checkout facts through the real schema without requesting 
 	expect((await screen.findByRole("alert")).textContent).toContain("did not match the expected contract");
 	expect(cartApi.createVnpayPaymentUrl).not.toHaveBeenCalled();
 	expect(assign).not.toHaveBeenCalled();
+});
+
+describe("CheckoutView live availability", () => {
+	const lineKey = stockInterestKey({ kind: "variant", productId: "PRD_1", variantId: "VAR_1" });
+	const live = (stock: number): StockSnapshotState => ({
+		stock, stockRevision: 1, loading: false, error: null, omitted: false,
+		readiness: { admission: "admitted", acknowledged: true, status: "live" },
+	});
+
+	it("warns and disables Place Order while live stock is below the line quantity", async () => {
+		vi.mocked(useStockSnapshots).mockReturnValue(new Map([[lineKey, live(0)]]));
+		await fillForm();
+		const place = screen.getByRole("button", { name: /Place Order/ }) as HTMLButtonElement;
+		expect(place.disabled).toBe(true);
+		expect(screen.getByText(/Some items are no longer available/)).toBeTruthy();
+		expectFormPreserved();
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	it("keeps variant, quantity, address and payment choice across live updates", async () => {
+		vi.mocked(useStockSnapshots).mockReturnValue(new Map([[lineKey, live(0)]]));
+		await fillForm();
+		fireEvent.click(screen.getByRole("radio", { name: /Cash on Delivery/ }));
+
+		vi.mocked(useStockSnapshots).mockReturnValue(new Map([[lineKey, live(5)]]));
+		// Rerender by triggering a harmless store-independent state change.
+		fireEvent.change(screen.getByLabelText("Recipient Name"), { target: { value: "Jane Live" } });
+
+		expect((screen.getByLabelText("Recipient Name") as HTMLInputElement).value).toBe("Jane Live");
+		expect((screen.getByLabelText("Phone Number") as HTMLInputElement).value).toBe("0900000000");
+		expect((screen.getByLabelText("Street Address") as HTMLTextAreaElement).value).toBe("12 Le Loi");
+		expect((screen.getByRole("radio", { name: /Cash on Delivery/ }) as HTMLInputElement).checked).toBe(true);
+		expect(screen.getByText(/1 ×/)).toBeTruthy(); // line quantity text unchanged
+		expect(screen.getByText("Guppy")).toBeTruthy(); // selected line/variant unchanged
+		expect((screen.getByRole("button", { name: /Place Order/ }) as HTMLButtonElement).disabled).toBe(false);
+		expect(refresh).not.toHaveBeenCalled();
+		expect(reconcileStock).not.toHaveBeenCalled();
+	});
 });

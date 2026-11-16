@@ -504,6 +504,20 @@ describe("shared stock store with accepted real manager", () => {
 		expect(s.maximum()).toBe(1);
 	});
 
+	it("reconcile() issues one fresh full read without aborting known data", async () => {
+		const s = setup({ configured: false });
+		s.register(product("p"));
+		await flush();
+		expect(s.store.getSnapshot(product("p")).stock).toBe(5);
+		apiFetchMock.mockImplementation(async (_: string, init: RequestInit) => payload(JSON.parse(String(init.body)), 1));
+		const before = apiFetchMock.mock.calls.length;
+		await s.store.reconcile();
+		await flush();
+		expect(apiFetchMock.mock.calls.length).toBe(before + 1);
+		expect(apiFetchMock.mock.calls[0][1].signal.aborted).toBe(false);
+		expect(s.store.getSnapshot(product("p")).stock).toBe(1);
+	});
+
 	it("retains known data on malformed/network failure, then recovers through foundation scheduling", async () => {
 		const s = setup({ configured: false });
 		s.register(product("p"));

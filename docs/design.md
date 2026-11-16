@@ -162,6 +162,22 @@ Disabled controls: fill `#E5ECE9`, text `#687D7B` (antd's default is `rgba(0,0,0
 
 Tables: header cells carry `scope="col"` — antd sets it on the seven data columns; the expansion column is the eighth and has none. The row-expansion control is a real `<button>` with `aria-expanded` and a locale label (`Expand row`), and it toggles on <kbd>Enter</kbd>. Dialogs return focus to their trigger on close; antd v6 renders no focus sentinels, so one <kbd>Tab</kbd> from a dialog's last control reaches the document body before wrapping — Escape closes from anywhere.
 
+## Live stock overlay — minimal treatment (Task 16)
+
+The stock snapshot is display data only. The backend stays authoritative; a
+realtime hint is an invalidation signal, never a delta and never a payment
+authority. No page was redesigned: existing Ant Design `Tag`, `Alert` and
+`Button` primitives and the tokens above are reused.
+
+| Surface | Treatment |
+| --- | --- |
+| Product card / grid | Cards and grid stay server components. A small `"use client"` `StockAvailability` island replaces the static out-of-stock `Tag`. SSR renders the DTO state; the shared hook then mutates only that tag. One batched snapshot covers the viewport — no per-card request. |
+| Product detail | A plural hook registers every variant, not just the selected one. Variant cards show each variant's effective stock; the purchase panel uses the selected variant's effective stock. |
+| Quantity-shortage warning | Text (never colour alone): purchase panel "Only N left in stock — reduce the quantity to add this item to your cart." Cart line "Only N left — reduce the quantity before checkout." Checkout "Some items are no longer available in the requested quantity." A live `0` shows the existing "Out of stock" / "This variant is out of stock." text. |
+| Disabled actions | Add to Cart, the cart checkout link and Place Order are disabled while effective stock is below the chosen quantity. Quantity text, variant selection and the whole checkout form (recipient, phone, address, province, ward, payment) are never changed automatically. When stock rises, the existing stepper allows more units again. |
+| REST fallback | Effective stock = `liveSnapshot.stock ?? server/DTO stock`. `stock === null`, `omitted`, `loading`, `error`, and non-admitted readiness fall back to the server value — never zero, never a delta. A REST snapshot is one batched POST for up to 100 unique IDs; IDs beyond the `MAX_STOCK_TOPICS = 24` live-topic cap are still read in that batch and fall back to server stock when their live topic is denied/capped/omitted. |
+| Server rejection | The existing actionable error is shown; form values stay. Cart uses a silent refresh and stock uses an explicit reconcile reread. The page never becomes a loading screen. |
+
 ## Design Notes
 
 - The visual direction is premium, natural, and aquatic: pale mint content surfaces contrast with deep green sections and bright teal actions.

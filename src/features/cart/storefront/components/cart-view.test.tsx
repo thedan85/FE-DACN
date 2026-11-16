@@ -7,15 +7,21 @@ import type { Cart, CartItem } from "../../types";
 import { removeCartItem, updateCartItem } from "../../api/cart.api";
 import { useCart } from "../hooks/use-cart";
 import { CartView } from "./cart-view";
+import { stockInterestKey, useStockSnapshots } from "@/features/stock/use-stock-snapshots";
+import type { StockSnapshotState } from "@/features/stock/schema";
 
+vi.mock("@/features/stock/use-stock-snapshots", async (importOriginal) => ({
+	...await importOriginal<typeof import("@/features/stock/use-stock-snapshots")>(),
+	useStockSnapshots: vi.fn(() => new Map()),
+}));
 vi.mock("../hooks/use-cart", () => ({ useCart: vi.fn() }));
 vi.mock("../../api/cart.api", () => ({
 	removeCartItem: vi.fn(),
 	updateCartItem: vi.fn(),
 }));
 vi.mock("next/link", () => ({
-	default: ({ href, children }: { href: string; children: ReactNode }) => (
-		<a href={href}>{children}</a>
+	default: ({ href, children, ...rest }: { href: string; children: ReactNode }) => (
+		<a href={href} {...rest}>{children}</a>
 	),
 }));
 
@@ -67,10 +73,12 @@ beforeEach(() => {
 	vi.mocked(updateCartItem).mockReset().mockResolvedValue(updatedItem);
 	reload.mockReset();
 	setCart.mockReset();
+	vi.mocked(useStockSnapshots).mockReturnValue(new Map());
 	vi.mocked(useCart).mockReturnValue({
 		state: { status: "ready", cart },
 		reload,
 		setCart,
+		refresh: vi.fn(),
 	});
 	vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
 		matches: false,
@@ -123,5 +131,33 @@ describe("CartView compatibility", () => {
 		const nextCart = setCart.mock.calls[0][0] as Cart;
 		expect(nextCart.compatibility).toBe(cart.compatibility);
 		expect(screen.getByText("Caution")).toBeTruthy();
+	});
+});
+
+describe("CartView live availability", () => {
+	const lineKey = stockInterestKey({ kind: "variant", productId: "PRD_1", variantId: "VAR_1" });
+	const live = (stock: number): StockSnapshotState => ({
+		stock, stockRevision: 1, loading: false, error: null, omitted: false,
+		readiness: { admission: "admitted", acknowledged: true, status: "live" },
+	});
+
+	it("warns and blocks checkout when live stock falls below the line quantity without changing quantity", () => {
+		vi.mocked(useStockSnapshots).mockReturnValue(new Map([[lineKey, live(0)]]));
+		render(<App><CartView /></App>);
+
+		expect(screen.getByText(/Only 0 left|Out of stock/)).toBeTruthy();
+		const link = screen.getByRole("link", { name: /Proceed to Checkout/ });
+		expect(link.getAttribute("aria-disabled")).toBe("true");
+		expect(screen.getByText(/Adjust or remove items/)).toBeTruthy();
+		expect(screen.getByRole("status").textContent).toBe("1");
+		expect(updateCartItem).not.toHaveBeenCalled();
+	});
+
+	it("unblocks checkout when live stock recovers", () => {
+		vi.mocked(useStockSnapshots).mockReturnValue(new Map([[lineKey, live(5)]]));
+		render(<App><CartView /></App>);
+		const link = screen.getByRole("link", { name: /Proceed to Checkout/ });
+		expect(link.getAttribute("aria-disabled")).toBeNull();
+		expect(screen.queryByText(/Adjust or remove items/)).toBeNull();
 	});
 });

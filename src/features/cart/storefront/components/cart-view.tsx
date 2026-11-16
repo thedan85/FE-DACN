@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -18,6 +18,8 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
 import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
+import { effectiveStock } from "@/features/stock/model/effective-stock";
+import { stockInterestKey, useStockSnapshots } from "@/features/stock/use-stock-snapshots";
 import { formatVndPrice } from "@/features/products/storefront/model/product-format";
 
 import { removeCartItem, updateCartItem } from "../../api/cart.api";
@@ -70,10 +72,31 @@ function CartFrame({
 	);
 }
 
+const NO_ITEMS: CartItem[] = [];
+
 export function CartView() {
 	const { state, reload, setCart } = useCart();
 	const { message } = App.useApp();
 	const [busyItemId, setBusyItemId] = useState<string | null>(null);
+
+	const items = state.status === "ready" ? state.cart.items : NO_ITEMS;
+	const interests = useMemo(() => items.map((item) => ({
+		kind: "variant" as const,
+		productId: item.productId,
+		variantId: item.variantId,
+	})), [items]);
+	const snapshots = useStockSnapshots(interests);
+	const effectiveByLine = useMemo(() => {
+		const result = new Map<string, number | null>();
+		for (const item of items) {
+			result.set(item.cartItemId, effectiveStock(snapshots.get(stockInterestKey({
+				kind: "variant", productId: item.productId, variantId: item.variantId,
+			})), item.stock));
+		}
+		return result;
+	}, [items, snapshots]);
+
+	const lineStock = (item: CartItem) => effectiveByLine.get(item.cartItemId) ?? item.stock;
 
 	if (state.status === "loading") {
 		return (
@@ -116,7 +139,7 @@ export function CartView() {
 	const { cart } = state;
 
 	async function changeQuantity(item: CartItem, next: number) {
-		if (busyItemId || next < 1 || next > item.stock) {
+		if (busyItemId || next < 1 || next > lineStock(item)) {
 			return;
 		}
 
@@ -168,7 +191,7 @@ export function CartView() {
 	}
 
 	const hasUnavailableItem = cart.items.some(
-		(item) => item.stock < item.quantity,
+		(item) => lineStock(item) < item.quantity,
 	);
 
 	return (
@@ -186,6 +209,8 @@ export function CartView() {
 						<ul className={styles.items}>
 							{cart.items.map((item) => {
 								const busy = busyItemId === item.cartItemId;
+								const available = lineStock(item);
+								const short = available > 0 && available < item.quantity;
 
 								return (
 									<li key={item.cartItemId} className={styles.item}>
@@ -209,9 +234,15 @@ export function CartView() {
 											<p className={styles.itemPrice}>
 												{formatVndPrice(item.price)} each
 											</p>
-											{item.stock < 1 && (
+											{available < 1 && (
 												<p className={styles.stockWarning}>
 													Out of stock
+												</p>
+											)}
+											{short && (
+												<p className={styles.stockWarning}>
+													Only {available} left — reduce the quantity
+													before checkout.
 												</p>
 											)}
 										</div>
@@ -225,7 +256,7 @@ export function CartView() {
 												type="button"
 												className={styles.stepButton}
 												aria-label={`Decrease quantity for ${item.productName}`}
-												disabled={busy || item.stock < 1 || item.quantity <= 1}
+												disabled={busy || available < 1 || item.quantity <= 1}
 												onClick={() =>
 													void changeQuantity(item, item.quantity - 1)
 												}
@@ -241,8 +272,8 @@ export function CartView() {
 												aria-label={`Increase quantity for ${item.productName}`}
 												disabled={
 													busy ||
-													item.stock < 1 ||
-													item.quantity >= item.stock
+													available < 1 ||
+													item.quantity >= available
 												}
 												onClick={() =>
 													void changeQuantity(item, item.quantity + 1)

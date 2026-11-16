@@ -229,8 +229,16 @@ export function createStockStore(manager: RealtimeConnectionManager = realtimeMa
 		getSnapshot(interest: StockSnapshotInterest): StockSnapshotState {
 			return entries.get(key(interest))?.state ?? initial;
 		},
+		/** Explicit invalidate-and-reread used after a server rejection. */
+		reconcile(): Promise<void> {
+			invalidate();
+			return request();
+		},
 	};
 	return store;
 }
+
+/** Canonical key shared with the plural hook and display islands. */
+export const stockInterestKey = key;
 
 export const stockStore = createStockStore();

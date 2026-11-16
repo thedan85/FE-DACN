@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+
+import { effectiveStock } from "@/features/stock/model/effective-stock";
+import { stockInterestKey, useStockSnapshots } from "@/features/stock/use-stock-snapshots";
 
 import type {
 	Product,
@@ -76,6 +79,34 @@ export function ProductDetailView({
 		variants[0]?.variantId ?? "",
 	);
 	const [activeTab, setActiveTab] = useState<TabId>("overview");
+
+	// Live stock for every variant, not only the selected one. One shared
+	// registration covers the whole variant set; the DTO value stays the
+	// fallback until a trustworthy live snapshot arrives.
+	const variantInterests = useMemo(
+		() => variants.map((variant) => ({
+			kind: "variant" as const,
+			productId: product.productId,
+			variantId: variant.variantId,
+		})),
+		[variants, product.productId],
+	);
+	const snapshots = useStockSnapshots(variantInterests);
+	const liveStockByVariant = useMemo(() => {
+		const result = new Map<string, number | null>();
+		for (const variant of variants) {
+			result.set(variant.variantId, effectiveStock(
+				snapshots.get(stockInterestKey({
+					kind: "variant",
+					productId: product.productId,
+					variantId: variant.variantId,
+				})),
+				variant.stock,
+			));
+		}
+		return result;
+	}, [variants, snapshots, product.productId]);
+	const selectedLiveStock = liveStockByVariant.get(selectedVariantId) ?? null;
 
 	const selectedVariant =
 		variants.find((variant) => variant.variantId === selectedVariantId) ??
@@ -234,6 +265,7 @@ export function ProductDetailView({
 										selectedVariant.variantId
 									}
 									onSelect={setSelectedVariantId}
+									stockByVariant={liveStockByVariant}
 								/>
 							</section>
 						)}
@@ -242,6 +274,7 @@ export function ProductDetailView({
 							<ProductPurchasePanel
 								key={selectedVariant.variantId}
 								variant={selectedVariant}
+								effectiveStock={selectedLiveStock}
 							/>
 						)}
 

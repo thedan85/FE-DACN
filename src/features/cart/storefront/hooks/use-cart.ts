@@ -70,8 +70,13 @@ export function useCart() {
 		setLoad({ status: "ready", cart });
 	}, []);
 
+	/** Silent refetch: keeps the current view instead of flashing a loading state. */
+	const refresh = useCallback(() => {
+		setReloadKey((current) => current + 1);
+	}, []);
+
 	const state: CartState =
 		status === "anonymous" ? { status: "anonymous" } : load;
 
-	return { state, reload, setCart };
+	return { state, reload, setCart, refresh };
 }

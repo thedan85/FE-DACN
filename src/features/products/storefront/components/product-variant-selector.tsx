@@ -2,7 +2,7 @@
 
 import type { VariantDetail } from "../../types";
 import { formatVndPrice } from "../model/product-format";
-import { stockLabel, variantSoldOut } from "../model/product-stock";
+import { stockLabel } from "../model/product-stock";
 import { CheckCircleIcon } from "./product-detail-icons";
 
 import styles from "./product-variant-selector.module.css";
@@ -14,6 +14,8 @@ type ProductVariantSelectorProps = {
 	onSelect: (variantId: string) => void;
 	/** Retained for callers that also render product imagery; unused here. */
 	productName?: string;
+	/** Live effective stock by variant id; the DTO value is used when absent. */
+	stockByVariant?: ReadonlyMap<string, number | null>;
 };
 
 /**
@@ -29,12 +31,15 @@ export function ProductVariantSelector({
 	variants,
 	selectedVariantId,
 	onSelect,
+	stockByVariant,
 }: ProductVariantSelectorProps) {
 	return (
 		<div className={styles.cards}>
 			{variants.map((variant) => {
 				const isSelected = variant.variantId === selectedVariantId;
-				const soldOut = variantSoldOut(variant);
+				const live = stockByVariant?.get(variant.variantId);
+				const effective = live == null ? variant.stock : live;
+				const soldOut = effective <= 0;
 				// shortcut: only the first attribute is shown, revisit if
 				// variants ever carry more than one.
 				const attribute = variant.attributes[0];
@@ -89,7 +94,7 @@ export function ProductVariantSelector({
 									className={styles.stockDot}
 									aria-hidden="true"
 								/>
-								{stockLabel(variant.stock)}
+								{stockLabel(effective)}
 							</span>
 						</span>
 					</button>
