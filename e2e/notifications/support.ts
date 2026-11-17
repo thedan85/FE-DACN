@@ -60,8 +60,9 @@ export async function apiLogin(
   return body.data.accessToken;
 }
 
-// auth/login allows 10 per account per 15 minutes and tokens live 15 minutes: cache one per account per worker.
-const tokenCache = new Map<string, string>();
+// auth/login allows 10 per account per 15 minutes: cache one token per account for 10 minutes per worker.
+const TOKEN_TTL_MS = 10 * 60 * 1000;
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 async function cachedApiLogin(
   request: APIRequestContext,
@@ -69,9 +70,9 @@ async function cachedApiLogin(
   password: string,
 ): Promise<string> {
   const cached = tokenCache.get(email);
-  if (cached) return cached;
+  if (cached && cached.expiresAt > Date.now()) return cached.token;
   const token = await apiLogin(request, email, password);
-  tokenCache.set(email, token);
+  tokenCache.set(email, { token, expiresAt: Date.now() + TOKEN_TTL_MS });
   return token;
 }
 
@@ -173,7 +174,7 @@ export function rowForOrder(page: Page, orderId: string) {
   return page.getByRole('listitem').filter({ hasText: orderId }).first();
 }
 
-/** antd Radio.Button hides its input; click the visible label span. */
+/** antd Radio.Button hides its input; click the visible label inside the filter group. */
 export function filterButton(page: Page, name: 'All' | 'Unread') {
-  return page.locator('.ant-radio-button-label').filter({ hasText: name });
+  return page.getByRole('radiogroup', { name: 'Filter notifications' }).getByText(name, { exact: true });
 }

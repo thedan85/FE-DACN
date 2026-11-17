@@ -1,8 +1,5 @@
 import { expect, test } from '@playwright/test';
-import {
-  DEGRADED_NOTE,
-  REST_ONLY_NOTE,
-} from '../../src/features/notifications/model/readiness-copy';
+import { DEGRADED_NOTE } from '../../src/features/notifications/model/readiness-copy';
 import {
   assignClientIdentity,
   filterButton,
@@ -18,7 +15,7 @@ test.beforeEach(async ({ page }) => {
   await assignClientIdentity(page);
 });
 
-test('customer inbox shows the real order notification and REST-only copy', async ({
+test('customer inbox shows the real order notification and degraded fallback copy', async ({
   page,
   request,
 }) => {
@@ -34,7 +31,7 @@ test('customer inbox shows the real order notification and REST-only copy', asyn
   await expect(row.getByText('Unread', { exact: true })).toBeVisible();
   expect(await readUnreadCount(page)).toBeGreaterThan(0);
   expect(await readUnreadCount(page)).toBe(await getUnreadCountApi(request, seeded.customerToken));
-  await expect(page.getByText(DEGRADED_NOTE).or(page.getByText(REST_ONLY_NOTE))).toBeVisible();
+  await expect(page.getByText(DEGRADED_NOTE, { exact: true })).toBeVisible();
 });
 
 test('company inbox shows the real company notification', async ({ page, request }) => {
@@ -47,7 +44,7 @@ test('company inbox shows the real company notification', async ({ page, request
   await expect(row).toBeVisible();
   await expect(row).toContainText(/New COD order/);
   await expect(row).toContainText(/awaiting approval/);
-  await expect(page.getByText(DEGRADED_NOTE).or(page.getByText(REST_ONLY_NOTE))).toBeVisible();
+  await expect(page.getByText(DEGRADED_NOTE, { exact: true })).toBeVisible();
 
   expect(await readUnreadCount(page)).toBe(await getUnreadCountApi(request, seeded.adminToken));
   const mark = page.getByRole('button', {
@@ -83,10 +80,7 @@ test('bell opens on Enter, shows real preview, and closes on Escape', async ({ p
   await expect(preview).toBeVisible();
   await expect(preview).toContainText(seeded.orderId);
   await expect(preview).toContainText(/pending approval/);
-  await expect.poll(async () => {
-    const text = await preview.innerText();
-    return text.includes(DEGRADED_NOTE) || text.includes(REST_ONLY_NOTE);
-  }).toBe(true);
+  await expect(preview).toContainText(DEGRADED_NOTE);
 
   await page.keyboard.press('Escape');
   await expect(preview).toBeHidden();
