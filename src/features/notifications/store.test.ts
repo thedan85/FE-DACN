@@ -159,6 +159,11 @@ function setup(options: Options = {}) {
 		manager, store, calls, pending, channels, responses, credentials, createClient,
 		setResponses: (patch: Partial<typeof responses>) => Object.assign(responses, patch),
 		resolveNext: (data: unknown) => { pending.shift()!.request.resolve(data); },
+		resolveMatching: (path: string, data: unknown) => {
+			const index = pending.findIndex((entry) => entry.call.path === path);
+			const [entry] = pending.splice(index, 1);
+			entry.request.resolve(envelope(data));
+		},
 		resolveAll: (count: unknown, inbox: unknown) => {
 			while (pending.length) {
 				const next = pending.shift()!;
@@ -289,6 +294,66 @@ describe("account-scoped notification store with the accepted real manager", () 
 		await staleList;
 		await flush();
 		expect(useNotificationStore.getState().list[0].notificationId).toBe("NOTI_1");
+	});
+
+	it("newest list request wins when an older page-0 refresh settles last at the same revision", async () => {
+		const s = setup({ configured: false, auto: false });
+		s.store.configure(s.manager);
+		await flush();
+		s.resolveNext(envelope({ unreadCount: 4, revision: 7 }));
+		await flush();
+
+		const openList = s.store.loadList();
+		await flush();
+		s.resolveMatching("notifications?page=0&size=20", inboxData([row("OLD_PAGE0")], 4, 7, 0, 20));
+		await openList;
+		await flush();
+		expect(useNotificationStore.getState().page).toBe(0);
+
+		// Open-list refresh through the wave/reconcile path, still at page 0.
+		s.store.invalidate();
+		await flush();
+		s.resolveMatching("notifications/unread-count", { unreadCount: 4, revision: 7 });
+		await flush();
+		expect(s.calls.at(-1)!.path).toBe("notifications?page=0&size=20");
+
+		// A newer page-1 request starts while the page-0 refresh is in flight.
+		const newer = s.store.loadList({ page: 1, size: 20 });
+		await flush();
+		expect(s.calls.at(-1)!.path).toBe("notifications?page=1&size=20");
+
+		s.resolveMatching("notifications?page=1&size=20", inboxData([row("PAGE1")], 4, 7, 1, 20));
+		await newer;
+		await flush();
+		expect(useNotificationStore.getState()).toMatchObject({ page: 1, totalElements: 1 });
+		expect(useNotificationStore.getState().list[0].notificationId).toBe("PAGE1");
+
+		// Same revision, older list id: the late page-0 response must not clobber page 1.
+		s.resolveMatching("notifications?page=0&size=20", inboxData([row("OLD_PAGE0_LATE")], 4, 7, 0, 20));
+		await flush();
+		expect(useNotificationStore.getState().page).toBe(1);
+		expect(useNotificationStore.getState().list[0].notificationId).toBe("PAGE1");
+
+		// The existing lower-revision rule still rejects a newer list id.
+		const lower = s.store.loadList({ page: 2, size: 20 });
+		await flush();
+		s.resolveMatching("notifications?page=2&size=20", inboxData([row("LOWER")], 99, 5, 2, 20));
+		await lower;
+		await flush();
+		expect(useNotificationStore.getState().page).toBe(1);
+		expect(useNotificationStore.getState().unreadCount).toBe(4);
+
+		// Duplicate invalidations coalesce and still fetch after the newest request settles.
+		const before = s.calls.length;
+		s.store.invalidate();
+		s.store.invalidate();
+		await flush();
+		expect(s.calls.length).toBe(before + 1);
+		s.resolveAll({ unreadCount: 6, revision: 8 }, inboxData([row("AFTER")], 6, 8, 1, 20));
+		await flush();
+		s.resolveAll({ unreadCount: 6, revision: 8 }, inboxData([row("AFTER")], 6, 8, 1, 20));
+		await flush();
+		expect(useNotificationStore.getState()).toMatchObject({ unreadCount: 6, revision: 8 });
 	});
 
 	it("clears private data and aborts in-flight work on account switch and logout", async () => {

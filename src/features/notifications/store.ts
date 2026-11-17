@@ -17,6 +17,7 @@ import {
 	markNotificationRead,
 } from "./api/notifications.api";
 import type {
+	NotificationInboxResponse,
 	NotificationListQuery,
 	NotificationState,
 	NotificationView,
@@ -57,6 +58,8 @@ const controller = {
 	nextContext: undefined as ReconcileContext | undefined,
 	releases: [] as Array<() => void>,
 	listLoaded: false,
+	/** Independent of revision: the newest list request wins on equal revisions. */
+	listRequest: 0,
 	configured: false,
 };
 
@@ -127,6 +130,28 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 		return true;
 	}
 
+	function startListRequest(): number {
+		controller.listRequest += 1;
+		return controller.listRequest;
+	}
+
+	function applyListResult(
+		inbox: NotificationInboxResponse,
+		listId: number,
+		requested: { page: number; size: number; filter: NotificationState["filter"] },
+	): void {
+		// Count/revision keep the revision-only rule; list data needs the newest id too.
+		const applied = applySnapshot(inbox);
+		if (!applied || listId !== controller.listRequest) return;
+		set({
+			list: inbox.notifications.content as NotificationView[],
+			totalElements: inbox.notifications.totalElements,
+			page: inbox.notifications.page,
+			size: inbox.notifications.size,
+			filter: requested.filter,
+		});
+	}
+
 	function applyReadiness(
 		state: RealtimeInterestState,
 		context?: ReconcileContext,
@@ -150,19 +175,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 
 				const { page, size, filter } = get();
 				set({ listLoading: true, listError: null });
+				const listId = startListRequest();
 				const inbox = await listNotifications(
 					{ page, size, status: filter === "ALL" ? undefined : filter },
 					request.signal,
 				);
 				if (!request.current()) return;
-				if (applySnapshot(inbox)) {
-					set({
-						list: inbox.notifications.content as NotificationView[],
-						totalElements: inbox.notifications.totalElements,
-						page: inbox.notifications.page,
-						size: inbox.notifications.size,
-					});
-				}
+				applyListResult(inbox, listId, { page, size, filter });
 			} catch (error) {
 				if (request.current()) set({ countError: error, listError: error });
 			} finally {
@@ -211,6 +230,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 		controller.account = next;
 		controller.epoch += 1;
 		controller.generation += 1;
+		controller.listRequest += 1;
 		controller.scheduled = false;
 		controller.dirty = false;
 		abortAll();
@@ -232,9 +252,9 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 
 		configure(manager) {
 			get().dispose();
-			controller.configured = true;
 			controller.account = currentAccount();
 			if (controller.account === null) return () => {};
+			controller.configured = true;
 
 			const releases: Array<() => void> = [];
 			releases.push(manager.onReconcile((context) => { void request(context); }));
@@ -258,6 +278,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 			controller.configured = false;
 			controller.epoch += 1;
 			controller.generation += 1;
+			controller.listRequest += 1;
 			controller.scheduled = false;
 			controller.dirty = false;
 			abortAll();
@@ -278,22 +299,16 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 			const page = query.page ?? get().page;
 			const size = query.size ?? get().size;
 			const filter = query.filter ?? get().filter;
-			set({ page, size, filter, listLoading: true, listError: null });
+			set({ listLoading: true, listError: null });
 			const req = newRequest();
+			const listId = startListRequest();
 			try {
 				const inbox = await listNotifications(
 					{ page, size, status: filter === "ALL" ? undefined : filter },
 					req.signal,
 				);
 				if (!req.current()) return;
-				if (applySnapshot(inbox)) {
-					set({
-						list: inbox.notifications.content as NotificationView[],
-						totalElements: inbox.notifications.totalElements,
-						page: inbox.notifications.page,
-						size: inbox.notifications.size,
-					});
-				}
+				applyListResult(inbox, listId, { page, size, filter });
 			} catch (error) {
 				if (req.current()) set({ listError: error });
 			} finally {
