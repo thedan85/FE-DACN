@@ -178,6 +178,65 @@ describe("NotificationInbox with the shared store", () => {
 		expect(useNotificationStore.getState().list.map((item) => item.notificationId)).toEqual(["N2"]);
 	});
 
+	it("returns to a populated page after deleting the sole row of page 1", async () => {
+		await startSignedIn("customer", 21, 7);
+		await act(async () => {
+			respondTo((call) => call.path === "notifications?page=0&size=20", {
+				notifications: {
+					content: Array.from({ length: 20 }, (_, index) => row(`P0_${index}`)),
+					page: 0,
+					size: 20,
+					totalElements: 21,
+					totalPages: 2,
+				},
+				unreadCount: 21,
+				revision: 7,
+			});
+		});
+		await screen.findByText("Notification P0_0");
+
+		const next = screen.getByRole("listitem", { name: /next page/i }).querySelector("button")!;
+		fireEvent.click(next);
+		await act(async () => {
+			respondTo((call) => call.path === "notifications?page=1&size=20", {
+				notifications: {
+					content: [row("LONE")], page: 1, size: 20, totalElements: 21, totalPages: 2,
+				},
+				unreadCount: 21,
+				revision: 7,
+			});
+		});
+		await screen.findByText("Notification LONE");
+		expect(useNotificationStore.getState().page).toBe(1);
+
+		const before = listCalls().length;
+		fireEvent.click(screen.getByRole("button", { name: "Delete notification LONE" }));
+		await act(async () => {
+			respondTo((call) => call.method === "DELETE", { unreadCount: 20, revision: 8 });
+		});
+		// Exactly one authoritative page-0 follow-up; no local total delta.
+		expect(listCalls().slice(before)).toEqual([
+			expect.objectContaining({ path: "notifications?page=0&size=20" }),
+		]);
+		expect(useNotificationStore.getState().totalElements).toBe(21);
+		expect(useNotificationStore.getState()).toMatchObject({ unreadCount: 20, revision: 8 });
+
+		await act(async () => {
+			respondTo((call) => call.path === "notifications?page=0&size=20", {
+				notifications: {
+					content: [row("BACK")], page: 0, size: 20, totalElements: 20, totalPages: 1,
+				},
+				unreadCount: 20,
+				revision: 9,
+			});
+		});
+		expect(await screen.findByText("Notification BACK")).toBeTruthy();
+		expect(screen.getByRole("list", { name: "Notification pages" })).toBeTruthy();
+		expect(useNotificationStore.getState()).toMatchObject({
+			page: 0, totalElements: 20, unreadCount: 20, revision: 9,
+		});
+	});
+
 	it("lets a lower-revision mutation response neither rewind the count nor resurrect a deleted row", async () => {
 		await startSignedIn();
 		await act(async () => {

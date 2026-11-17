@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "antd";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
@@ -141,6 +141,7 @@ describe("NotificationInbox auth gating", () => {
 		mount();
 		expect(screen.getByText("Sign in to view your notifications.")).toBeTruthy();
 		expect(harness.state.loadList).not.toHaveBeenCalled();
+		expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
 	});
 
 	it("shows a busy state while the session is still loading", () => {
@@ -149,6 +150,7 @@ describe("NotificationInbox auth gating", () => {
 		const { container } = mount();
 		expect(container.querySelector(".ant-spin")).not.toBeNull();
 		expect(harness.state.loadList).not.toHaveBeenCalled();
+		expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
 	});
 });
 
@@ -261,6 +263,20 @@ describe("NotificationInbox rows and actions", () => {
 		expect(harness.state.deleteNotification).toHaveBeenCalledWith("N1");
 		expect(screen.queryByText("Notification N1")).toBeNull();
 		expect(screen.getByText("1 unread")).toBeTruthy();
+	});
+
+	it("requests page 0 after deleting the last row when the committed total is zero", async () => {
+		harness.state.totalElements = 0;
+		harness.state.list = [entry("N1")];
+		const view = mount();
+		harness.state.page = 2;
+		view.rerender(<App><NotificationInbox mode="customer" /></App>);
+		harness.state.loadList.mockClear();
+		fireEvent.click(screen.getByRole("button", { name: "Delete notification N1" }));
+		await waitFor(() => expect(harness.state.loadList).toHaveBeenCalledWith({
+			page: 0, size: 20, filter: "ALL",
+		}));
+		expect(harness.state.totalElements).toBe(0);
 	});
 
 	it("keeps the row and count on a mutation error and retries successfully", async () => {

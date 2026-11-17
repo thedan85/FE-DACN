@@ -115,6 +115,20 @@ export function NotificationInbox({ mode }: NotificationInboxProps) {
 		void loadList({ page, size, filter });
 	}
 
+	function deleteRow(item: NotificationView): void {
+		const key = `delete:${item.notificationId}`;
+		void runAction(key, async () => {
+			await deleteNotification(item.notificationId);
+			// The authoritative delete emptied the last row of a later page.
+			// Walk back one page, never past the last page implied by the
+			// committed total. Count/revision/total stay as the store left them.
+			if (list.length === 1 && page > 0) {
+				const lastPage = Math.max(0, Math.ceil(totalElements / size) - 1);
+				void loadList({ page: Math.min(page - 1, lastPage), size, filter });
+			}
+		}, "Could not delete this notification.");
+	}
+
 	async function runAction(
 		key: string,
 		action: () => Promise<void>,
@@ -179,10 +193,7 @@ export function NotificationInbox({ mode }: NotificationInboxProps) {
 						danger
 						aria-label={`Delete notification ${item.notificationId}`}
 						icon={<DeleteOutlined aria-hidden="true" />}
-						onClick={() => {
-							void runAction(deleteKey, () => deleteNotification(item.notificationId),
-								"Could not delete this notification.");
-						}}
+						onClick={() => deleteRow(item)}
 					>
 						Delete
 					</Button>
@@ -199,10 +210,7 @@ export function NotificationInbox({ mode }: NotificationInboxProps) {
 				{rowErrors[deleteKey] ? (
 					<InlineError
 						title={rowErrors[deleteKey]}
-						onRetry={() => {
-							void runAction(deleteKey, () => deleteNotification(item.notificationId),
-								"Could not delete this notification.");
-						}}
+						onRetry={() => deleteRow(item)}
 					/>
 				) : null}
 			</li>
@@ -222,7 +230,7 @@ export function NotificationInbox({ mode }: NotificationInboxProps) {
 				<div className="page-container">
 					<div className={styles.guestCard}>
 						<span className={styles.guestIcon} aria-hidden="true">🔔</span>
-						<h1 id="notifications-guest-title">Notifications</h1>
+						<h2 id="notifications-guest-title" className={styles.title}>Notifications</h2>
 						<p>Sign in to view your notifications.</p>
 						<Button type="primary" href="/login">Log In</Button>
 					</div>

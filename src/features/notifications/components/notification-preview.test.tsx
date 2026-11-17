@@ -138,6 +138,13 @@ describe("NotificationPreview", () => {
 		expect(document.querySelector("time")?.getAttribute("datetime")).toBe("2026-11-11T01:02:00Z");
 	});
 
+	it("encodes a reserved-character customer orderId as one path segment", () => {
+		harness.state.preview = [entry("ORD/42?x")];
+		mount();
+		const link = screen.getByRole("link", { name: "Order confirmed" });
+		expect(link.getAttribute("href")).toBe("/account/orders/ORD%2F42%3Fx");
+	});
+
 	it("renders a customer entry with no orderId as plain text without a link", () => {
 		harness.state.preview = [entry(null, "Refund review pending")];
 		const { container } = mount();

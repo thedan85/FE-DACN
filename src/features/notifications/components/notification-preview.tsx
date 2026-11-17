@@ -48,7 +48,10 @@ export function NotificationPreview({ mode }: NotificationPreviewProps) {
 					return (
 						<li key={item.notificationId} className={styles.entry}>
 							{mode === "customer" && item.orderId ? (
-								<Link href={`/account/orders/${item.orderId}`} className={styles.message}>
+								<Link
+									href={`/account/orders/${encodeURIComponent(item.orderId)}`}
+									className={styles.message}
+								>
 									{item.message}
 								</Link>
 							) : (
