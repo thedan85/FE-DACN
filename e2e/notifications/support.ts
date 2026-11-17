@@ -14,6 +14,14 @@ export const ADMIN = {
 
 type Envelope<T> = { code: number; message: string; data: T };
 
+// Auth login also caps 10 attempts/min per shared source IP; use a distinct trusted IP per test.
+let clientIpCounter = 0;
+
+export async function assignClientIdentity(page: Page): Promise<void> {
+  clientIpCounter += 1;
+  await page.setExtraHTTPHeaders({ 'CF-Connecting-IP': `10.16.0.${clientIpCounter}` });
+}
+
 export type NotificationRow = {
   notificationId: string;
   message: string;
@@ -163,4 +171,9 @@ export async function readUnreadCount(page: Page): Promise<number> {
 
 export function rowForOrder(page: Page, orderId: string) {
   return page.getByRole('listitem').filter({ hasText: orderId }).first();
+}
+
+/** antd Radio.Button hides its input; click the visible label span. */
+export function filterButton(page: Page, name: 'All' | 'Unread') {
+  return page.locator('.ant-radio-button-label').filter({ hasText: name });
 }

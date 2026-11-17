@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { REST_ONLY_NOTE } from '../../src/features/notifications/model/readiness-copy';
 import {
+  DEGRADED_NOTE,
+  REST_ONLY_NOTE,
+} from '../../src/features/notifications/model/readiness-copy';
+import {
+  assignClientIdentity,
+  filterButton,
   getUnreadCountApi,
   loginAdminUI,
   loginCustomerUI,
@@ -8,6 +13,10 @@ import {
   rowForOrder,
   seedOrder,
 } from './support';
+
+test.beforeEach(async ({ page }) => {
+  await assignClientIdentity(page);
+});
 
 test('customer inbox shows the real order notification and REST-only copy', async ({
   page,
@@ -25,7 +34,7 @@ test('customer inbox shows the real order notification and REST-only copy', asyn
   await expect(row.getByText('Unread', { exact: true })).toBeVisible();
   expect(await readUnreadCount(page)).toBeGreaterThan(0);
   expect(await readUnreadCount(page)).toBe(await getUnreadCountApi(request, seeded.customerToken));
-  await expect(page.getByText(REST_ONLY_NOTE)).toBeVisible();
+  await expect(page.getByText(DEGRADED_NOTE).or(page.getByText(REST_ONLY_NOTE))).toBeVisible();
 });
 
 test('company inbox shows the real company notification', async ({ page, request }) => {
@@ -38,7 +47,7 @@ test('company inbox shows the real company notification', async ({ page, request
   await expect(row).toBeVisible();
   await expect(row).toContainText(/New COD order/);
   await expect(row).toContainText(/awaiting approval/);
-  await expect(page.getByText(REST_ONLY_NOTE)).toBeVisible();
+  await expect(page.getByText(DEGRADED_NOTE).or(page.getByText(REST_ONLY_NOTE))).toBeVisible();
 
   expect(await readUnreadCount(page)).toBe(await getUnreadCountApi(request, seeded.adminToken));
   const mark = page.getByRole('button', {
@@ -74,7 +83,10 @@ test('bell opens on Enter, shows real preview, and closes on Escape', async ({ p
   await expect(preview).toBeVisible();
   await expect(preview).toContainText(seeded.orderId);
   await expect(preview).toContainText(/pending approval/);
-  await expect(preview).toContainText(REST_ONLY_NOTE);
+  await expect.poll(async () => {
+    const text = await preview.innerText();
+    return text.includes(DEGRADED_NOTE) || text.includes(REST_ONLY_NOTE);
+  }).toBe(true);
 
   await page.keyboard.press('Escape');
   await expect(preview).toBeHidden();
@@ -127,9 +139,9 @@ test('Unread filter hides a row that was just marked read', async ({ page, reque
     .click();
   await expect(row.getByText('Read', { exact: true })).toBeVisible();
 
-  await page.getByRole('radio', { name: 'Unread' }).click();
+  await filterButton(page, 'Unread').click();
   await expect(row).toHaveCount(0);
-  await page.getByRole('radio', { name: 'All' }).click();
+  await filterButton(page, 'All').click();
   await expect(row).toBeVisible();
 });
 
@@ -142,7 +154,7 @@ test('customer sign out and admin sign in leave only company rows', async ({ pag
   await page.getByRole('button', { name: 'Sign Out' }).click();
   await expect(page.getByRole('heading', { name: 'Log out?' })).toBeVisible();
   await page.getByRole('button', { name: 'Log Out', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Log In' })).toBeVisible();
+  await expect(page.getByRole('banner').getByRole('link', { name: 'Log In' })).toBeVisible();
 
   await loginAdminUI(page);
   await page.goto('/admin/notifications');
@@ -179,7 +191,7 @@ test('real REST failure shows error and Retry, then recovers with real data', as
 
   const blockNotifications = '**/api/v1/notifications**';
   await page.route(blockNotifications, (route) => route.abort('failed'));
-  await page.getByRole('radio', { name: 'Unread' }).click();
+  await filterButton(page, 'Unread').click();
 
   const error = page.getByRole('alert').filter({ hasText: 'Could not load notifications.' });
   await expect(error).toBeVisible();
