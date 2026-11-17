@@ -52,6 +52,21 @@ export async function apiLogin(
   return body.data.accessToken;
 }
 
+// auth/login allows 10 per account per 15 minutes and tokens live 15 minutes: cache one per account per worker.
+const tokenCache = new Map<string, string>();
+
+async function cachedApiLogin(
+  request: APIRequestContext,
+  email: string,
+  password: string,
+): Promise<string> {
+  const cached = tokenCache.get(email);
+  if (cached) return cached;
+  const token = await apiLogin(request, email, password);
+  tokenCache.set(email, token);
+  return token;
+}
+
 export async function getUnreadCountApi(
   request: APIRequestContext,
   token: string,
@@ -89,8 +104,8 @@ async function waitForInboxRow(
 
 /** Seeds one order through the real API; RabbitMQ delivery is configured externally. */
 export async function seedOrder(request: APIRequestContext): Promise<SeededOrder> {
-  const customerToken = await apiLogin(request, CUSTOMER.email, CUSTOMER.password);
-  const adminToken = await apiLogin(request, ADMIN.email, ADMIN.password);
+  const customerToken = await cachedApiLogin(request, CUSTOMER.email, CUSTOMER.password);
+  const adminToken = await cachedApiLogin(request, ADMIN.email, ADMIN.password);
 
   const add = await request.post(`${API}/cart/items`, {
     headers: auth(customerToken),
