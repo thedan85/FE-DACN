@@ -299,7 +299,8 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 			const page = query.page ?? get().page;
 			const size = query.size ?? get().size;
 			const filter = query.filter ?? get().filter;
-			set({ listLoading: true, listError: null });
+			// Commit user intent now so a later wave reads this page, not a stale one.
+			set({ page, size, filter, listLoading: true, listError: null });
 			const req = newRequest();
 			const listId = startListRequest();
 			try {

@@ -164,6 +164,10 @@ function setup(options: Options = {}) {
 			const [entry] = pending.splice(index, 1);
 			entry.request.resolve(envelope(data));
 		},
+		resolveAt: (index: number, data: unknown) => {
+			const [entry] = pending.splice(index, 1);
+			entry.request.resolve(envelope(data));
+		},
 		resolveAll: (count: unknown, inbox: unknown) => {
 			while (pending.length) {
 				const next = pending.shift()!;
@@ -334,13 +338,14 @@ describe("account-scoped notification store with the accepted real manager", () 
 		expect(useNotificationStore.getState().page).toBe(1);
 		expect(useNotificationStore.getState().list[0].notificationId).toBe("PAGE1");
 
-		// The existing lower-revision rule still rejects a newer list id.
+		// The lower-revision response is still rejected: intent is committed, list/count are not.
 		const lower = s.store.loadList({ page: 2, size: 20 });
 		await flush();
+		expect(useNotificationStore.getState().page).toBe(2);
 		s.resolveMatching("notifications?page=2&size=20", inboxData([row("LOWER")], 99, 5, 2, 20));
 		await lower;
 		await flush();
-		expect(useNotificationStore.getState().page).toBe(1);
+		expect(useNotificationStore.getState().list[0].notificationId).toBe("PAGE1");
 		expect(useNotificationStore.getState().unreadCount).toBe(4);
 
 		// Duplicate invalidations coalesce and still fetch after the newest request settles.
@@ -354,6 +359,49 @@ describe("account-scoped notification store with the accepted real manager", () 
 		s.resolveAll({ unreadCount: 6, revision: 8 }, inboxData([row("AFTER")], 6, 8, 1, 20));
 		await flush();
 		expect(useNotificationStore.getState()).toMatchObject({ unreadCount: 6, revision: 8 });
+	});
+
+	it("a later wave reads the user's committed page when its count resolves after loadList", async () => {
+		const s = setup({ configured: false, auto: false });
+		s.store.configure(s.manager);
+		await flush();
+		s.resolveNext(envelope({ unreadCount: 4, revision: 7 }));
+		await flush();
+
+		// Open the list at page 0, then start a wave whose count is still in flight.
+		const openList = s.store.loadList();
+		await flush();
+		s.resolveMatching("notifications?page=0&size=20", inboxData([row("OLD_PAGE0")], 4, 7, 0, 20));
+		await openList;
+		await flush();
+		s.store.invalidate();
+		await flush();
+		expect(s.pending.some((entry) => entry.call.path === "notifications/unread-count")).toBe(true);
+
+		// User intent starts while the wave count is in flight; page 1 is committed now.
+		const newer = s.store.loadList({ page: 1, size: 20 });
+		await flush();
+		expect(useNotificationStore.getState().page).toBe(1);
+		expect(s.calls.at(-1)!.path).toBe("notifications?page=1&size=20");
+
+		// The wave count resolves afterwards and must read the committed page 1.
+		s.resolveMatching("notifications/unread-count", { unreadCount: 4, revision: 7 });
+		await flush();
+		expect(s.calls.at(-1)!.path).toBe("notifications?page=1&size=20");
+		expect(s.calls.filter((call) => call.path === "notifications?page=0&size=20")).toHaveLength(1);
+
+		// pending[0] is the user's request, pending[1] is the wave's newer one.
+		s.resolveAt(1, inboxData([row("WAVE_PAGE1")], 4, 7, 1, 20));
+		await flush();
+		expect(useNotificationStore.getState().page).toBe(1);
+		expect(useNotificationStore.getState().list[0].notificationId).toBe("WAVE_PAGE1");
+
+		// The older user response settles last; the sequence fence keeps page 1 applied.
+		s.resolveAt(0, inboxData([row("USER_PAGE1")], 4, 7, 1, 20));
+		await newer;
+		await flush();
+		expect(useNotificationStore.getState().page).toBe(1);
+		expect(useNotificationStore.getState().list[0].notificationId).toBe("WAVE_PAGE1");
 	});
 
 	it("clears private data and aborts in-flight work on account switch and logout", async () => {
