@@ -20,6 +20,7 @@ type AdminLayoutProps = {
 const PAGE_TITLES: { href: string; title: string }[] = [
 	{ href: "/admin/dashboard", title: "Dashboard" },
 	{ href: "/admin/products", title: "Products & Variants" },
+	{ href: "/admin/notifications", title: "Notifications" },
 ];
 
 function currentPageTitle(pathname: string): string {

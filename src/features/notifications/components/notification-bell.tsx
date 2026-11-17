@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import Link from "next/link";
 import { Badge, Button, Popover } from "antd";
 import { BellOutlined } from "@ant-design/icons";
 import { useNotificationStore } from "../store";
@@ -73,7 +74,19 @@ export function NotificationBell({ mode, className }: NotificationBellProps) {
 			onOpenChange={handleOpenChange}
 			trigger="click"
 			placement="bottomRight"
-			content={<NotificationPreview mode={mode} />}
+			content={
+				<>
+					<NotificationPreview mode={mode} />
+					<div className={styles.footer}>
+						<Link
+							className={styles.viewAll}
+							href={mode === "company" ? "/admin/notifications" : "/account/notifications"}
+						>
+							View all notifications
+						</Link>
+					</div>
+				</>
+			}
 		>
 			<span className={[styles.root, className].filter(Boolean).join(" ")}>
 				<Button

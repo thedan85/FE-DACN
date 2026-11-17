@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Alert, Button, Empty, Skeleton } from "antd";
+import { readinessNote } from "../model/readiness-copy";
 import { useNotificationStore } from "../store";
 import type { NotificationView } from "../types";
 import styles from "./notification-preview.module.css";
@@ -10,17 +11,6 @@ import styles from "./notification-preview.module.css";
 export type NotificationPreviewProps = {
 	mode: "customer" | "company";
 };
-
-const CONNECTING_NOTE = "Connecting to live updates…";
-const DEGRADED_NOTE = "Live updates are degraded; showing the latest saved notifications.";
-const REST_ONLY_NOTE = "Live updates are unavailable; showing the latest saved notifications.";
-
-function readinessNote(status: string): string | null {
-	if (status === "live") return null;
-	if (status === "connecting") return CONNECTING_NOTE;
-	if (status === "degraded") return DEGRADED_NOTE;
-	return REST_ONLY_NOTE;
-}
 
 function formatTime(iso: string): string {
 	const date = new Date(iso);

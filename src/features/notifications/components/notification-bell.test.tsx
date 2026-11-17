@@ -116,6 +116,19 @@ describe("NotificationBell", () => {
 		expect(await screen.findByRole("dialog", { name: "Company notifications preview" })).toBeTruthy();
 	});
 
+	it("offers one narrow View all notifications link to each inbox route", async () => {
+		mount();
+		fireEvent.click(trigger());
+		expect((await screen.findByRole("link", { name: "View all notifications" }))
+			.getAttribute("href")).toBe("/account/notifications");
+		cleanup();
+
+		mount("company");
+		fireEvent.click(trigger());
+		expect((await screen.findByRole("link", { name: "View all notifications" }))
+			.getAttribute("href")).toBe("/admin/notifications");
+	});
+
 	it("opens on Enter and Space from the focused bell", async () => {
 		mount();
 		const bell = trigger();
