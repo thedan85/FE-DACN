@@ -5,6 +5,7 @@ import type { PropsWithChildren } from "react";
 import { App, ConfigProvider, theme } from "antd";
 import { designTokens } from "@/lib/design-tokens";
 import { RealtimeProvider } from "@/features/realtime/components/realtime-provider";
+import { NotificationsProvider } from "@/features/notifications/components/notifications-provider";
 
 const { colors, typography, radius } = designTokens;
 
@@ -73,6 +74,7 @@ export default function Providers({ children }: PropsWithChildren) {
 		<ConfigProvider theme={antdTheme}>
 			<App>
 				<RealtimeProvider />
+				<NotificationsProvider />
 				{children}
 			</App>
 		</ConfigProvider>
