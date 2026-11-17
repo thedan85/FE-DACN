@@ -32,6 +32,7 @@ export type SeededOrder = {
   customerToken: string;
   adminToken: string;
   customerNotificationId: string;
+  companyNotificationId: string;
 };
 
 function auth(token: string): { Authorization: string } {
@@ -103,8 +104,8 @@ export async function seedOrder(request: APIRequestContext): Promise<SeededOrder
       address: '123 Demo St, HCMC',
       recipientName: 'Swagger Customer',
       phone: '0901234567',
-      province: 'Hồ Chí Minh',
-      ward: 'Phường Chợ Quán',
+      province: 'Ho Chi Minh City',
+      ward: 'Cho Quan Ward',
       method: 'COD',
     },
   });
@@ -114,12 +115,13 @@ export async function seedOrder(request: APIRequestContext): Promise<SeededOrder
   expect(orderId).toBeTruthy();
 
   const customerRow = await waitForInboxRow(request, customerToken, orderId);
-  await waitForInboxRow(request, adminToken, orderId);
+  const companyRow = await waitForInboxRow(request, adminToken, orderId);
   return {
     orderId,
     customerToken,
     adminToken,
     customerNotificationId: customerRow.notificationId,
+    companyNotificationId: companyRow.notificationId,
   };
 }
 

@@ -39,6 +39,25 @@ test('company inbox shows the real company notification', async ({ page, request
   await expect(row).toContainText(/New COD order/);
   await expect(row).toContainText(/awaiting approval/);
   await expect(page.getByText(REST_ONLY_NOTE)).toBeVisible();
+
+  expect(await readUnreadCount(page)).toBe(await getUnreadCountApi(request, seeded.adminToken));
+  const mark = page.getByRole('button', {
+    name: `Mark notification ${seeded.companyNotificationId} as read`,
+  });
+  await mark.focus();
+  await page.keyboard.press('Enter');
+  await expect(row.getByText('Read', { exact: true })).toBeVisible();
+  await expect
+    .poll(async () =>
+      (await readUnreadCount(page)) === (await getUnreadCountApi(request, seeded.adminToken)))
+    .toBe(true);
+
+  const remove = page.getByRole('button', {
+    name: `Delete notification ${seeded.companyNotificationId}`,
+  });
+  await remove.focus();
+  await page.keyboard.press('Space');
+  await expect(row).toHaveCount(0);
 });
 
 test('bell opens on Enter, shows real preview, and closes on Escape', async ({ page, request }) => {
