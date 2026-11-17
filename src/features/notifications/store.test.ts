@@ -613,6 +613,34 @@ describe("on-demand preview slice in the shared store", () => {
 		expect(after.preview).toHaveLength(1);
 	});
 
+	it("shows preview entries when a newer authoritative count arrives mid-flight", async () => {
+		const s = setup({ configured: false, auto: false });
+		s.store.configure(s.manager);
+		await flush();
+		s.resolveNext(envelope({ unreadCount: 4, revision: 7 }));
+		await flush();
+		expect(useNotificationStore.getState().revision).toBe(7);
+
+		const loading = s.store.loadPreview();
+		await flush();
+		expect(useNotificationStore.getState().previewLoading).toBe(true);
+
+		// A mutation reconciles a newer count while the preview is still in flight.
+		const reading = s.store.markRead("NOTI_1");
+		await flush();
+		s.resolveMatching("notifications/NOTI_1", s.responses.read);
+		await reading;
+		await flush();
+		expect(useNotificationStore.getState()).toMatchObject({ unreadCount: 3, revision: 8 });
+
+		// The preview response is older by revision but carries fresh five entries.
+		s.resolveMatching("notifications?page=0&size=5", inboxData([row("PREVIEW")], 4, 7));
+		await loading;
+		await flush();
+		expect(useNotificationStore.getState().preview[0].notificationId).toBe("PREVIEW");
+		expect(useNotificationStore.getState()).toMatchObject({ unreadCount: 3, revision: 8 });
+	});
+
 	it("drops an in-flight preview when the account changes", async () => {
 		const s = setup({ configured: false, auto: false });
 		s.store.configure(s.manager);

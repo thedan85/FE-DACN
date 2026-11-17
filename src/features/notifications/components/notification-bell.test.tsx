@@ -101,6 +101,21 @@ describe("NotificationBell", () => {
 		await waitFor(() => expect(loadPreview).toHaveBeenCalledTimes(1));
 	});
 
+	it("exposes an accessible dialog for the customer preview while keeping the trigger state", async () => {
+		mount();
+		const bell = trigger();
+		expect(bell.getAttribute("aria-haspopup")).toBe("dialog");
+		fireEvent.click(bell);
+		expect(bell.getAttribute("aria-expanded")).toBe("true");
+		expect(await screen.findByRole("dialog", { name: "Notifications preview" })).toBeTruthy();
+	});
+
+	it("names the company preview dialog", async () => {
+		mount("company");
+		fireEvent.click(trigger());
+		expect(await screen.findByRole("dialog", { name: "Company notifications preview" })).toBeTruthy();
+	});
+
 	it("opens on Enter and Space from the focused bell", async () => {
 		mount();
 		const bell = trigger();

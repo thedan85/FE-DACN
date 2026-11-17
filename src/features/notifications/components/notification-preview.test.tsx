@@ -76,9 +76,42 @@ describe("NotificationPreview", () => {
 		expect(loadPreview).toHaveBeenCalledTimes(1);
 	});
 
-	it("shows a truthful REST-only note whenever the inbox is not admitted and live", () => {
+	it("exposes a labelled dialog root in customer and company modes", () => {
+		harness.state.preview = [entry("ORD_1")];
+		mount();
+		expect(screen.getByRole("dialog", { name: "Notifications preview" })).toBeTruthy();
+		cleanup();
+		mount("company");
+		expect(screen.getByRole("dialog", { name: "Company notifications preview" })).toBeTruthy();
+	});
+
+	it("says connecting while the inbox is admitted but not yet acknowledged", () => {
+		harness.state = {
+			...harness.state,
+			preview: [entry("ORD_1")],
+			readiness: { admission: "admitted", acknowledged: false, status: "connecting" },
+		};
+		mount();
+		expect(screen.getByText("Connecting to live updates…")).toBeTruthy();
+		expect(screen.queryByText(/unavailable|degraded/i)).toBeNull();
+	});
+
+	it("says degraded when live updates have lost their connection", () => {
+		harness.state = {
+			...harness.state,
+			preview: [entry("ORD_1")],
+			readiness: { admission: "admitted", acknowledged: true, status: "degraded" },
+		};
+		mount();
+		expect(screen.getByText(
+			"Live updates are degraded; showing the latest saved notifications.",
+		)).toBeTruthy();
+		expect(screen.queryByText(/Live updates are unavailable|Connecting to live updates/)).toBeNull();
+	});
+
+	it("uses the unavailable wording only for unavailable live states", () => {
 		const note = "Live updates are unavailable; showing the latest saved notifications.";
-		for (const status of ["rest-only", "degraded", "disabled", "denied", "connecting", "unavailable"]) {
+		for (const status of ["rest-only", "denied", "disabled", "unavailable"]) {
 			harness.state = {
 				...harness.state,
 				preview: [entry("ORD_1")],
@@ -86,6 +119,7 @@ describe("NotificationPreview", () => {
 			};
 			mount();
 			expect(screen.getByText(note)).toBeTruthy();
+			expect(screen.queryByText(/Connecting to live updates|Live updates are degraded/)).toBeNull();
 			cleanup();
 		}
 	});
@@ -93,7 +127,7 @@ describe("NotificationPreview", () => {
 	it("does not claim a live connection when the inbox is admitted and acknowledged", () => {
 		harness.state.preview = [entry("ORD_1")];
 		mount();
-		expect(screen.queryByText(/Live updates are unavailable/)).toBeNull();
+		expect(screen.queryByText(/Live updates|Connecting to live updates/)).toBeNull();
 	});
 
 	it("links a customer entry with an orderId to the storefront order and shows its time", () => {

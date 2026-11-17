@@ -340,9 +340,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 					req.signal,
 				);
 				if (!req.current()) return;
-				if (!applySnapshot(inbox)) return;
 				if (previewId !== controller.previewRequest) return;
+				// The five entries are an on-demand read, independent of the count
+				// revision. A newer count arriving mid-flight must not hide them.
 				set({ preview: inbox.notifications.content as NotificationView[] });
+				// Count/revision still follow the revision-only rule: a lower
+				// revision can never lower the badge.
+				applySnapshot(inbox);
 			} catch (error) {
 				if (req.current()) set({ previewError: error });
 			} finally {

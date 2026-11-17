@@ -11,7 +11,16 @@ export type NotificationPreviewProps = {
 	mode: "customer" | "company";
 };
 
+const CONNECTING_NOTE = "Connecting to live updates…";
+const DEGRADED_NOTE = "Live updates are degraded; showing the latest saved notifications.";
 const REST_ONLY_NOTE = "Live updates are unavailable; showing the latest saved notifications.";
+
+function readinessNote(status: string): string | null {
+	if (status === "live") return null;
+	if (status === "connecting") return CONNECTING_NOTE;
+	if (status === "degraded") return DEGRADED_NOTE;
+	return REST_ONLY_NOTE;
+}
 
 function formatTime(iso: string): string {
 	const date = new Date(iso);
@@ -63,11 +72,12 @@ export function NotificationPreview({ mode }: NotificationPreviewProps) {
 		);
 	}
 
+	const note = readinessNote(readiness.status);
+	const dialogLabel = mode === "company" ? "Company notifications preview" : "Notifications preview";
+
 	return (
-		<div className={styles.root}>
-			{readiness.status !== "live" ? (
-				<Alert type="info" title={REST_ONLY_NOTE} className={styles.note} />
-			) : null}
+		<div className={styles.root} role="dialog" aria-label={dialogLabel}>
+			{note ? <Alert type="info" title={note} className={styles.note} /> : null}
 			{body}
 		</div>
 	);

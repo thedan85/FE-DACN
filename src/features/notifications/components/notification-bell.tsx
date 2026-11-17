@@ -18,8 +18,10 @@ export function NotificationBell({ mode, className }: NotificationBellProps) {
 	const unreadCount = useNotificationStore((state) => state.unreadCount);
 	const loadPreview = useNotificationStore((state) => state.loadPreview);
 	const [open, setOpen] = useState(false);
-	const openingRef = useRef(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	// Popover's click trigger toggles on a second trigger click. That must keep
+	// the preview open; only outside clicks and Escape close it.
+	const triggerClickRef = useRef(false);
 
 	const label = mode === "company" ? "Company notifications" : "Notifications";
 	const accessibleName = unreadCount > 0
@@ -27,19 +29,27 @@ export function NotificationBell({ mode, className }: NotificationBellProps) {
 		: `No unread ${label.toLowerCase()}`;
 
 	function openPreview(): void {
-		if (openingRef.current) return;
-		openingRef.current = true;
 		setOpen(true);
-		void loadPreview().finally(() => { openingRef.current = false; });
+		// The store's single-flight guard dedupes a reopen while a request runs.
+		void loadPreview();
+	}
+
+	function handleTriggerClick(): void {
+		triggerClickRef.current = true;
+		openPreview();
 	}
 
 	function handleOpenChange(next: boolean): void {
+		if (triggerClickRef.current) {
+			triggerClickRef.current = false;
+			return;
+		}
 		if (next) openPreview();
 		else setOpen(false);
 	}
 
 	function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>): void {
-		if ((event.key === "Enter" || event.key === " " || event.key === "Spacebar") && !open) {
+		if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
 			event.preventDefault();
 			openPreview();
 		}
@@ -49,6 +59,7 @@ export function NotificationBell({ mode, className }: NotificationBellProps) {
 		if (!open) return;
 		const onKeyDown = (event: globalThis.KeyboardEvent) => {
 			if (event.key !== "Escape") return;
+			triggerClickRef.current = false;
 			setOpen(false);
 			triggerRef.current?.focus();
 		};
@@ -72,6 +83,7 @@ export function NotificationBell({ mode, className }: NotificationBellProps) {
 					aria-label={accessibleName}
 					aria-haspopup="dialog"
 					aria-expanded={open}
+					onClick={handleTriggerClick}
 					onKeyDown={handleKeyDown}
 					icon={
 						<Badge count={unreadCount} overflowCount={99} size="small">
