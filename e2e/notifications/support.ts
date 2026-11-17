@@ -1,0 +1,149 @@
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
+
+export const API = process.env.NOTIFICATIONS_E2E_API_BASE ?? 'http://localhost:8080/api/v1';
+
+export const CUSTOMER = {
+  email: 'swagger.customer@example.com',
+  password: 'Swagger123!',
+};
+
+export const ADMIN = {
+  email: 'swagger.admin@example.com',
+  password: 'Swagger123!',
+};
+
+type Envelope<T> = { code: number; message: string; data: T };
+
+export type NotificationRow = {
+  notificationId: string;
+  message: string;
+  status: 'UNREAD' | 'READ';
+  orderId: string | null;
+};
+
+type InboxData = {
+  notifications: { content: NotificationRow[] };
+  unreadCount: number;
+  revision: number;
+};
+
+export type SeededOrder = {
+  orderId: string;
+  customerToken: string;
+  adminToken: string;
+  customerNotificationId: string;
+};
+
+function auth(token: string): { Authorization: string } {
+  return { Authorization: `Bearer ${token}` };
+}
+
+export async function apiLogin(
+  request: APIRequestContext,
+  email: string,
+  password: string,
+): Promise<string> {
+  const response = await request.post(`${API}/auth/login`, {
+    data: { email, password },
+  });
+  expect(response.ok(), `login failed for ${email}`).toBeTruthy();
+  const body = (await response.json()) as Envelope<{ accessToken: string }>;
+  return body.data.accessToken;
+}
+
+export async function getUnreadCountApi(
+  request: APIRequestContext,
+  token: string,
+): Promise<number> {
+  const response = await request.get(`${API}/notifications/unread-count`, {
+    headers: auth(token),
+  });
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as Envelope<{ unreadCount: number }>;
+  return body.data.unreadCount;
+}
+
+async function waitForInboxRow(
+  request: APIRequestContext,
+  token: string,
+  orderId: string,
+): Promise<NotificationRow> {
+  let found: NotificationRow | undefined;
+  await expect
+    .poll(async () => {
+      const response = await request.get(`${API}/notifications?page=0&size=100`, {
+        headers: auth(token),
+      });
+      if (!response.ok()) return false;
+      const body = (await response.json()) as Envelope<InboxData>;
+      found = body.data.notifications.content.find(
+        (item) => item.orderId === orderId || item.message.includes(orderId),
+      );
+      return found !== undefined;
+    }, { message: `in-app notification for ${orderId} to be delivered`, timeout: 30000 })
+    .toBe(true);
+  if (!found) throw new Error(`notification for ${orderId} was not delivered`);
+  return found;
+}
+
+/** Seeds one order through the real API; RabbitMQ delivery is configured externally. */
+export async function seedOrder(request: APIRequestContext): Promise<SeededOrder> {
+  const customerToken = await apiLogin(request, CUSTOMER.email, CUSTOMER.password);
+  const adminToken = await apiLogin(request, ADMIN.email, ADMIN.password);
+
+  const add = await request.post(`${API}/cart/items`, {
+    headers: auth(customerToken),
+    data: { variantId: 'ember-tetra-default', quantity: 1 },
+  });
+  expect(add.ok(), 'cart add failed').toBeTruthy();
+
+  const checkout = await request.post(`${API}/cart/checkout`, {
+    headers: auth(customerToken),
+    data: {
+      address: '123 Demo St, HCMC',
+      recipientName: 'Swagger Customer',
+      phone: '0901234567',
+      province: 'Hồ Chí Minh',
+      ward: 'Phường Chợ Quán',
+      method: 'COD',
+    },
+  });
+  expect(checkout.ok(), 'checkout failed').toBeTruthy();
+  const placed = (await checkout.json()) as Envelope<{ orderId: string }>;
+  const orderId = placed.data.orderId;
+  expect(orderId).toBeTruthy();
+
+  const customerRow = await waitForInboxRow(request, customerToken, orderId);
+  await waitForInboxRow(request, adminToken, orderId);
+  return {
+    orderId,
+    customerToken,
+    adminToken,
+    customerNotificationId: customerRow.notificationId,
+  };
+}
+
+export async function loginCustomerUI(page: Page): Promise<void> {
+  await page.goto('/login');
+  await page.locator('#login-email').fill(CUSTOMER.email);
+  await page.locator('#login-password').fill(CUSTOMER.password);
+  await page.getByRole('button', { name: 'Sign In' }).click();
+  await expect(page).not.toHaveURL(/\/login$/);
+}
+
+export async function loginAdminUI(page: Page): Promise<void> {
+  await page.goto('/admin/login');
+  await page.locator('input[name="email"]').fill(ADMIN.email);
+  await page.locator('input[name="password"]').fill(ADMIN.password);
+  await page.getByRole('button', { name: 'Sign In' }).click();
+  await expect(page).toHaveURL(/\/admin\/dashboard$/);
+}
+
+export async function readUnreadCount(page: Page): Promise<number> {
+  const text = await page.getByText(/^\d+ unread$/).first().innerText();
+  return Number.parseInt(text, 10);
+}
+
+export function rowForOrder(page: Page, orderId: string) {
+  return page.getByRole('listitem').filter({ hasText: orderId }).first();
+}
