@@ -5,6 +5,7 @@ import Image from "next/image";
 import { App, Button, Dropdown, Input } from "antd";
 import type { MenuProps } from "antd";
 import { LogoutOutlined } from "@ant-design/icons";
+import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { getInitials } from "@/lib/utils/initials";
 import { useAuthStore } from "@/stores/auth-store";
 import styles from "./admin-header.module.css";
@@ -117,16 +118,7 @@ export function AdminHeader({
 					aria-label="Search anything"
 				/>
 
-				{/* Presentational until notifications exist — deliberately not a button. */}
-				<Image
-					src="/images/admin/header/notifications.svg"
-					alt=""
-					width={28}
-					height={30}
-					unoptimized
-					className={styles.bell}
-					aria-hidden="true"
-				/>
+				<NotificationBell mode="company" className={styles.bell} />
 
 				<span className={styles.divider} aria-hidden="true" />
 

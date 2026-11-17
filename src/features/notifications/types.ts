@@ -35,4 +35,8 @@ export type NotificationState = Readonly<{
 	listLoading: boolean;
 	listError: unknown | null;
 	readiness: RealtimeInterestState;
+	/** On-demand latest-five preview; never overwrites the full inbox page. */
+	preview: NotificationView[];
+	previewLoading: boolean;
+	previewError: unknown | null;
 }>;

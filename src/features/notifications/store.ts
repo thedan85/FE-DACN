@@ -44,6 +44,9 @@ function freshState(): NotificationState {
 		listLoading: false,
 		listError: null,
 		readiness: initialReadiness,
+		preview: [],
+		previewLoading: false,
+		previewError: null,
 	};
 }
 
@@ -60,6 +63,8 @@ const controller = {
 	listLoaded: false,
 	/** Independent of revision: the newest list request wins on equal revisions. */
 	listRequest: 0,
+	/** The newest preview open wins; an older flight cannot overwrite it. */
+	previewRequest: 0,
 	configured: false,
 };
 
@@ -117,6 +122,8 @@ export type NotificationStore = NotificationState & {
 	setFilter: (filter: NotificationState["filter"]) => void;
 	setPage: (page: number) => void;
 	loadList: (query?: NotificationListQuery) => Promise<void>;
+	/** Loads the latest five on demand into `preview`; the full inbox is untouched. */
+	loadPreview: () => Promise<void>;
 	invalidate: () => void;
 	markRead: (notificationId: string) => Promise<void>;
 	deleteNotification: (notificationId: string) => Promise<void>;
@@ -231,6 +238,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 		controller.epoch += 1;
 		controller.generation += 1;
 		controller.listRequest += 1;
+		controller.previewRequest += 1;
 		controller.scheduled = false;
 		controller.dirty = false;
 		abortAll();
@@ -279,6 +287,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 			controller.epoch += 1;
 			controller.generation += 1;
 			controller.listRequest += 1;
+			controller.previewRequest += 1;
 			controller.scheduled = false;
 			controller.dirty = false;
 			abortAll();
@@ -315,6 +324,30 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 			} finally {
 				req.finish();
 				if (req.current()) set({ listLoading: false });
+			}
+		},
+
+		async loadPreview() {
+			// Single flight: a second open while one is running reuses that result.
+			if (get().previewLoading) return;
+			const filter: NotificationState["filter"] = "ALL";
+			const req = newRequest();
+			const previewId = ++controller.previewRequest;
+			set({ previewLoading: true, previewError: null });
+			try {
+				const inbox = await listNotifications(
+					{ page: 0, size: 5, status: filter === "ALL" ? undefined : filter },
+					req.signal,
+				);
+				if (!req.current()) return;
+				if (!applySnapshot(inbox)) return;
+				if (previewId !== controller.previewRequest) return;
+				set({ preview: inbox.notifications.content as NotificationView[] });
+			} catch (error) {
+				if (req.current()) set({ previewError: error });
+			} finally {
+				req.finish();
+				if (req.current()) set({ previewLoading: false });
 			}
 		},
 

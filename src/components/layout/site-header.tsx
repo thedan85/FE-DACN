@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { App, Button, Drawer } from "antd";
 import { MenuOutlined, ShoppingOutlined } from "@ant-design/icons";
 import { LoginRequiredDialog, LogoutDialog } from "@/components/dialogs/store-dialogs";
+import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { getInitials } from "@/lib/utils/initials";
 import { useAuthStore } from "@/stores/auth-store";
 import styles from "./site-header.module.css";
@@ -101,6 +102,8 @@ export function SiteHeader() {
 						>
 							<ShoppingOutlined />
 						</Link>
+
+						{signedIn && <NotificationBell mode="customer" />}
 
 						{signedIn && (
 							<div className={styles.account}>

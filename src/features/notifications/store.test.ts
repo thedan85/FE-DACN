@@ -573,6 +573,79 @@ describe("account-scoped notification store with the accepted real manager", () 
 	});
 });
 
+describe("on-demand preview slice in the shared store", () => {
+	it("loads the latest five without touching the full inbox page", async () => {
+		const s = setup({ configured: false, auto: true });
+		s.store.configure(s.manager);
+		await flush();
+		const before = s.calls.length;
+
+		await s.store.loadPreview();
+		await flush();
+
+		expect(s.calls.at(-1)!.path).toBe("notifications?page=0&size=5");
+		expect(s.calls).toHaveLength(before + 1);
+		expect(useNotificationStore.getState()).toMatchObject({
+			previewLoading: false, previewError: null,
+			list: [], page: 0, size: 20, filter: "ALL", totalElements: 0,
+		});
+		expect(useNotificationStore.getState().preview).toHaveLength(1);
+	});
+
+	it("never clobbers a loaded filtered page with preview results", async () => {
+		const s = setup({ configured: false, auto: true });
+		s.store.configure(s.manager);
+		await flush();
+		await s.store.loadList({ page: 2, size: 20, filter: "UNREAD" });
+		await flush();
+		const full = useNotificationStore.getState();
+		expect(full).toMatchObject({ page: 2, size: 20, filter: "UNREAD", listLoading: false });
+
+		await s.store.loadPreview();
+		await flush();
+		const after = useNotificationStore.getState();
+		expect(s.calls.at(-1)!.path).toBe("notifications?page=0&size=5");
+		expect(after.page).toBe(full.page);
+		expect(after.size).toBe(full.size);
+		expect(after.filter).toBe(full.filter);
+		expect(after.totalElements).toBe(full.totalElements);
+		expect(after.list).toEqual(full.list);
+		expect(after.preview).toHaveLength(1);
+	});
+
+	it("drops an in-flight preview when the account changes", async () => {
+		const s = setup({ configured: false, auto: false });
+		s.store.configure(s.manager);
+		await flush();
+		const pending = s.store.loadPreview();
+		await flush();
+		expect(useNotificationStore.getState().previewLoading).toBe(true);
+
+		setUser("USR_2");
+		await flush();
+		expect(useNotificationStore.getState()).toMatchObject({ preview: [], previewLoading: false });
+
+		s.resolveMatching("notifications?page=0&size=5", inboxData([row("STALE")], 9, 9));
+		await pending;
+		await flush();
+		expect(useNotificationStore.getState().preview).toEqual([]);
+	});
+
+	it("clears preview state on dispose", async () => {
+		const s = setup({ configured: false, auto: true });
+		s.store.configure(s.manager);
+		await flush();
+		await s.store.loadPreview();
+		await flush();
+		expect(useNotificationStore.getState().preview).toHaveLength(1);
+
+		s.store.dispose();
+		expect(useNotificationStore.getState()).toMatchObject({
+			preview: [], previewLoading: false, previewError: null,
+		});
+	});
+});
+
 function pendingSignal(s: ReturnType<typeof setup>, index: number): AbortSignal {
 	return s.pending[index].call.init.signal as AbortSignal;
 }
