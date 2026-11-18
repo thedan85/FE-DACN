@@ -50,6 +50,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 	BANK_TRANSFER: "Bank transfer",
 	E_WALLET: "E-wallet",
 	COD: "Cash on delivery",
+	VIETQR: "VietQR bank transfer",
 };
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {

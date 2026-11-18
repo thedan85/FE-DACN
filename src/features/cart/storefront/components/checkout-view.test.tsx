@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "antd";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,6 +8,7 @@ import { reconcileStock } from "@/features/stock/reconcile";
 import { stockInterestKey, useStockSnapshots } from "@/features/stock/use-stock-snapshots";
 import type { StockSnapshotState } from "@/features/stock/schema";
 import * as cartApi from "../../api/cart.api";
+import { createVietQrPayment } from "@/features/payments/api/payments.api";
 import { CartDetailSchema } from "../../schema/cart.schema";
 import { useCart } from "../hooks/use-cart";
 import { CheckoutView } from "./checkout-view";
@@ -30,6 +31,9 @@ vi.mock("@/features/shipping/hooks/use-ghn-address", () => ({
 		loadingProvinces: false, loadingWards: false, error: null, reload: vi.fn(),
 	}),
 }));
+vi.mock("@/features/payments/api/payments.api", () => ({
+	createVietQrPayment: vi.fn(),
+}));
 
 const cart = CartDetailSchema.parse({
 	cartId: "CART_1", customerId: "CUS_1", customerName: "Jane",
@@ -50,6 +54,11 @@ const order = {
 	payment: { method: "CREDIT_CARD", status: "PENDING", transactionId: null, paidAt: null },
 	paymentExpiresAt: "2026-11-11T10:15:00Z", cancellationReason: null,
 };
+const payment = {
+	qrUrl: "https://img.vietqr.io/image/VCB-123-compact2.png?amount=10000",
+	bankId: "VCB", accountNo: "123", accountName: "AQUARIUM STORE",
+	amount: 10000, addInfo: "ORD_1",
+};
 const reload = vi.fn();
 const setCart = vi.fn();
 const refresh = vi.fn();
@@ -62,6 +71,10 @@ function response(status: number, message: string, data: unknown) {
 	return new Response(JSON.stringify({ code: status, message, data }), { status });
 }
 
+async function flush() {
+	await act(async () => { await Promise.resolve(); });
+}
+
 beforeEach(() => {
 	pauseCheckout = true;
 	malformedOrder = false;
@@ -71,6 +84,7 @@ beforeEach(() => {
 	refresh.mockReset();
 	assign.mockReset();
 	vi.spyOn(cartApi, "createVnpayPaymentUrl");
+	vi.mocked(createVietQrPayment).mockReset().mockResolvedValue(payment);
 	fetch.mockReset().mockImplementation(async (url, init) => {
 		const path = new URL(String(url)).pathname;
 		if (path.endsWith("/cart/checkout")) {
@@ -193,6 +207,7 @@ it("still places COD with online work paused and never requests a URL", async ()
 		province: "Test City", ward: "Test Ward", method: "COD",
 	});
 	expect(cartApi.createVnpayPaymentUrl).not.toHaveBeenCalled();
+	expect(createVietQrPayment).not.toHaveBeenCalled();
 	expect(assign).not.toHaveBeenCalled();
 });
 
@@ -204,6 +219,61 @@ it("rejects malformed checkout facts through the real schema without requesting 
 	expect((await screen.findByRole("alert")).textContent).toContain("did not match the expected contract");
 	expect(cartApi.createVnpayPaymentUrl).not.toHaveBeenCalled();
 	expect(assign).not.toHaveBeenCalled();
+});
+
+it("renders the VietQR option", async () => {
+	await fillForm();
+	expect(screen.getByRole("radio", { name: /VietQR bank transfer/ })).toBeTruthy();
+});
+
+it("creates a VietQR order and opens the QR modal once", async () => {
+	pauseCheckout = false;
+	await fillForm();
+	fireEvent.click(screen.getByRole("radio", { name: /VietQR bank transfer/ }));
+	fireEvent.click(screen.getByRole("button", { name: /Place Order/ }));
+
+	await waitFor(() => expect(createVietQrPayment).toHaveBeenCalledOnce());
+	expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+		recipientName: "Jane Edited", phone: "0900000000", address: "12 Le Loi",
+		province: "Test City", ward: "Test Ward", method: "VIETQR",
+	});
+	expect(createVietQrPayment).toHaveBeenCalledExactlyOnceWith("ORD_1");
+	expect(screen.getByText("Order ORD_1 placed. Scan the QR to pay.")).toBeTruthy();
+	expect(screen.getByRole("link", { name: "View your orders" }).getAttribute("href")).toBe(
+		"/account/orders",
+	);
+	expect(cartApi.createVnpayPaymentUrl).not.toHaveBeenCalled();
+	expect(assign).not.toHaveBeenCalled();
+	expect(replace).not.toHaveBeenCalled();
+});
+
+it("keeps the alert after the QR modal closes", async () => {
+	pauseCheckout = false;
+	await fillForm();
+	fireEvent.click(screen.getByRole("radio", { name: /VietQR bank transfer/ }));
+	fireEvent.click(screen.getByRole("button", { name: /Place Order/ }));
+
+	await waitFor(() => expect(createVietQrPayment).toHaveBeenCalledOnce());
+	const closeButtons = screen.getAllByRole("button", { name: "Close" });
+	const footerClose = closeButtons.find((button) => button.textContent === "Close");
+	expect(footerClose).toBeTruthy();
+	fireEvent.click(footerClose as HTMLElement);
+	await flush();
+
+	expect(screen.getByText("Order ORD_1 placed. Scan the QR to pay.")).toBeTruthy();
+});
+
+it("keeps VN Pay on its redirect path", async () => {
+	pauseCheckout = false;
+	vi.mocked(cartApi.createVnpayPaymentUrl)
+		.mockResolvedValue("https://sandbox.vnpay.vn/pay");
+	await fillForm();
+	fireEvent.click(screen.getByRole("button", { name: /Place Order/ }));
+	await waitFor(() => expect(assign).toHaveBeenCalledWith("https://sandbox.vnpay.vn/pay"));
+
+	expect(cartApi.createVnpayPaymentUrl).toHaveBeenCalledWith("ORD_1");
+	expect(createVietQrPayment).not.toHaveBeenCalled();
+	expect(replace).not.toHaveBeenCalled();
 });
 
 describe("CheckoutView live availability", () => {

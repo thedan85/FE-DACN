@@ -32,6 +32,7 @@ export const PaymentMethodSchema = z.enum([
 	"BANK_TRANSFER",
 	"E_WALLET",
 	"COD",
+	"VIETQR",
 ]);
 
 export const PaymentStatusSchema = z.enum([

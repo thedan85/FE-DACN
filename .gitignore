@@ -61,4 +61,5 @@ node_modules/
 # Playwright CLI
 .playwright-cli/
 *.log
+
 /.superpowers/sdd
