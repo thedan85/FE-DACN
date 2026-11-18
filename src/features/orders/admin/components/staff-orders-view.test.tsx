@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
-import { confirmStaffPayment, listStaffOrders, shipStaffOrder } from "../api/staff-orders.api";
+import { completeOrder, confirmStaffPayment, listStaffOrders, shipStaffOrder, updateStaffOrderStatus } from "../api/staff-orders.api";
 import { getGhnProvinces, getGhnWards } from "@/features/shipping/api/shipping.api";
 import type { Order, OrderPage } from "@/features/orders/types";
 import { StaffOrdersView } from "./staff-orders-view";
@@ -14,6 +14,8 @@ vi.mock("../api/staff-orders.api", () => ({
 	listStaffOrders: vi.fn(),
 	confirmStaffPayment: vi.fn(),
 	shipStaffOrder: vi.fn(),
+	updateStaffOrderStatus: vi.fn(),
+	completeOrder: vi.fn(),
 }));
 
 vi.mock("@/features/shipping/api/shipping.api", () => ({
@@ -115,6 +117,8 @@ beforeEach(() => {
 	vi.mocked(listStaffOrders).mockReset().mockResolvedValue(page());
 	vi.mocked(confirmStaffPayment).mockReset().mockResolvedValue({ status: "CONFIRMED" });
 	vi.mocked(shipStaffOrder).mockReset().mockResolvedValue(bookedOrder);
+	vi.mocked(updateStaffOrderStatus).mockReset().mockResolvedValue({ ...vietQrOrder, status: "CONFIRMED" });
+	vi.mocked(completeOrder).mockReset().mockResolvedValue({ ...vietQrOrder, status: "COMPLETED" });
 	vi.mocked(getGhnProvinces).mockReset().mockResolvedValue([
 		{ id: 1, name: "Hồ Chí Minh" }, { id: 2, name: "Hanoi" },
 	]);
@@ -444,6 +448,7 @@ it("blocks duplicate booking and dismissal while GHN is responding", async () =>
 });
 
 it("repairs a legacy address and never submits a ward from the previous province", async () => {
+	// Heavy rc-select interactions; exceeds the default 5s budget on slow machines.
 	vi.mocked(listStaffOrders).mockResolvedValue(page([{
 		...confirmedOrder, shippingProvince: null, shippingWard: null,
 	}]));
@@ -482,7 +487,7 @@ it("repairs a legacy address and never submits a ward from the previous province
 	await waitFor(() => expect(shipStaffOrder).toHaveBeenCalledExactlyOnceWith("ORD_SHIP", {
 		address: "20 Tran Hung Dao", province: "Hanoi", ward: "Ba Dinh",
 	}));
-});
+}, 15000);
 
 it("lets staff edit a valid stored address before booking", async () => {
 	vi.mocked(listStaffOrders).mockResolvedValue(page([confirmedOrder]));
@@ -496,7 +501,7 @@ it("lets staff edit a valid stored address before booking", async () => {
 	fireEvent.click(screen.getByRole("button", { name: "Book shipment" }));
 	expect(await screen.findByText("Select a province or city.")).toBeTruthy();
 	expect(shipStaffOrder).not.toHaveBeenCalled();
-});
+}, 15000);
 
 it("offers Retry when address options fail to load", async () => {
 	vi.mocked(listStaffOrders).mockResolvedValue(page([{
@@ -534,4 +539,81 @@ it("locks the corrected address while booking is in flight", async () => {
 	expect(screen.getByRole("combobox", { name: "Ward or commune" }).hasAttribute("disabled")).toBe(true);
 
 	await act(async () => { resolveBooking(bookedOrder); });
+});
+
+it("accepts a pending order through the action dialog", async () => {
+	renderView();
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+	fireEvent.click(screen.getByRole("button", { name: "Accept order" }));
+	await flush();
+	await flush();
+
+	expect(updateStaffOrderStatus).toHaveBeenCalledWith("ORD_QR", "CONFIRMED");
+	expect(screen.getByText("Order accepted.")).toBeTruthy();
+});
+
+it("rejects a pending order through the action dialog", async () => {
+	vi.mocked(updateStaffOrderStatus).mockResolvedValue({ ...vietQrOrder, status: "CANCELLED" });
+	renderView();
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+	fireEvent.click(screen.getByRole("button", { name: "Reject order" }));
+	await flush();
+	await flush();
+
+	expect(updateStaffOrderStatus).toHaveBeenCalledWith("ORD_QR", "CANCELLED");
+	expect(screen.getByText("Order rejected.")).toBeTruthy();
+});
+
+it("hides accept and reject without order:update", async () => {
+	useAuthStore.setState({
+		status: "authenticated",
+		user: { ...user, permissions: ["order:read"] },
+	});
+
+	renderView();
+	await flush();
+
+	expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+	expect(screen.queryByRole("button", { name: "Reject" })).toBeNull();
+});
+
+it("hides complete without order:complete", async () => {
+	renderView();
+	await flush();
+
+	expect(screen.queryByRole("button", { name: "Complete" })).toBeNull();
+});
+
+it("completes a non-terminal order with order:complete", async () => {
+	useAuthStore.setState({
+		status: "authenticated",
+		user: { ...user, permissions: ["order:read", "order:update", "order:complete"] },
+	});
+
+	renderView();
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Complete" }));
+	fireEvent.click(screen.getByRole("button", { name: "Mark completed" }));
+	await flush();
+	await flush();
+
+	expect(completeOrder).toHaveBeenCalledWith("ORD_QR");
+	expect(screen.getByText("Order marked completed.")).toBeTruthy();
+});
+
+it("opens the detail drawer from the View action", async () => {
+	renderView();
+	await flush();
+
+	fireEvent.click(screen.getAllByRole("button", { name: "View" })[0]);
+
+	expect(await screen.findByText("Order #ORD_QR")).toBeTruthy();
+	expect(screen.getByText("Recipient")).toBeTruthy();
+	expect(screen.getByText("0900000000")).toBeTruthy();
+	expect(screen.getByText("This order has no item lines.")).toBeTruthy();
 });

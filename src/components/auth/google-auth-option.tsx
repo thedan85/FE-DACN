@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { Divider } from "@/components/auth/auth-controls";
-import { getAuthErrorMessage, getMe, loginWithGoogle } from "@/features/auth/api/auth.api";
+import { getAuthErrorMessage, loginWithGoogle } from "@/features/auth/api/auth.api";
 import { setAccessToken } from "@/features/auth/session";
 import { getPublicEnv } from "@/lib/env";
 import { useAuthStore } from "@/stores/auth-store";
@@ -68,15 +68,7 @@ function GoogleAuthOptionInner({
 		try {
 			const data = await loginWithGoogle(response.credential);
 			setAccessToken(data.accessToken);
-
-			try {
-				const user = await getMe();
-				useAuthStore.getState().setUser(user);
-			} catch {
-				// The session cookie is already issued; let the store hydrate
-				// on the next page instead of reporting a failed login.
-				useAuthStore.setState({ user: null, status: "loading" });
-			}
+			useAuthStore.getState().setUser(data.user);
 
 			router.replace("/");
 		} catch (error) {

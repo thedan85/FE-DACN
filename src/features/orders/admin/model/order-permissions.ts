@@ -10,6 +10,7 @@
 export const ORDER_PERMISSIONS = {
 	read: "order:read",
 	update: "order:update",
+	complete: "order:complete",
 } as const;
 
 /** A permission this feature knows how to check. */

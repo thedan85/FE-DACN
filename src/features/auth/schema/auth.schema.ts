@@ -1,14 +1,6 @@
 import { z } from "zod";
 import { createApiResponseSchema } from "@/lib/api/schema";
 
-export const loginDataSchema = z.object({
-	accessToken: z.string().min(1),
-	expiresIn: z.number(),
-	tokenType: z.string(),
-});
-
-export const loginResponseSchema = createApiResponseSchema(loginDataSchema);
-
 export const meDataSchema = z.object({
 	userId: z.string(),
 	email: z.string(),
@@ -20,6 +12,15 @@ export const meDataSchema = z.object({
 	permissions: z.array(z.string()),
 	hasPassword: z.boolean(),
 });
+
+export const loginDataSchema = z.object({
+	accessToken: z.string().min(1),
+	expiresIn: z.number(),
+	tokenType: z.string(),
+	user: meDataSchema,
+});
+
+export const loginResponseSchema = createApiResponseSchema(loginDataSchema);
 
 export const meResponseSchema = createApiResponseSchema(meDataSchema);
 

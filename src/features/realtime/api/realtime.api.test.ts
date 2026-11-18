@@ -28,6 +28,17 @@ const REFRESHED_SESSION = {
 		accessToken: "refreshed-token",
 		expiresIn: 300,
 		tokenType: "Bearer",
+		user: {
+			userId: "USR_REFRESHED",
+			email: "refreshed@example.com",
+			name: "Refreshed User",
+			phone: null,
+			address: null,
+			roleCode: "customer",
+			roleName: "Customer",
+			permissions: [],
+			hasPassword: true,
+		},
 	},
 };
 

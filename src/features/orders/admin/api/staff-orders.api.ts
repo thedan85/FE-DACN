@@ -16,6 +16,7 @@ import type { Order, OrderPage } from "../../types";
  */
 
 const staffOrdersResponseSchema = createApiResponseSchema(OrderPageSchema);
+const orderResponseSchema = createApiResponseSchema(OrderSchema);
 
 export const ConfirmPaymentResultSchema = z.object({
 	status: PaymentStatusSchema,
@@ -66,6 +67,49 @@ export async function confirmStaffPayment(
 		confirmPaymentResponseSchema,
 		payload,
 		"The staff payment confirm response",
+	).data;
+}
+
+/**
+ * Staff accept/reject. Only `CONFIRMED` and `CANCELLED` are accepted by the
+ * backend; it serializes the decision against payment settlement and rejects
+ * anything that is not a pending order.
+ */
+export async function updateStaffOrderStatus(
+	orderId: string,
+	status: Extract<OrderStatus, "CONFIRMED" | "CANCELLED">,
+): Promise<Order> {
+	const payload = await apiFetch<unknown>(
+		`staff/orders/${encodeURIComponent(orderId)}/status`,
+		{
+			method: "PATCH",
+			headers: getAuthHeaders(),
+			body: JSON.stringify({ status }),
+		},
+	);
+
+	return parseOrThrow(
+		orderResponseSchema,
+		payload,
+		"The staff order update response",
+	).data;
+}
+
+/**
+ * Admin override: mark a non-terminal order completed without the shipping
+ * flow. Requires the admin-only `order:complete` permission; the backend
+ * rejects orders that are already cancelled or completed.
+ */
+export async function completeOrder(orderId: string): Promise<Order> {
+	const payload = await apiFetch<unknown>(
+		`admin/orders/${encodeURIComponent(orderId)}/complete`,
+		{ method: "POST", headers: getAuthHeaders() },
+	);
+
+	return parseOrThrow(
+		orderResponseSchema,
+		payload,
+		"The admin complete response",
 	).data;
 }
 

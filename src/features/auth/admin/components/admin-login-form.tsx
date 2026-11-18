@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Alert, Button, ConfigProvider, Flex, Form, Input, Typography } from "antd";
 import { designTokens } from "@/lib/design-tokens";
 import { useAuthStore } from "@/stores/auth-store";
-import { getAuthErrorMessage, getMe, login } from "../../api/auth.api";
+import { getAuthErrorMessage, login } from "../../api/auth.api";
 import { isCustomerAccount } from "../../model/access";
 import { validateEmail, validateRequired } from "../../model/validation";
 import { clearSession, setAccessToken } from "../../session";
@@ -63,7 +63,7 @@ export function AdminLoginForm() {
 			const data = await login({ email, password: values.password });
 			setAccessToken(data.accessToken);
 
-			const user = await getMe();
+			const user = data.user;
 
 			if (isCustomerAccount(user.roleCode)) {
 				// The token `auth/login` just minted is dropped locally and
