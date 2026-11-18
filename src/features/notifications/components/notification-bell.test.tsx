@@ -129,17 +129,18 @@ describe("NotificationBell", () => {
 			.getAttribute("href")).toBe("/admin/notifications");
 	});
 
-	it("opens on Enter and Space from the focused bell", async () => {
+	it("loads again only when reopened after the second click", async () => {
 		mount();
 		const bell = trigger();
-		bell.focus();
-		fireEvent.keyDown(bell, { key: "Enter" });
+		fireEvent.click(bell);
 		await waitFor(() => expect(bell.getAttribute("aria-expanded")).toBe("true"));
 		expect(loadPreview).toHaveBeenCalledTimes(1);
 
-		fireEvent.keyDown(bell, { key: "Escape" });
+		fireEvent.click(bell);
 		expect(bell.getAttribute("aria-expanded")).toBe("false");
-		fireEvent.keyDown(bell, { key: " " });
+		expect(loadPreview).toHaveBeenCalledTimes(1);
+
+		fireEvent.click(bell);
 		await waitFor(() => expect(bell.getAttribute("aria-expanded")).toBe("true"));
 		expect(loadPreview).toHaveBeenCalledTimes(2);
 	});
@@ -147,8 +148,7 @@ describe("NotificationBell", () => {
 	it("closes on Escape and returns focus to the bell", async () => {
 		mount();
 		const bell = trigger();
-		bell.focus();
-		fireEvent.keyDown(bell, { key: "Enter" });
+		fireEvent.click(bell);
 		await waitFor(() => expect(bell.getAttribute("aria-expanded")).toBe("true"));
 		fireEvent.keyDown(document, { key: "Escape" });
 		await waitFor(() => expect(bell.getAttribute("aria-expanded")).toBe("false"));

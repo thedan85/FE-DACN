@@ -362,13 +362,17 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
 			try {
 				const result = await markNotificationRead(notificationId, req.signal);
 				if (!req.current()) return;
-				applyAuthoritative(result, () => {
-					set((state) => ({
-						list: state.list.map((item) =>
-							item.notificationId === notificationId ? result.notification : item,
-						),
-					}));
-				});
+				const isCurrentRevision = applySnapshot(result);
+				const updateRow = (item: NotificationView): NotificationView => {
+					if (item.notificationId !== notificationId) return item;
+					if (isCurrentRevision) return result.notification;
+					// READ is permanent. A late response can mark a visible row without rewinding newer data.
+					return result.notification.status === "READ" ? { ...item, status: "READ" } : item;
+				};
+				set((state) => ({
+					list: state.list.map(updateRow),
+					preview: state.preview.map(updateRow),
+				}));
 			} finally {
 				req.finish();
 			}

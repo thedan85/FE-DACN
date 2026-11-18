@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { RevealGroup } from "@/components/ui/reveal";
 import styles from "../info-page.module.css";
 
 export const metadata: Metadata = {
@@ -32,30 +32,52 @@ const stats = [
 
 export default function AboutPage() {
 	return (
-		<RevealGroup className={styles.page} revealedClassName={styles.revealed}>
+		<div className={styles.aboutPage}>
 			<section className={`${styles.aboutHero} page-container`} aria-labelledby="about-title">
-				<div className={`${styles.aboutHeroCopy} ${styles.reveal}`} data-reveal>
-					<p className="eyebrow">Our story</p>
-					<h1 id="about-title">Built by hobbyists, for living water</h1>
+				<div className={styles.aboutHeroCopy}>
+					<p className="eyebrow">About Aquarium Store</p>
+					<h1 id="about-title">Built by hobbyists. <span>For living water.</span></h1>
 					<p className={styles.lede}>
-						AquariumStore exists to make healthy livestock and dependable
-						equipment easier to find, ship, and keep alive.
+						Aquarium Store makes it easier to find healthy livestock and dependable
+						equipment for the tanks you love to keep.
 					</p>
 					<div className={styles.heroActions}>
 						<Link href="/products" className={styles.ctaButton}>
 							Shop Now <span aria-hidden="true">→</span>
 						</Link>
-						<Link href="/faq" className={styles.textLink}>
-							Read the FAQ <span aria-hidden="true">→</span>
-						</Link>
 					</div>
 				</div>
+				<figure className={styles.aboutFigure}>
+					<div className={styles.aboutPhoto}>
+						<Image
+							src="/images/hero_background.jpg"
+							alt="A planted aquarium with branching driftwood and bright green aquatic plants"
+							fill
+							sizes="(max-width: 820px) calc(100vw - 48px), (max-width: 1328px) 48vw, 640px"
+							loading="eager"
+						/>
+					</div>
+					<figcaption>Freshwater aquascaping</figcaption>
+				</figure>
 			</section>
 
-			<section className={`${styles.section} page-container`}>
-				<div className={`${styles.storyCopy} ${styles.reveal}`} data-reveal>
+			<div className="page-container">
+				<dl className={styles.stats}>
+					{stats.map((stat) => (
+						<div className={styles.stat} key={stat.label}>
+							<dt>{stat.label}</dt>
+							<dd>{stat.value}</dd>
+						</div>
+					))}
+				</dl>
+			</div>
+
+			<section className={`${styles.aboutStory} page-container`} aria-labelledby="about-story">
+				<div className={styles.aboutSectionHead}>
 					<p className="eyebrow">How we got here</p>
-					<h2>A garage rack and a simple frustration</h2>
+					<h2 id="about-story">A garage rack and a simple frustration</h2>
+				</div>
+				<div className={styles.storyCopy}>
 					<p>
 						We started in a garage with a rack of quarantine tanks and a simple
 						frustration: too many fish arrive stressed, sick, or misidentified.
@@ -73,51 +95,45 @@ export default function AboutPage() {
 				</div>
 			</section>
 
-			<section className={`${styles.section} page-container`}>
-				<div className={`${styles.sectionHead} ${styles.reveal}`} data-reveal>
+			<section className={`${styles.aboutPromises} page-container`} aria-labelledby="about-promises">
+				<div className={styles.aboutSectionHead}>
 					<p className="eyebrow">What we stand for</p>
-					<h2>A better way to keep fish</h2>
+					<h2 id="about-promises">A better way to keep fish</h2>
 				</div>
 
-				<div className={styles.valueGrid}>
+				<ol className={styles.valueList} role="list">
 					{values.map((value, index) => (
-						<article
-							className={`${styles.valueCard} ${styles.reveal}`}
-							key={value.title}
-							data-reveal
-						>
+						<li className={styles.valueItem} key={value.title}>
 							<span className={styles.valueNumber} aria-hidden="true">
 								{String(index + 1).padStart(2, "0")}
 							</span>
-							<h3>{value.title}</h3>
-							<p>{value.body}</p>
-						</article>
+							<div>
+								<h3>{value.title}</h3>
+								<p>{value.body}</p>
+							</div>
+						</li>
 					))}
-				</div>
-
-				<div className={`${styles.stats} ${styles.reveal}`} data-reveal>
-					{stats.map((stat) => (
-						<div className={styles.stat} key={stat.label}>
-							<strong>{stat.value}</strong>
-							<span>{stat.label}</span>
-						</div>
-					))}
-				</div>
+				</ol>
 			</section>
 
-			<section className={`${styles.ctaSection} page-container`}>
-				<div className={`${styles.ctaPanel} ${styles.reveal}`} data-reveal>
+			<section className={`${styles.ctaPanel} page-container`} aria-labelledby="about-next">
+				<div className={styles.aboutSectionHead}>
 					<p className="eyebrow">Start your tank</p>
-					<h2>Ready to build your underwater world?</h2>
+					<h2 id="about-next">Ready to build your underwater world?</h2>
 					<p>
 						Browse quarantined livestock, plants, and equipment picked for
 						everyday aquarium care.
 					</p>
+				</div>
+				<div className={styles.heroActions}>
 					<Link href="/products" className={styles.ctaButton}>
 						Shop Now <span aria-hidden="true">→</span>
 					</Link>
+					<Link href="/faq" className={styles.textLink}>
+						Read the FAQ <span aria-hidden="true">→</span>
+					</Link>
 				</div>
 			</section>
-		</RevealGroup>
+		</div>
 	);
 }

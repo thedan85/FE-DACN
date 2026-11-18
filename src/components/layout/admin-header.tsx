@@ -22,12 +22,14 @@ type AdminHeaderProps = {
 	identity: AdminHeaderIdentity;
 	/** Opens the sidebar drawer below the shell's mobile breakpoint. */
 	onOpenNav: () => void;
+	navOpen: boolean;
 };
 
 export function AdminHeader({
 	currentPage,
 	identity,
 	onOpenNav,
+	navOpen,
 }: AdminHeaderProps) {
 	const { message } = App.useApp();
 	const signOut = useAuthStore((state) => state.signOut);
@@ -76,6 +78,7 @@ export function AdminHeader({
 					className={styles.menuButton}
 					aria-label="Open navigation"
 					aria-controls="admin-sidebar-drawer"
+					aria-expanded={navOpen}
 					onClick={onOpenNav}
 					icon={
 						<Image

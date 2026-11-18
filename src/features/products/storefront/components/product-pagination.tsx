@@ -34,6 +34,7 @@ export function ProductPagination({
 		<div className={styles.pagination}>
 			<Pagination
 				aria-label="Product pages"
+				className={styles.controls}
 				current={page}
 				pageSize={pageSize}
 				total={total}
@@ -41,7 +42,7 @@ export function ProductPagination({
 				onChange={(nextPage) => {
 					void router.replace(
 						toSearchPath({ ...query, page: nextPage }),
-						{ scroll: false },
+						{ scroll: true },
 					);
 				}}
 			/>

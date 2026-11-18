@@ -141,7 +141,7 @@
 	color: var(--color-admin-panel-text-muted);
 }
 
-.menuButton {
+.menuButton:global(.ant-btn) {
 	display: none;
 }
 
@@ -170,11 +170,10 @@
 		display: none;
 	}
 
-	.search {
+	.search:global(.ant-input-affix-wrapper) {
 		display: none;
 	}
 
-	.bell,
 	.divider {
 		display: none;
 	}

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { App } from "antd";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
@@ -6,10 +6,12 @@ import type { NotificationView } from "../types";
 
 type StoreState = {
 	preview: NotificationView[];
+	unreadCount: number;
 	previewLoading: boolean;
 	previewError: unknown;
 	readiness: { admission: string; acknowledged: boolean; status: string };
 	loadPreview: () => Promise<void>;
+	markRead: (id: string) => Promise<void>;
 };
 
 const harness = vi.hoisted(() => ({ state: undefined as unknown as StoreState }));
@@ -31,6 +33,7 @@ function entry(orderId: string | null, message = "Order confirmed"): Notificatio
 }
 
 let loadPreview: Mock<() => Promise<void>>;
+let markRead: Mock<(id: string) => Promise<void>>;
 
 beforeEach(() => {
 	vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
@@ -38,9 +41,10 @@ beforeEach(() => {
 		addEventListener() {}, removeEventListener() {},
 	}));
 	loadPreview = vi.fn<() => Promise<void>>(async () => {});
+	markRead = vi.fn<(id: string) => Promise<void>>(async () => {});
 	harness.state = {
-		preview: [], previewLoading: false, previewError: null,
-		readiness: live, loadPreview,
+		preview: [], unreadCount: 0, previewLoading: false, previewError: null,
+		readiness: live, loadPreview, markRead,
 	};
 });
 
@@ -147,18 +151,34 @@ describe("NotificationPreview", () => {
 
 	it("renders a customer entry with no orderId as plain text without a link", () => {
 		harness.state.preview = [entry(null, "Refund review pending")];
-		const { container } = mount();
-		expect(screen.getByText("Refund review pending")).toBeTruthy();
-		expect(container.querySelector("a")).toBeNull();
+		mount();
+		const row = within(screen.getByRole("listitem"));
+		expect(row.getByText("Refund review pending")).toBeTruthy();
+		expect(row.queryByRole("link")).toBeNull();
 	});
 
-	it("renders company entries as message and time only, with no link or management action", () => {
-		harness.state.preview = [entry("ORD_777", "New COD order")];
-		const { container } = mount("company");
-		expect(screen.getByText("New COD order")).toBeTruthy();
+	it("renders no link or mark action for an already-read company row", () => {
+		harness.state.preview = [{ ...entry("ORD_777", "New COD order"), status: "READ" }];
+		mount("company");
+		const row = within(screen.getByRole("listitem"));
+		expect(row.getByText("New COD order")).toBeTruthy();
 		expect(document.querySelector("time")?.getAttribute("datetime")).toBe("2026-11-11T01:02:00Z");
-		expect(container.querySelector("a")).toBeNull();
-		expect(screen.queryByRole("button")).toBeNull();
+		expect(row.queryByRole("link")).toBeNull();
+		expect(row.queryByRole("button")).toBeNull();
+	});
+
+	it("shows a visible unread count and lets a failed mark be retried", async () => {
+		harness.state.preview = [entry("ORD_777")];
+		harness.state.unreadCount = 1;
+		markRead.mockRejectedValueOnce(new Error("offline"));
+		mount("company");
+		expect(screen.getByText("1 unread")).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: /mark .* as read/i }));
+		expect(await screen.findByText(/could not mark as read/i)).toBeTruthy();
+		expect(screen.getByText("Unread", { exact: true })).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: /mark .* as read/i }));
+		expect(markRead.mock.calls).toEqual([["N1"], ["N1"]]);
+		expect(screen.queryByText(/could not mark as read/i)).toBeNull();
 	});
 
 	it("never renders an admin order link in customer mode", () => {

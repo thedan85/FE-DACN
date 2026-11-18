@@ -83,6 +83,23 @@ it("revalidates anonymous product detail reads", async () => {
 	expect(fetch.mock.calls[0][1].next).toEqual({ revalidate: 30 });
 });
 
+it("reads older product details that omit the stock revision", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const variant = {
+		variantId: "VAR_1",
+		sku: "SKU_1",
+		price: 120000,
+		stock: 41,
+		attributes: [],
+		media: [],
+	};
+	stubFetch(ok({ ...detailFixture, variants: [variant] }));
+
+	const detail = await getProductDetailBySlug("anubias-nana-petite");
+
+	expect(detail.variants).toEqual([{ ...variant, stockRevision: null }]);
+});
+
 it("never caches authenticated product detail reads", async () => {
 	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
 	const fetch = stubFetch(ok(detailFixture));

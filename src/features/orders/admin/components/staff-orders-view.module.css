@@ -44,6 +44,32 @@
 	overflow: hidden;
 }
 
+.table :global(.ant-table-thead) .columnHeading {
+	padding-block: var(--space-3);
+	border-bottom-color: var(--color-admin-panel-border);
+	background: var(--color-surface-icon);
+	color: var(--color-brand-deep-teal);
+	font-size: 13px;
+	font-weight: 700;
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+.orderId {
+	color: var(--color-admin-panel-text-strong);
+	font-weight: 600;
+}
+
+.orderId,
+.customer {
+	overflow-wrap: anywhere;
+}
+
+.total {
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
 @media (max-width: 767px) {
 	.title:global(.ant-typography) {
 		font-size: 24px;

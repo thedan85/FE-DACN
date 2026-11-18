@@ -355,15 +355,18 @@ export function StaffOrdersView() {
 
 	const columns: TableColumnsType<Order> = [
 		{
-			title: "Order",
+			title: "Order ID",
 			dataIndex: "orderId",
 			key: "orderId",
-			render: (orderId: string) => <span>#{orderId}</span>,
+			minWidth: 136,
+			render: (orderId: string) => <span className={styles.orderId}>#{orderId}</span>,
 		},
 		{
 			title: "Customer",
 			dataIndex: "customerName",
 			key: "customer",
+			minWidth: 168,
+			className: styles.customer,
 		},
 		{
 			title: "Status",
@@ -374,6 +377,7 @@ export function StaffOrdersView() {
 			title: "Total",
 			key: "total",
 			align: "right",
+			className: styles.total,
 			render: (_, order) => formatVndPrice(order.total),
 		},
 		{
@@ -394,13 +398,13 @@ export function StaffOrdersView() {
 			render: (_, order) => order.ghnOrderCode ? <Text code>{order.ghnOrderCode}</Text> : "—",
 		},
 		{
-			title: "Created",
+			title: "Created at",
 			key: "created",
 			render: (_, order) =>
 				formatDate(order.createdAt, STORE_TIME_ZONE) ?? "—",
 		},
 		{
-			title: "Action",
+			title: "Actions",
 			key: "action",
 			width: 320,
 			render: (_, order) => {
@@ -512,6 +516,7 @@ export function StaffOrdersView() {
 			) : (
 				<Table<Order>
 					className={styles.table}
+					classNames={{ header: { cell: styles.columnHeading } }}
 					rowKey="orderId"
 					columns={columns}
 					dataSource={state.page.content}

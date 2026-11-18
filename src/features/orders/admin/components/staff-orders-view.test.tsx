@@ -156,6 +156,15 @@ it("loads the PENDING queue by default", async () => {
 	expect(screen.getByText("#ORD_QR")).toBeTruthy();
 });
 
+it("labels the columns for order IDs, creation dates, and row actions", async () => {
+	renderView();
+	const table = within(await screen.findByRole("table"));
+
+	expect(table.getByRole("columnheader", { name: "Order ID" })).toBeTruthy();
+	expect(table.getByRole("columnheader", { name: "Created at" })).toBeTruthy();
+	expect(table.getByRole("columnheader", { name: "Actions" })).toBeTruthy();
+});
+
 it("confirms a VietQR payment and refreshes", async () => {
 	renderView();
 	await flush();

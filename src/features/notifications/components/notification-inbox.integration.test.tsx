@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "antd";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RealtimeConnectionManager } from "@/features/realtime/connection-manager";
@@ -292,6 +292,68 @@ describe("NotificationInbox with the shared store", () => {
 		});
 		expect(screen.getByRole("button", { name: "Notifications, 1 unread" })).toBeTruthy();
 		expect(screen.getByText("1 unread")).toBeTruthy();
+	});
+
+	it("marks a preview row read without closing and updates the inbox and badge", async () => {
+		await settleProviderCount(1, 7);
+		render(<App><NotificationBell mode="customer" /><NotificationInbox mode="customer" /></App>);
+		await act(async () => {
+			respondTo((call) => call.path === "notifications?page=0&size=20", inbox([row("N1")], 1, 7));
+		});
+		const bell = screen.getByRole("button", { name: "Notifications, 1 unread" });
+		fireEvent.click(bell);
+		await act(async () => {
+			respondTo((call) => call.path === "notifications?page=0&size=5", inbox([row("N1")], 1, 7));
+		});
+		const dialog = within(screen.getByRole("dialog", { name: "Notifications preview" }));
+		const check = dialog.getByRole("button", { name: /mark .* as read/i });
+		fireEvent.click(check);
+		fireEvent.click(check);
+		expect(calls.filter((call) => call.method === "PATCH")).toEqual([
+			expect.objectContaining({ path: "notifications/N1" }),
+		]);
+
+		await act(async () => {
+			respondTo((call) => call.method === "PATCH", {
+				notification: row("N1", "READ"), unreadCount: 0, revision: 8,
+			});
+		});
+		expect(bell.getAttribute("aria-expanded")).toBe("true");
+		expect(bell.getAttribute("aria-label")).toBe("No unread notifications");
+		expect(dialog.getByRole("link", { name: "Notification N1" })).toBeTruthy();
+		expect(dialog.getByText("Read", { exact: true })).toBeTruthy();
+		expect(dialog.queryByRole("button", { name: /mark .* as read/i })).toBeNull();
+		expect(within(screen.getByRole("region", { name: "Notifications" })).getByText("Read", {
+			exact: true,
+		})).toBeTruthy();
+	});
+
+	it("keeps both preview rows read when responses arrive out of order", async () => {
+		await settleProviderCount(2, 7);
+		render(<App><NotificationBell mode="company" /></App>);
+		const bell = screen.getByRole("button", { name: "Company notifications, 2 unread" });
+		fireEvent.click(bell);
+		await act(async () => {
+			respondTo((call) => call.path === "notifications?page=0&size=5",
+				inbox([row("N1"), row("N2")], 2, 7));
+		});
+		const dialog = within(screen.getByRole("dialog", { name: "Company notifications preview" }));
+		fireEvent.click(dialog.getByRole("button", { name: /mark .*N1.* as read/i }));
+		fireEvent.click(dialog.getByRole("button", { name: /mark .*N2.* as read/i }));
+		await act(async () => {
+			respondTo((call) => call.path === "notifications/N2", {
+				notification: row("N2", "READ"), unreadCount: 0, revision: 9,
+			});
+		});
+		expect(dialog.getAllByText("Read", { exact: true })).toHaveLength(1);
+
+		await act(async () => {
+			respondTo((call) => call.path === "notifications/N1", {
+				notification: row("N1", "READ"), unreadCount: 1, revision: 8,
+			});
+		});
+		expect(dialog.getAllByText("Read", { exact: true })).toHaveLength(2);
+		expect(bell.getAttribute("aria-label")).toBe("No unread company notifications");
 	});
 
 	it("ignores a pending old-account list on switch, then clears rows on logout", async () => {

@@ -111,8 +111,9 @@ export const VariantDetailSchema = z.object({
 	 * The database revision paired with `stock`. The detail read overlays both
 	 * live, so an editor can send the revision it actually edited against;
 	 * cached aggregate rows carry null for both.
+	 * Older HTTP cache entries omit the revision; treat it as unknown.
 	 */
-	stockRevision: z.number().int().nonnegative().nullable(),
+	stockRevision: z.number().int().nonnegative().nullable().default(null),
 	attributes: z.array(VariantAttributeValueSchema),
 	media: z.array(MediaSchema),
 });

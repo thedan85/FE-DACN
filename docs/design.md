@@ -96,6 +96,18 @@ Use uppercase text for eyebrow labels and apply `letter-spacing: 1.2px`.
 
 Numbers for implemented screens, transcribed from the design and verified against the running build. **Measure a new design into a table here before writing the component**, then let acceptance criteria cite these rows instead of "matches the frame" — a criterion an agent can check by arithmetic does not need eyes on a screenshot.
 
+### About Us — layout targets
+
+These are design targets, not measurements from a browser run.
+
+| Region | Metric | Value |
+| --- | --- | --- |
+| Page | Content width / side gutters | `1280px` maximum / `24px` |
+| Hero | Columns / image | `1fr : 1.1fr` above `820px`; stacked below; `4:3` image frame |
+| Metrics | Columns | Three above `640px`; one below |
+| Story, promises, and closing CTA | Layout | Two columns above `820px`; stacked below |
+| Shop and FAQ links | Minimum height | `48px` |
+
 ### Admin portal shell — frame `5445-2495`
 
 | Region | Metric | Value |

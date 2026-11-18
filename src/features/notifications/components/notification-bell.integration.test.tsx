@@ -58,7 +58,7 @@ afterEach(() => {
 	useNotificationStore.getState().dispose();
 });
 
-it("stays open and issues one preview request when reopened while a request is in flight", async () => {
+it("closes on the second click and reuses the pending request on reopen", async () => {
 	const flight = deferred<unknown>();
 	apiFetchMock.mockImplementation(async (path: string) =>
 		String(path).startsWith("notifications?") ? flight.promise : envelope({ unreadCount: 0, revision: 0 }));
@@ -69,7 +69,10 @@ it("stays open and issues one preview request when reopened while a request is i
 	await waitFor(() => expect(bell.getAttribute("aria-expanded")).toBe("true"));
 	expect(previewRequests()).toBe(1);
 
-	// A second activation before the first request settles must not close or refetch.
+	fireEvent.click(bell);
+	expect(bell.getAttribute("aria-expanded")).toBe("false");
+	expect(previewRequests()).toBe(1);
+
 	fireEvent.click(bell);
 	expect(bell.getAttribute("aria-expanded")).toBe("true");
 	expect(previewRequests()).toBe(1);

@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
-import Link from "next/link";
+import { useEffect, useId, useRef, useState } from "react";
 import { Badge, Button, Popover } from "antd";
 import { BellOutlined } from "@ant-design/icons";
 import { useNotificationStore } from "../store";
@@ -20,47 +18,23 @@ export function NotificationBell({ mode, className }: NotificationBellProps) {
 	const loadPreview = useNotificationStore((state) => state.loadPreview);
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
-	// Popover's click trigger toggles on a second trigger click. That must keep
-	// the preview open; only outside clicks and Escape close it.
-	const triggerClickRef = useRef(false);
+	const previewId = useId();
 
 	const label = mode === "company" ? "Company notifications" : "Notifications";
 	const accessibleName = unreadCount > 0
 		? `${label}, ${unreadCount} unread`
 		: `No unread ${label.toLowerCase()}`;
 
-	function openPreview(): void {
-		setOpen(true);
-		// The store's single-flight guard dedupes a reopen while a request runs.
-		void loadPreview();
-	}
-
-	function handleTriggerClick(): void {
-		triggerClickRef.current = true;
-		openPreview();
-	}
-
 	function handleOpenChange(next: boolean): void {
-		if (triggerClickRef.current) {
-			triggerClickRef.current = false;
-			return;
-		}
-		if (next) openPreview();
-		else setOpen(false);
-	}
-
-	function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>): void {
-		if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
-			event.preventDefault();
-			openPreview();
-		}
+		setOpen(next);
+		// The store's single-flight guard dedupes a reopen while a request runs.
+		if (next) void loadPreview();
 	}
 
 	useEffect(() => {
 		if (!open) return;
 		const onKeyDown = (event: globalThis.KeyboardEvent) => {
 			if (event.key !== "Escape") return;
-			triggerClickRef.current = false;
 			setOpen(false);
 			triggerRef.current?.focus();
 		};
@@ -74,18 +48,15 @@ export function NotificationBell({ mode, className }: NotificationBellProps) {
 			onOpenChange={handleOpenChange}
 			trigger="click"
 			placement="bottomRight"
+			arrow={false}
+			align={{ overflow: { shiftX: true, adjustY: 1 } }}
+			styles={{ container: { padding: 0 } }}
 			content={
-				<>
-					<NotificationPreview mode={mode} />
-					<div className={styles.footer}>
-						<Link
-							className={styles.viewAll}
-							href={mode === "company" ? "/admin/notifications" : "/account/notifications"}
-						>
-							View all notifications
-						</Link>
-					</div>
-				</>
+				<NotificationPreview
+					id={previewId}
+					mode={mode}
+					onNavigate={() => setOpen(false)}
+				/>
 			}
 		>
 			<span className={[styles.root, className].filter(Boolean).join(" ")}>
@@ -96,8 +67,14 @@ export function NotificationBell({ mode, className }: NotificationBellProps) {
 					aria-label={accessibleName}
 					aria-haspopup="dialog"
 					aria-expanded={open}
-					onClick={handleTriggerClick}
-					onKeyDown={handleKeyDown}
+					aria-controls={open ? previewId : undefined}
+					onKeyDown={(event) => {
+						if (!open || event.key !== "Tab" || event.shiftKey) return;
+						const preview = document.getElementById(previewId);
+						if (!preview) return;
+						event.preventDefault();
+						preview.focus();
+					}}
 					icon={
 						<Badge count={unreadCount} overflowCount={99} size="small">
 							<BellOutlined className={styles.icon} aria-hidden="true" />

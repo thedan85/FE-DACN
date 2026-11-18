@@ -12,6 +12,8 @@ type AdminLayoutProps = {
 	children: React.ReactNode;
 };
 
+const MOBILE_NAV_QUERY = "(max-width: 900px)";
+
 /**
  * The breadcrumb tail for a path. Listed explicitly rather than derived from
  * the last URL segment: a product's edit route ends in `/edit`, which would
@@ -50,15 +52,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 	}, [pathname]);
 
 	useEffect(() => {
-		const desktop = window.matchMedia("(min-width: 901px)");
-		const handleDesktop = (event: MediaQueryListEvent) => {
-			if (event.matches) {
+		const mobile = window.matchMedia(MOBILE_NAV_QUERY);
+		const handleResize = (event: MediaQueryListEvent) => {
+			if (!event.matches) {
 				setMobileNavOpen(false);
 			}
 		};
 
-		desktop.addEventListener("change", handleDesktop);
-		return () => desktop.removeEventListener("change", handleDesktop);
+		mobile.addEventListener("change", handleResize);
+		return () => mobile.removeEventListener("change", handleResize);
 	}, []);
 
 	// Unreachable through the guard; without it the shell has no identity to show.
@@ -83,7 +85,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 				<AdminHeader
 					currentPage={currentPageTitle(pathname)}
 					identity={{ name: user.name, roleName: user.roleName }}
-					onOpenNav={() => setMobileNavOpen(true)}
+					navOpen={mobileNavOpen}
+					onOpenNav={() => {
+						if (window.matchMedia(MOBILE_NAV_QUERY).matches) setMobileNavOpen(true);
+					}}
 				/>
 				<main className={styles.main}>{children}</main>
 			</div>
