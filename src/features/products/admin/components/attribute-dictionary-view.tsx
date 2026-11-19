@@ -20,11 +20,14 @@ import {
 	DeleteOutlined,
 	EditOutlined,
 	PlusOutlined,
+	SearchOutlined,
 } from "@ant-design/icons";
 
 import {
+	ADMIN_SESSION_REFRESHED_MESSAGE,
 	adminAuthFailureFeedback,
 	handleAdminAuthFailure,
+	recoveredAdminSession,
 } from "@/features/auth/admin/model/admin-auth-failure";
 import { AccessDeniedState } from "@/components/feedback/access-denied-state";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -96,6 +99,8 @@ export function AttributeDictionaryView() {
 
 	const [state, setState] = useState<AttributesState>({ status: "loading" });
 	const [reloadKey, setReloadKey] = useState(0);
+	const [attributeQuery, setAttributeQuery] = useState("");
+	const [valueQuery, setValueQuery] = useState("");
 	const [selectedAttributeId, setSelectedAttributeId] = useState<string | null>(
 		null,
 	);
@@ -143,25 +148,34 @@ export function AttributeDictionaryView() {
 					return;
 				}
 
+				// Hide protected rows while the session is rechecked; nothing is
+				// retried automatically.
+				setState({ status: "loading" });
 				const outcome = await handleAdminAuthFailure(caught, router);
 
 				if (!active) {
 					return;
 				}
 
-				if (outcome === "unhandled") {
+				const message = apiErrorMessage(
+					caught,
+					"Could not reach the server. Check your connection and try again.",
+				);
+				const recovered = recoveredAdminSession(outcome);
+				if (outcome === "unhandled" || recovered) {
+					// A recovered 401 stays on the page: offer an explicit manual
+					// read retry instead of replaying the failed request.
 					setState({
 						status: "error",
-						message: apiErrorMessage(
-							caught,
-							"Could not reach the server. Check your connection and try again.",
-						),
+						message: recovered
+							? `${ADMIN_SESSION_REFRESHED_MESSAGE} ${message}`
+							: message,
 					});
 					return;
 				}
 
-				// Denied read: at this point the helper has refreshed permissions
-				// (403) or redirected to sign-in when the session is gone (401).
+				// Denied read: the helper redirected (401) or refreshed
+				// permissions (403); no stale data is left on screen.
 				setState({ status: "forbidden" });
 			});
 
@@ -183,6 +197,17 @@ export function AttributeDictionaryView() {
 			),
 		[attributes],
 	);
+	// Local name filter. Selection, value loading and mutation targets keep
+	// reading the full loaded list, so hiding a row cannot detach its context.
+	const normalizedAttributeQuery = attributeQuery.trim().toLocaleLowerCase();
+	const visibleAttributes = useMemo(() => {
+		if (!normalizedAttributeQuery) {
+			return sortedAttributes;
+		}
+		return sortedAttributes.filter((attribute) =>
+			attribute.name.toLocaleLowerCase().includes(normalizedAttributeQuery),
+		);
+	}, [sortedAttributes, normalizedAttributeQuery]);
 	const selectedAttribute =
 		attributes.find((attribute) => attribute.attributeId === selectedAttributeId) ??
 		null;
@@ -215,19 +240,29 @@ export function AttributeDictionaryView() {
 					return;
 				}
 
+				// Hide stale values for this pane while the session is rechecked.
+				// The request-id guard still drops any response from a selection
+				// change that happened during revalidation.
+				setValuesState({ status: "loading" });
 				const outcome = await handleAdminAuthFailure(caught, router);
 
 				if (valuesRequestRef.current !== requestId) {
 					return;
 				}
 
-				if (outcome === "unhandled") {
+				const message = apiErrorMessage(
+					caught,
+					"Could not reach the server. Check your connection and try again.",
+				);
+				const recovered = recoveredAdminSession(outcome);
+				if (outcome === "unhandled" || recovered) {
+					// A recovered 401 stays on the page: offer an explicit manual
+					// read retry instead of replaying the failed request.
 					setValuesState({
 						status: "error",
-						message: apiErrorMessage(
-							caught,
-							"Could not reach the server. Check your connection and try again.",
-						),
+						message: recovered
+							? `${ADMIN_SESSION_REFRESHED_MESSAGE} ${message}`
+							: message,
 					});
 					return;
 				}
@@ -339,6 +374,16 @@ export function AttributeDictionaryView() {
 	);
 
 	const values = valuesState.status === "ready" ? valuesState.values : [];
+	// Local value filter over the complete loaded value list. It never fetches.
+	const normalizedValueQuery = valueQuery.trim().toLocaleLowerCase();
+	const visibleValues = useMemo(() => {
+		if (!normalizedValueQuery) {
+			return values;
+		}
+		return values.filter((value) =>
+			value.value.toLocaleLowerCase().includes(normalizedValueQuery),
+		);
+	}, [values, normalizedValueQuery]);
 
 	return (
 		<AdminCatalogTheme>
@@ -369,6 +414,25 @@ export function AttributeDictionaryView() {
 
 				<div className={styles.columns}>
 					<Card title="Attributes" styles={{ body: { padding: 0 } }}>
+						{state.status === "ready" && (
+							<div className={styles.toolbar}>
+								<form
+									className={styles.searchForm}
+									role="search"
+									onSubmit={(event) => event.preventDefault()}
+								>
+									<Input
+										className={styles.search}
+										aria-label="Filter attributes by name"
+										prefix={<SearchOutlined />}
+										placeholder="Filter by name…"
+										value={attributeQuery}
+										allowClear
+										onChange={(event) => setAttributeQuery(event.target.value)}
+									/>
+								</form>
+							</div>
+						)}
 						{state.status === "forbidden" ? (
 							<AccessDeniedState
 								title="You do not have access to attributes"
@@ -383,28 +447,40 @@ export function AttributeDictionaryView() {
 							/>
 						) : state.status === "loading" ? (
 							<LoadingState rows={6} label="Loading attributes" />
-						) : sortedAttributes.length === 0 ? (
-							<EmptyState
-								title="No attributes yet"
-								description="Create the first attribute to start describing the catalog."
-								action={
-									mayCreate ? (
-										<Button
-											type="primary"
-											onClick={(event) => {
-												captureTrigger(event);
-												setAttributeFormTarget({ mode: "create" });
-											}}
-										>
-											Add attribute
+						) : visibleAttributes.length === 0 ? (
+							normalizedAttributeQuery ? (
+								<EmptyState
+									title="No attributes match your filter"
+									description="Try a different name."
+									action={
+										<Button onClick={() => setAttributeQuery("")}>
+											Clear attribute filter
 										</Button>
-									) : undefined
-								}
-							/>
+									}
+								/>
+							) : (
+								<EmptyState
+									title="No attributes yet"
+									description="Create the first attribute to start describing the catalog."
+									action={
+										mayCreate ? (
+											<Button
+												type="primary"
+												onClick={(event) => {
+													captureTrigger(event);
+													setAttributeFormTarget({ mode: "create" });
+												}}
+											>
+												Add attribute
+											</Button>
+										) : undefined
+									}
+								/>
+							)
 						) : (
 							<Table<Attribute>
 								rowKey={(attribute) => attribute.attributeId}
-								dataSource={sortedAttributes}
+								dataSource={visibleAttributes}
 								columns={attributeColumns}
 								rowClassName={(attribute) =>
 									attribute.attributeId === selectedAttributeId
@@ -463,6 +539,23 @@ export function AttributeDictionaryView() {
 							/>
 						) : (
 							<>
+								<div className={styles.toolbar}>
+									<form
+										className={styles.searchForm}
+										role="search"
+										onSubmit={(event) => event.preventDefault()}
+									>
+										<Input
+											className={styles.search}
+											aria-label="Filter values by text"
+											prefix={<SearchOutlined />}
+											placeholder="Filter values…"
+											value={valueQuery}
+											allowClear
+											onChange={(event) => setValueQuery(event.target.value)}
+										/>
+									</form>
+								</div>
 								{valueActionError && (
 									<Alert
 										type="error"
@@ -472,28 +565,40 @@ export function AttributeDictionaryView() {
 										className={styles.valueAlert}
 									/>
 								)}
-								{values.length === 0 ? (
-									<EmptyState
-										title="No values yet"
-										description={`Add the first allowed value for ${selectedAttribute.name}.`}
-										action={
-											mayCreate ? (
-												<Button
-													type="primary"
-													onClick={(event) => {
-														captureTrigger(event);
-														setValueFormTarget({ mode: "create" });
-													}}
-												>
-													Add value
+								{visibleValues.length === 0 ? (
+									normalizedValueQuery ? (
+										<EmptyState
+											title="No values match your filter"
+											description="Try a different value."
+											action={
+												<Button onClick={() => setValueQuery("")}>
+													Clear value filter
 												</Button>
-											) : undefined
-										}
-									/>
+											}
+										/>
+									) : (
+										<EmptyState
+											title="No values yet"
+											description={`Add the first allowed value for ${selectedAttribute.name}.`}
+											action={
+												mayCreate ? (
+													<Button
+														type="primary"
+														onClick={(event) => {
+															captureTrigger(event);
+															setValueFormTarget({ mode: "create" });
+														}}
+													>
+														Add value
+													</Button>
+												) : undefined
+											}
+										/>
+									)
 								) : (
 									<Table<AttributeValue>
 										rowKey={(value) => value.attributeValueId}
-										dataSource={values}
+										dataSource={visibleValues}
 										columns={valueColumns}
 										pagination={false}
 									/>

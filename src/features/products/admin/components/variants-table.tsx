@@ -22,6 +22,8 @@ import {
 import type { TableColumnsType } from "antd";
 import { DeleteOutlined, SettingOutlined } from "@ant-design/icons";
 
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
+
 import { uploadVariantImage } from "../api/media.api";
 import { deleteVariant, patchVariant } from "../api/variants.api";
 import { apiErrorMessage, isConflict } from "../model/api-error";
@@ -328,36 +330,42 @@ export function VariantsTable({
 			title: "Image",
 			key: "image",
 			width: 150,
-			render: (_, row) => (
-				<Flex vertical gap={4}>
-					{row.images.length > 0 ? (
-						<Flex wrap gap={4}>
-							{row.images.map((image) => (
-								<Image
-									key={image.mediaId}
-									className={styles.thumb}
-									src={image.url}
-									alt={`${variantLabel(row)} image`}
-									width={40}
-									height={40}
-									unoptimized
-								/>
-							))}
-						</Flex>
-					) : (
-						<Text type="secondary">None</Text>
-					)}
-					{mayUploadImage && (
-						<ImageUploadButton
-							label={row.images.length === 0 ? "Add image" : "Add"}
-							disabled={removingIds[row.variantId] === true}
-							loading={uploadingIds[row.variantId] === true}
-							onFile={(file) => void uploadImage(row, file)}
-							onInvalid={(error) => message.error(error)}
-						/>
-					)}
-				</Flex>
-			),
+			render: (_, row) => {
+				const images = row.images.filter((image) =>
+					isOptimizableImageUrl(image.url),
+				);
+
+				return (
+					<Flex vertical gap={4}>
+						{images.length > 0 ? (
+							<Flex wrap gap={4}>
+								{images.map((image) => (
+									<Image
+										key={image.mediaId}
+										className={styles.thumb}
+										src={image.url}
+										alt={`${variantLabel(row)} image`}
+										width={40}
+										height={40}
+										unoptimized
+									/>
+								))}
+							</Flex>
+						) : (
+							<Text type="secondary">None</Text>
+						)}
+						{mayUploadImage && (
+							<ImageUploadButton
+								label={images.length === 0 ? "Add image" : "Add"}
+								disabled={removingIds[row.variantId] === true}
+								loading={uploadingIds[row.variantId] === true}
+								onFile={(file) => void uploadImage(row, file)}
+								onInvalid={(error) => message.error(error)}
+							/>
+						)}
+					</Flex>
+				);
+			},
 		},
 		{
 			title: "SKU",

@@ -1,0 +1,178 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.back {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	width: fit-content;
+	color: var(--color-admin-panel-text-muted);
+	font-size: 13px;
+	line-height: 1.2;
+}
+
+.back:hover {
+	color: var(--color-brand-deep-teal);
+}
+
+.header {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.title:global(.ant-typography) {
+	margin: 0;
+	color: var(--color-admin-panel-text-strong);
+	font-size: 34px;
+	line-height: 42px;
+	font-weight: 700;
+	letter-spacing: -0.85px;
+}
+
+/* Surface and border come from the scoped Alert tokens in `AdminTheme`; only
+   the geometry no token carries lives here. */
+.notice:global(.ant-alert) {
+	margin-top: 8px;
+	border-radius: 6px;
+}
+
+.notice :global(.ant-alert-title) {
+	font-size: 13px;
+	line-height: 18.2px;
+}
+
+/* Main column flexes; the settings column keeps the design's 316px width and
+   both stack below 1024px rather than squeezing the controls. */
+.columns {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 316px;
+	gap: 20px;
+	align-items: start;
+}
+
+.mainColumn,
+.sideColumn {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	min-width: 0;
+}
+
+.saveBar {
+	position: sticky;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 24px;
+	padding: 16px 0;
+	background: var(--color-surface-white);
+	border-top: 1px solid var(--color-admin-panel-border);
+}
+
+.saveStatus {
+	margin-inline-end: auto;
+}
+
+/* The strength meter is advice under the password field, so it reads as helper
+   text: small, quiet, and absent from the tab order. */
+.strength {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 4px;
+}
+
+.strengthHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	color: var(--color-admin-panel-text-muted);
+	font-size: 12px;
+	line-height: 16.8px;
+}
+
+.strengthLabel {
+	font-weight: 600;
+}
+
+/* Level 0 has no filled segment, so only the text tone changes. */
+.strengthLabel[data-level="0"] {
+	color: var(--color-admin-panel-text-muted);
+}
+
+.strengthLabel[data-level="1"] {
+	color: var(--color-admin-status-danger-text);
+}
+
+.strengthLabel[data-level="2"] {
+	color: var(--color-admin-status-warning-text);
+}
+
+.strengthLabel[data-level="3"],
+.strengthLabel[data-level="4"] {
+	color: var(--color-brand-deep-teal);
+}
+
+.strengthTrack {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 4px;
+}
+
+.strengthSegment {
+	height: 6px;
+	border-radius: 999px;
+	background: var(--color-admin-panel-border);
+}
+
+.strength[data-level="1"] .strengthSegmentOn {
+	background: var(--color-admin-status-danger-text);
+}
+
+.strength[data-level="2"] .strengthSegmentOn {
+	background: var(--color-admin-status-warning-text);
+}
+
+.strength[data-level="3"] .strengthSegmentOn,
+.strength[data-level="4"] .strengthSegmentOn {
+	background: var(--color-brand-deep-teal);
+}
+
+.checklist {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	color: var(--color-admin-panel-text-muted);
+	font-size: 12px;
+	line-height: 16.8px;
+}
+
+.checklist li {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.checkMet {
+	color: var(--color-brand-deep-teal);
+}
+
+@media (max-width: 1023px) {
+	.columns {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.title:global(.ant-typography) {
+		font-size: 26px;
+		line-height: 34px;
+	}
+}

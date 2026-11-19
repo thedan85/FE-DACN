@@ -13,6 +13,7 @@ import { App } from "antd";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api/client";
+import { clearSession, setAccessToken } from "@/features/auth/session";
 import { useAuthStore } from "@/stores/auth-store";
 
 import {
@@ -40,10 +41,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("../api/admin-users.api", () => ({
 	listAdminUsers: vi.fn(),
 	getAdminUser: vi.fn(),
-	createAdminUser: vi.fn(),
 	setAdminUserStatus: vi.fn(),
-	setAdminUserRole: vi.fn(),
-	deleteAdminUser: vi.fn(),
 	patchCustomerProfile: vi.fn(),
 }));
 
@@ -113,6 +111,7 @@ function renderCustomers() {
 beforeEach(() => {
 	nav.search = "";
 	nav.replace.mockReset();
+	clearSession();
 	useAuthStore.setState({ status: "authenticated", user });
 	// antd's responsive pieces read these; jsdom provides neither.
 	vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
@@ -139,6 +138,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+	clearSession();
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 });
@@ -714,4 +714,561 @@ it("Escape in the profile editor returns focus to the Edit profile button", asyn
 	await waitFor(() => {
 		expect(document.activeElement).toBe(editProfile);
 	});
+});
+
+async function openProfileEditor() {
+	renderCustomers();
+	await flush();
+	fireEvent.click(
+		screen.getByRole("button", { name: "View details for Customer User" }),
+	);
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: /edit profile/i }));
+	await flush();
+	await screen.findByLabelText("Name");
+}
+
+it("profileEdit_rebaseKeepsConcurrentPhoneAndReappliesEditedAddress", async () => {
+	// The write failed with an unknown outcome; while it was in flight someone
+	// else changed the phone. The recovery read must keep that fresh phone and
+	// reapply only the address edit the admin actually made.
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Could not reach the API: connection reset", 0),
+	);
+	vi.mocked(getAdminUser)
+		.mockResolvedValueOnce(customerDetail) // detail panel
+		.mockResolvedValueOnce(customerDetail) // profile form
+		.mockResolvedValueOnce({
+			...customerDetail,
+			phone: "0900999999",
+			address: "12 Nguyen Hue Street",
+		});
+
+	await openProfileEditor();
+
+	fireEvent.change(await screen.findByLabelText("Address"), {
+		target: { value: "77 New Address" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: /reload profile/i }));
+	await flush();
+
+	expect((screen.getByLabelText("Phone") as HTMLInputElement).value).toBe(
+		"0900999999",
+	);
+	expect((screen.getByLabelText("Address") as HTMLInputElement).value).toBe(
+		"77 New Address",
+	);
+	expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe(
+		"Customer User",
+	);
+
+	const save = screen.getByRole("button", {
+		name: "Save changes",
+	}) as HTMLButtonElement;
+	expect(save.disabled).toBe(false);
+	fireEvent.click(save);
+	await flush();
+
+	// The re-save never reverts the concurrently changed phone.
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(2);
+	expect(patchCustomerProfile).toHaveBeenLastCalledWith("USR_customer", {
+		address: "77 New Address",
+	});
+});
+
+it("profileEdit_rebaseKeepsClearedAddressWithNullPhone", async () => {
+	const base: AdminUserDetail = {
+		...customerDetail,
+		phone: null,
+		address: "12 Nguyen Hue Street",
+	};
+	vi.mocked(getAdminUser)
+		.mockResolvedValueOnce(base)
+		.mockResolvedValueOnce(base)
+		.mockResolvedValueOnce(base);
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Could not reach the API: connection reset", 0),
+	);
+
+	await openProfileEditor();
+
+	expect((screen.getByLabelText("Phone") as HTMLInputElement).value).toBe("");
+	fireEvent.change(await screen.findByLabelText("Address"), {
+		target: { value: "" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: /reload profile/i }));
+	await flush();
+
+	// A null phone stays blank; the cleared address stays the only edit.
+	expect((screen.getByLabelText("Phone") as HTMLInputElement).value).toBe("");
+	expect((screen.getByLabelText("Address") as HTMLInputElement).value).toBe("");
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	expect(patchCustomerProfile).toHaveBeenLastCalledWith("USR_customer", {
+		address: null,
+	});
+	for (const [, patch] of vi.mocked(patchCustomerProfile).mock.calls) {
+		expect(patch).not.toHaveProperty("phone");
+	}
+});
+
+it("profileEdit_revokedUpdateDisablesOpenControlsAndSubmit", async () => {
+	await openProfileEditor();
+
+	expect(
+		(screen.getByLabelText("Name") as HTMLInputElement).disabled,
+	).toBe(false);
+
+	// The permission is revoked elsewhere while the dialog stays open. The
+	// profile reads its authority live from the auth store, not from a snapshot
+	// taken when the dialog opened.
+	act(() => {
+		useAuthStore.setState({
+			status: "authenticated",
+			user: { ...user, permissions: ["user:read"] },
+		});
+	});
+
+	expect(
+		(screen.getByLabelText("Name") as HTMLInputElement).disabled,
+	).toBe(true);
+	expect(
+		(screen.getByLabelText("Phone") as HTMLInputElement).disabled,
+	).toBe(true);
+	expect(
+		(screen.getByRole("button", {
+			name: "Save changes",
+		}) as HTMLButtonElement).disabled,
+	).toBe(true);
+});
+
+it("profileEdit_recovered401ShowsManualReadRetryWithoutAutoWrite", async () => {
+	setAccessToken("recovered-token");
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockResolvedValue(undefined);
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Could not reach the API: connection reset", 0),
+	);
+	vi.mocked(getAdminUser)
+		.mockResolvedValueOnce(customerDetail)
+		.mockResolvedValueOnce(customerDetail)
+		// Recovery re-read: 401, but the token rehydrated.
+		.mockRejectedValueOnce(new ApiError("Unauthorized", 401))
+		.mockResolvedValueOnce(customerDetail);
+
+	await openProfileEditor();
+	fireEvent.change(await screen.findByLabelText("Name"), {
+		target: { value: "Renamed Customer" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: /reload profile/i }));
+	await flush();
+
+	// A recovered 401 is not a denial: the manual read retry is visible.
+	expect(screen.queryByLabelText("Name")).toBeNull();
+	expect(
+		screen.queryByText("You do not have access to this customer"),
+	).toBeNull();
+	expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+	expect(nav.replace).not.toHaveBeenCalled();
+	// No rejected write is replayed automatically.
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(1);
+
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	await flush();
+
+	expect(await screen.findByLabelText("Name")).toBeTruthy();
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(1);
+});
+
+it("profileEdit_hidesFieldsWhileRecoveryReadRevalidates", async () => {
+	setAccessToken("recovered-token");
+	let finishRevalidate: () => void = () => {};
+	const pending = new Promise<void>((resolve) => {
+		finishRevalidate = resolve;
+	});
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockReturnValue(pending);
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Could not reach the API: connection reset", 0),
+	);
+	vi.mocked(getAdminUser)
+		.mockResolvedValueOnce(customerDetail)
+		.mockResolvedValueOnce(customerDetail)
+		.mockRejectedValueOnce(new ApiError("Unauthorized", 401))
+		.mockResolvedValueOnce(customerDetail);
+
+	await openProfileEditor();
+	fireEvent.change(await screen.findByLabelText("Address"), {
+		target: { value: "77 New Address" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: /reload profile/i }));
+	await flush();
+
+	// revalidate is still pending: protected fields must already be gone.
+	expect(screen.queryByLabelText("Name")).toBeNull();
+	expect(screen.queryByLabelText("Phone")).toBeNull();
+	expect(screen.queryByLabelText("Address")).toBeNull();
+	expect(screen.getByLabelText("Loading customer profile")).toBeTruthy();
+
+	await act(async () => {
+		finishRevalidate();
+		await Promise.resolve();
+	});
+
+	expect(screen.queryByLabelText("Name")).toBeNull();
+	expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	await flush();
+
+	expect(await screen.findByLabelText("Name")).toBeTruthy();
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(1);
+});
+
+it("profileEdit_forbiddenRecoveryReadHidesFieldsWhileRevalidating", async () => {
+	let finishRevalidate: () => void = () => {};
+	const pending = new Promise<void>((resolve) => {
+		finishRevalidate = resolve;
+	});
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockReturnValue(pending);
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Could not reach the API: connection reset", 0),
+	);
+	vi.mocked(getAdminUser)
+		.mockResolvedValueOnce(customerDetail)
+		.mockResolvedValueOnce(customerDetail)
+		.mockRejectedValueOnce(new ApiError("Missing permission: user:read", 403));
+
+	await openProfileEditor();
+	fireEvent.change(await screen.findByLabelText("Name"), {
+		target: { value: "Renamed Customer" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: /reload profile/i }));
+	await flush();
+
+	expect(screen.queryByLabelText("Name")).toBeNull();
+	expect(screen.getByLabelText("Loading customer profile")).toBeTruthy();
+
+	await act(async () => {
+		finishRevalidate();
+		await Promise.resolve();
+	});
+
+	expect(screen.queryByLabelText("Name")).toBeNull();
+	expect(
+		screen.getByText("You do not have access to this customer"),
+	).toBeTruthy();
+});
+
+it("profileEdit_recovered401RetryRebasesFreshPhoneOntoAddressEdit", async () => {
+	setAccessToken("recovered-token");
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockResolvedValue(undefined);
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Could not reach the API: connection reset", 0),
+	);
+	vi.mocked(getAdminUser)
+		.mockResolvedValueOnce(customerDetail)
+		.mockResolvedValueOnce(customerDetail)
+		.mockRejectedValueOnce(new ApiError("Unauthorized", 401))
+		.mockResolvedValueOnce({
+			...customerDetail,
+			phone: "0900999999",
+			address: "12 Nguyen Hue Street",
+		});
+
+	await openProfileEditor();
+	fireEvent.change(await screen.findByLabelText("Address"), {
+		target: { value: "77 New Address" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: /reload profile/i }));
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	await flush();
+
+	expect(await screen.findByLabelText("Name")).toBeTruthy();
+	expect((screen.getByLabelText("Phone") as HTMLInputElement).value).toBe(
+		"0900999999",
+	);
+	expect((screen.getByLabelText("Address") as HTMLInputElement).value).toBe(
+		"77 New Address",
+	);
+
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(2);
+	expect(patchCustomerProfile).toHaveBeenLastCalledWith("USR_customer", {
+		address: "77 New Address",
+	});
+});
+
+it("profileEdit_losingReadWhileUpdateRemainsBlocksAllWrites", async () => {
+	await openProfileEditor();
+	fireEvent.change(await screen.findByLabelText("Name"), {
+		target: { value: "Renamed Customer" },
+	});
+	await flush();
+
+	// The parent keeps the dialog open; only user:read is lost here.
+	act(() => {
+		useAuthStore.setState({
+			status: "authenticated",
+			user: { ...user, permissions: ["user:update"] },
+		});
+	});
+
+	expect(screen.queryByLabelText("Name")).toBeNull();
+	expect(
+		(screen.getByRole("button", {
+			name: "Save changes",
+		}) as HTMLButtonElement).disabled,
+	).toBe(true);
+	expect(patchCustomerProfile).not.toHaveBeenCalled();
+	expect(nav.replace).not.toHaveBeenCalled();
+});
+
+it("profileEdit_transientRecoveryFailureKeepsEditAcrossManualRetry", async () => {
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Could not reach the API: connection reset", 0),
+	);
+	vi.mocked(getAdminUser)
+		.mockResolvedValueOnce(customerDetail) // detail panel
+		.mockResolvedValueOnce(customerDetail) // profile form
+		.mockRejectedValueOnce(new ApiError("Service unavailable", 500))
+		.mockResolvedValueOnce({
+			...customerDetail,
+			phone: "0900999999", // concurrent change on the server
+			address: "12 Nguyen Hue Street",
+		});
+
+	await openProfileEditor();
+	fireEvent.change(await screen.findByLabelText("Address"), {
+		target: { value: "77 New Address" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: /reload profile/i }));
+	await flush();
+
+	// The 5xx recovery read is retryable, not a denial.
+	expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+	expect(
+		screen.queryByText("You do not have access to this customer"),
+	).toBeNull();
+
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	await flush();
+
+	expect(await screen.findByLabelText("Name")).toBeTruthy();
+	expect((screen.getByLabelText("Phone") as HTMLInputElement).value).toBe(
+		"0900999999",
+	);
+	expect((screen.getByLabelText("Address") as HTMLInputElement).value).toBe(
+		"77 New Address",
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+	expect(patchCustomerProfile).toHaveBeenLastCalledWith("USR_customer", {
+		address: "77 New Address",
+	});
+});
+
+it("profileEdit_regrantAfterReadLossStartsFresh", async () => {
+	await openProfileEditor();
+	fireEvent.change(await screen.findByLabelText("Name"), {
+		target: { value: "Renamed Customer" },
+	});
+	await flush();
+
+	act(() => {
+		useAuthStore.setState({
+			status: "authenticated",
+			user: { ...user, permissions: [] },
+		});
+	});
+	expect(screen.queryByLabelText("Name")).toBeNull();
+
+	act(() => {
+		useAuthStore.setState({ status: "authenticated", user });
+	});
+
+	expect(await screen.findByLabelText("Name")).toBeTruthy();
+	expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe(
+		"Customer User",
+	);
+	expect(patchCustomerProfile).not.toHaveBeenCalled();
+});
+
+it("profileEdit_hidesFieldsWhileWriteAuthRevalidates", async () => {
+	setAccessToken("recovered-token");
+	let finishRevalidate: () => void = () => {};
+	const pending = new Promise<void>((resolve) => {
+		finishRevalidate = resolve;
+	});
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockReturnValue(pending);
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Unauthorized", 401),
+	);
+
+	await openProfileEditor();
+	fireEvent.change(await screen.findByLabelText("Address"), {
+		target: { value: "77 New Address" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	// Protected fields are hidden while the session check is in flight.
+	expect(screen.queryByLabelText("Name")).toBeNull();
+	expect(screen.queryByLabelText("Address")).toBeNull();
+	expect(screen.getByLabelText("Checking your access")).toBeTruthy();
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(1);
+
+	await act(async () => {
+		finishRevalidate();
+		await Promise.resolve();
+	});
+
+	// A recovered 401 restores the draft for a manual retry; no replay.
+	expect(await screen.findByLabelText("Name")).toBeTruthy();
+	expect((screen.getByLabelText("Address") as HTMLInputElement).value).toBe(
+		"77 New Address",
+	);
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(1);
+});
+
+it("profileEdit_writeForbiddenResolvesToReadOnlyAccess", async () => {
+	let finishRevalidate: () => void = () => {};
+	const pending = new Promise<void>((resolve) => {
+		finishRevalidate = resolve;
+	});
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockReturnValue(pending);
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Missing permission: user:update", 403),
+	);
+
+	await openProfileEditor();
+	fireEvent.change(await screen.findByLabelText("Address"), {
+		target: { value: "77 New Address" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	expect(screen.queryByLabelText("Address")).toBeNull();
+	expect(screen.getByLabelText("Checking your access")).toBeTruthy();
+
+	await act(async () => {
+		useAuthStore.setState({
+			status: "authenticated",
+			user: { ...user, permissions: ["user:read"] },
+		});
+		finishRevalidate();
+		await Promise.resolve();
+	});
+
+	// The refreshed permission leaves read-only access, never a live write.
+	expect((screen.getByLabelText("Address") as HTMLInputElement).disabled).toBe(
+		true,
+	);
+	expect(
+		(screen.getByText("Save changes").closest("button") as HTMLButtonElement)
+			.disabled,
+	).toBe(true);
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(1);
+});
+
+it("customers_listRecovered401OffersManualReadRetry", async () => {
+	setAccessToken("recovered-token");
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockResolvedValue(undefined);
+	vi.mocked(listAdminUsers)
+		.mockRejectedValueOnce(new ApiError("Unauthorized", 401))
+		.mockResolvedValue(page());
+
+	renderCustomers();
+	await flush();
+
+	expect(screen.queryByText("customer@example.com")).toBeNull();
+	expect(
+		screen.queryByText("You do not have access to customer accounts"),
+	).toBeNull();
+	expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+	expect(nav.replace).not.toHaveBeenCalled();
+
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	await flush();
+
+	expect(await screen.findByText("customer@example.com")).toBeTruthy();
+});
+
+it("customers_hidesListWhileRevalidating", async () => {
+	setAccessToken("recovered-token");
+	let finishRevalidate: () => void = () => {};
+	const pending = new Promise<void>((resolve) => {
+		finishRevalidate = resolve;
+	});
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockReturnValue(pending);
+	vi.mocked(listAdminUsers)
+		.mockRejectedValueOnce(new ApiError("Unauthorized", 401))
+		.mockResolvedValue(page());
+
+	renderCustomers();
+	await flush();
+
+	// Protected rows are hidden until the session check settles.
+	expect(screen.queryByText("customer@example.com")).toBeNull();
+	expect(screen.getByLabelText("Loading customers")).toBeTruthy();
+
+	await act(async () => {
+		finishRevalidate();
+		await Promise.resolve();
+	});
+	expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+});
+
+it("customers_detailRecovered401OffersManualReadRetry", async () => {
+	setAccessToken("recovered-token");
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockResolvedValue(undefined);
+	vi.mocked(getAdminUser)
+		.mockRejectedValueOnce(new ApiError("Unauthorized", 401))
+		.mockResolvedValue(customerDetail);
+
+	renderCustomers();
+	await flush();
+	fireEvent.click(
+		screen.getByRole("button", { name: "View details for Customer User" }),
+	);
+	await flush();
+
+	expect(screen.getByText("We couldn't load the customer detail")).toBeTruthy();
+	expect(
+		screen.queryByText("You do not have access to this customer"),
+	).toBeNull();
+	expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+	expect(nav.replace).not.toHaveBeenCalled();
+
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	await flush();
+
+	expect(await screen.findByText("12 Nguyen Hue Street")).toBeTruthy();
 });

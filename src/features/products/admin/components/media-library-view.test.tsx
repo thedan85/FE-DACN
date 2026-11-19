@@ -11,6 +11,7 @@ import {
 import { App } from "antd";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { clearSession, setAccessToken } from "@/features/auth/session";
 import { useAuthStore } from "@/stores/auth-store";
 
 import { MediaLibraryView } from "./media-library-view";
@@ -161,6 +162,31 @@ async function flush() {
 	});
 }
 
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((res) => {
+		resolve = res;
+	});
+	return { promise, resolve };
+}
+
+function respond(body: unknown, status = 200) {
+	return new Response(JSON.stringify(body), {
+		status,
+		headers: { "Content-Type": "application/json" },
+	});
+}
+
+function selectedProductLabel() {
+	return (
+		screen
+			.getByRole("combobox", { name: "Product" })
+			.closest(".ant-select")
+			?.querySelector(".ant-select-content")
+			?.getAttribute("title") ?? null
+	);
+}
+
 beforeEach(() => {
 	release.value = false;
 	nav.replace.mockReset();
@@ -190,12 +216,15 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+	clearSession();
 	vi.unstubAllGlobals();
 	vi.unstubAllEnvs();
 	vi.restoreAllMocks();
 });
 
-it("Escape in Add media returns focus to the header button", async () => {
+// Focus-restore round-trips exceed the 15s default on a loaded suite; the
+// neighbouring paging test carries the same 20s budget.
+it("Escape in Add media returns focus to the header button", { timeout: 20000 }, async () => {
 	stubFetch(page([mediaRow()]));
 
 	render(
@@ -222,7 +251,7 @@ it("Escape in Add media returns focus to the header button", async () => {
 	});
 });
 
-it("Escape in Edit media returns focus to the row trigger", async () => {
+it("Escape in Edit media returns focus to the row trigger", { timeout: 20000 }, async () => {
 	stubFetch(page([mediaRow()]));
 
 	render(
@@ -656,4 +685,276 @@ it("mediaCreate_usesExactlyOneOwner", async () => {
 		([, init]) => (init as RequestInit)?.method === "POST",
 	);
 	expect(posts).toHaveLength(1);
+});
+
+it("mediaList_recovered401OnReadHidesPayloadAndOffersManualRetry", async () => {
+	setAccessToken("rehydrated-token");
+	release.value = true;
+	const revalidate = deferred<void>();
+	vi.mocked(useAuthStore.getState().revalidate).mockReturnValue(revalidate.promise);
+	const secondGet = deferred<Response>();
+	let getCount = 0;
+	let deleteCount = 0;
+	const fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+		if (init?.method === "DELETE") {
+			deleteCount += 1;
+			return Promise.resolve(respond(ok(null).body));
+		}
+		getCount += 1;
+		const body = page([mediaRow({ mediaId: "MED_VISIBLE" })]).body;
+		if (getCount === 1) {
+			return Promise.resolve(respond(body));
+		}
+		if (getCount === 2) {
+			return secondGet.promise;
+		}
+		return Promise.resolve(respond(body));
+	});
+	vi.stubGlobal("fetch", fetch);
+
+	render(
+		<App>
+			<MediaLibraryView />
+		</App>,
+	);
+	await flush();
+	expect(
+		screen.getByRole("button", { name: "Edit media MED_VISIBLE" }),
+	).toBeTruthy();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Delete media MED_VISIBLE" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Delete media" }));
+	await flush();
+	expect(deleteCount).toBe(1);
+	expect(getCount).toBe(2);
+
+	// The reload read is refused with 401; while the session is rechecked the
+	// protected rows are gone and only the loading state remains.
+	await act(async () => {
+		secondGet.resolve(respond({ code: 401, message: "Unauthorized", data: null }, 401));
+	});
+	await flush();
+	expect(
+		screen.queryByRole("button", { name: "Edit media MED_VISIBLE" }),
+	).toBeNull();
+	expect(screen.getByLabelText("Loading media")).toBeTruthy();
+
+	await act(async () => {
+		revalidate.resolve();
+	});
+	await flush();
+	expect(screen.getByText("We couldn't load media")).toBeTruthy();
+	expect(screen.getByText(/Your session was refreshed/)).toBeTruthy();
+	// No automatic re-read and no replay of the delete; only the explicit
+	// Retry is offered.
+	expect(getCount).toBe(2);
+	expect(deleteCount).toBe(1);
+
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	await flush();
+	expect(getCount).toBe(3);
+	expect(
+		screen.getByRole("button", { name: "Edit media MED_VISIBLE" }),
+	).toBeTruthy();
+});
+
+it("mediaList_genuine403DenialKeepsAccessDenied", async () => {
+	stubFetch({
+		status: 403,
+		body: { code: 403, message: "Access denied", data: null },
+	});
+
+	render(
+		<App>
+			<MediaLibraryView />
+		</App>,
+	);
+	await flush();
+
+	expect(screen.getByText("You do not have access to media")).toBeTruthy();
+	expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+});
+
+it("mediaList_productLookupUsesBackendKeywordAndKeepsSelection", async () => {
+	const urls: string[] = [];
+	const fetch = vi.fn(async (input: RequestInfo | URL) => {
+		const url = String(input);
+		urls.push(url);
+		if (url.includes("/products?")) {
+			return jsonResponse(
+				productsPage(
+					new URL(url).searchParams.get("keyword")
+						? []
+						: [productFixture],
+				).body,
+			);
+		}
+		if (url.includes("/media?") || url.endsWith("/media")) {
+			return jsonResponse(page([mediaRow()]).body);
+		}
+		return Promise.reject(new Error(`Unexpected request: ${url}`));
+	});
+	vi.stubGlobal("fetch", fetch);
+
+	render(
+		<App>
+			<MediaLibraryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Owner filter" }));
+	fireEvent.click(screen.getByText("Product"));
+	await flush();
+
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Product" }));
+	fireEvent.click(screen.getByText("Reef tanks"));
+	await flush();
+
+	const before = urls.length;
+	fireEvent.change(screen.getByRole("combobox", { name: "Product" }), {
+		target: { value: "nomatch" },
+	});
+	await waitFor(
+		() => {
+			expect(
+				urls.some(
+					(url) => new URL(url).searchParams.get("keyword") === "nomatch",
+				),
+			).toBe(true);
+		},
+		{ timeout: 2000 },
+	);
+	await flush();
+
+	// The search reached the backend, and the chosen product (and its media
+	// scope) survived the option refresh even though it is not in the results.
+	expect(screen.getAllByText("Reef tanks").length).toBeGreaterThan(0);
+	expect(
+		urls
+			.slice(before)
+			.some((url) => url.includes("/products/PRD_1/media")),
+	).toBe(false);
+});
+
+it("mediaList_productLookupIgnoresStaleKeywordResults", async () => {
+	const first = deferred<Response>();
+	const second = deferred<Response>();
+	let productRequests = 0;
+	const fetch = vi.fn((input: RequestInfo | URL) => {
+		const url = String(input);
+		if (url.includes("/products?")) {
+			productRequests += 1;
+			return productRequests === 1 ? first.promise : second.promise;
+		}
+		return Promise.resolve(respond(page([mediaRow()]).body));
+	});
+	vi.stubGlobal("fetch", fetch);
+
+	render(
+		<App>
+			<MediaLibraryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Owner filter" }));
+	fireEvent.click(screen.getByText("Product"));
+	await flush();
+	expect(productRequests).toBe(1);
+
+	fireEvent.change(screen.getByRole("combobox", { name: "Product" }), {
+		target: { value: "new" },
+	});
+	await waitFor(() => expect(productRequests).toBe(2), { timeout: 2000 });
+
+	await act(async () => {
+		second.resolve(respond(productsPage([productFixture]).body));
+	});
+	await flush();
+	expect(screen.getAllByText("Reef tanks").length).toBeGreaterThan(0);
+
+	// The older, slower answer must not overwrite the newer options.
+	await act(async () => {
+		first.resolve(
+			respond(
+				productsPage([
+					{ ...productFixture, productId: "PRD_2", name: "Other product" },
+				]).body,
+			),
+		);
+	});
+	await flush();
+	expect(screen.queryByText("Other product")).toBeNull();
+	expect(screen.getAllByText("Reef tanks").length).toBeGreaterThan(0);
+});
+
+it("mediaList_statusChangeAndPermissionLossResetScope", async () => {
+	const urls: string[] = [];
+	const draft = {
+		...productFixture,
+		productId: "PRD_HIDDEN",
+		slug: "hidden",
+		name: "Hidden draft",
+		status: "DRAFT",
+	};
+	const fetch = vi.fn(async (input: RequestInfo | URL) => {
+		const url = String(input);
+		urls.push(url);
+		if (url.includes("/products?")) {
+			const status = new URL(url).searchParams.get("status");
+			return jsonResponse(productsPage(status === "DRAFT" ? [draft] : []).body);
+		}
+		return Promise.resolve(respond(page([mediaRow()]).body));
+	});
+	vi.stubGlobal("fetch", fetch);
+
+	render(
+		<App>
+			<MediaLibraryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Owner filter" }));
+	fireEvent.click(screen.getByText("Product"));
+	await flush();
+
+	// Pick DRAFT, then the hidden product. product:create is held, so both are
+	// offered.
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Product status" }));
+	fireEvent.click(screen.getByText("Draft"));
+	await flush();
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Product" }));
+	fireEvent.click(screen.getByText("Hidden draft"));
+	await flush();
+	expect(screen.getAllByText("Hidden draft").length).toBeGreaterThan(0);
+
+	// Changing status is an intentional reset: the old owner is discarded.
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Product status" }));
+	fireEvent.click(screen.getByText("Active"));
+	await flush();
+	expect(selectedProductLabel()).not.toBe("Hidden draft");
+	expect(screen.getByText("Choose an owner")).toBeTruthy();
+
+	// Re-select a hidden owner, then revoke product:create mid-session.
+	const withoutHidden = {
+		...adminUser,
+		permissions: adminUser.permissions.filter((p) => p !== "product:create"),
+	};
+	act(() => {
+		useAuthStore.setState({ user: withoutHidden });
+	});
+	await flush();
+
+	expect(screen.queryByRole("combobox", { name: "Product status" })).toBeNull();
+	expect(selectedProductLabel()).not.toBe("Hidden draft");
+	expect(screen.getByText("Choose an owner")).toBeTruthy();
+	const lastProducts = [...urls]
+		.reverse()
+		.find((url) => url.includes("/products?"));
+	expect(new URL(lastProducts!).searchParams.get("status")).toBe("ACTIVE");
+	expect(new URL(lastProducts!).searchParams.get("keyword")).toBeNull();
 });

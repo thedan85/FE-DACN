@@ -1,0 +1,30 @@
+.bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 12px 20px;
+	background: var(--color-admin-panel-surface-subtle);
+	border-bottom: 1px solid var(--color-admin-panel-border);
+}
+
+.count {
+	font-size: 13px;
+	line-height: 18.2px;
+	color: var(--color-admin-panel-text-strong);
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+@media (max-width: 767px) {
+	.bar {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+}

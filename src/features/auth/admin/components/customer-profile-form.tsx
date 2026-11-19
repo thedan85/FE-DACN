@@ -15,9 +15,14 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { ApiError } from "@/lib/api/client";
 import { apiErrorMessage } from "@/features/products/admin/model/api-error";
+import { useAuthStore } from "@/stores/auth-store";
 
 import { getAdminUser, patchCustomerProfile } from "../api/admin-users.api";
-import { handleAdminAuthFailure } from "../model/admin-auth-failure";
+import {
+	ADMIN_SESSION_REFRESHED_MESSAGE,
+	handleAdminAuthFailure,
+	recoveredAdminSession,
+} from "../model/admin-auth-failure";
 import type {
 	AdminUserDetail,
 	CustomerProfilePatch,
@@ -74,6 +79,24 @@ function diffCustomerProfilePatch(
 	return patch;
 }
 
+/**
+ * Reapplies the fields the admin actually edited onto a freshly fetched
+ * detail. Fields left untouched take the fresh value, so a concurrent change
+ * made while the write was in flight is never replaced by a stale draft. A
+ * cleared address is represented by `null` in the patch and by `""` in the
+ * field.
+ */
+function applyPatchToValues(
+	detail: AdminUserDetail,
+	patch: CustomerProfilePatch,
+): CustomerProfileFormValues {
+	return {
+		name: patch.name ?? detail.name,
+		phone: patch.phone ?? detail.phone ?? "",
+		address: patch.address === undefined ? detail.address ?? "" : patch.address ?? "",
+	};
+}
+
 /** A failed write whose effect on the server is unknown: transport failure or a 5xx. */
 function isUnknownWriteOutcome(caught: unknown): boolean {
 	return (
@@ -101,8 +124,15 @@ export function CustomerProfileForm({
 }) {
 	const router = useRouter();
 	const [form] = Form.useForm<CustomerProfileFormValues>();
-	const snapshotRef = useRef<AdminUserDetail | null>(null);
+	const permissions = useAuthStore((state) => state.user?.permissions);
+	const mayRead = permissions?.includes("user:read") === true;
+	const mayUpdate = permissions?.includes("user:update") === true;
+	const baseRef = useRef<AdminUserDetail | null>(null);
+	/** Intended edits, kept only across a recoverable auth failure. */
+	const intendedRef = useRef<CustomerProfilePatch | null>(null);
 	const [snapshot, setSnapshot] = useState<AdminUserDetail | null>(null);
+	/** Explicit seed for the Form; a remount cannot reuse stale antd store values. */
+	const [formSeed, setFormSeed] = useState<CustomerProfileFormValues | null>(null);
 	const [readError, setReadError] = useState<string | null>(null);
 	const [readForbidden, setReadForbidden] = useState(false);
 	const [reading, setReading] = useState(true);
@@ -110,21 +140,53 @@ export function CustomerProfileForm({
 	const [submitting, setSubmitting] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [unknownOutcome, setUnknownOutcome] = useState(false);
+	const [writeRevalidating, setWriteRevalidating] = useState(false);
 
 	useEffect(() => {
+		if (!mayRead) {
+			// Reading authority is gone: forget the base and any draft so a
+			// later regrant starts from a fresh detail read, not old fields.
+			baseRef.current = null;
+			intendedRef.current = null;
+			setSnapshot(null);
+			setFormSeed(null);
+			setReading(false);
+			setReadForbidden(false);
+			setUnknownOutcome(false);
+			setSaveError(null);
+			return;
+		}
 		const controller = new AbortController();
 		let active = true;
 		setReading(true);
 		setReadError(null);
 		setSaveError(null);
 
+		// A re-read keeps only the fields the admin edited. Capture that patch
+		// before any failure can unmount the Form and lose the live draft.
+		const base = baseRef.current;
+		if (base !== null && intendedRef.current === null) {
+			intendedRef.current = diffCustomerProfilePatch(
+				form.getFieldsValue(),
+				base,
+			);
+		}
+
 		getAdminUser(userId, controller.signal)
 			.then((detail) => {
 				if (!active) {
 					return;
 				}
-				snapshotRef.current = detail;
+				const intended = intendedRef.current;
+				// Fresh detail is the base; only intended fields are overlaid.
+				const seed =
+					intended === null
+						? toInitialValues(detail)
+						: applyPatchToValues(detail, intended);
+				intendedRef.current = null;
+				baseRef.current = detail;
 				setSnapshot(detail);
+				setFormSeed(seed);
 				setReadForbidden(false);
 				setUnknownOutcome(false);
 				setReading(false);
@@ -133,6 +195,12 @@ export function CustomerProfileForm({
 				if (!active || controller.signal.aborted) {
 					return;
 				}
+				// Hide protected fields before revalidation resolves. A pending
+				// 401/403 check must never leave the old draft on screen.
+				setSnapshot(null);
+				setReading(true);
+				baseRef.current = null;
+
 				const outcome = await handleAdminAuthFailure(caught, router);
 				if (!active) {
 					return;
@@ -141,20 +209,21 @@ export function CustomerProfileForm({
 					caught,
 					"Could not load the customer profile.",
 				);
-				if (outcome === "unauthorized" || outcome === "forbidden") {
-					// The session is gone or the permission was revoked: hide the
-					// protected payload entirely. The draft is lost with it.
-					snapshotRef.current = null;
-					setSnapshot(null);
+				setReadForbidden(false);
+				if (recoveredAdminSession(outcome)) {
+					// Keep the intended patch for the manual read retry. No
+					// rejected write is replayed here.
+					setReadError(`${ADMIN_SESSION_REFRESHED_MESSAGE} ${message}`);
+				} else if (outcome === "unauthorized" || outcome === "forbidden") {
+					// Genuine denial: the draft is dropped with the payload.
+					intendedRef.current = null;
 					setReadForbidden(true);
-				} else if (snapshotRef.current === null) {
-					// First read failed: the dialog shows the failure state instead
-					// of a form prefilled with guesses.
 					setReadError(message);
 				} else {
-					// Re-read after an unknown write outcome failed: keep the last
-					// snapshot and the draft, say so, and stay blocked.
-					setSaveError(message);
+					// Transport or server failure: retryable. Keep the intended
+					// patch so the manual read can rebase it onto fresh detail.
+					setReadForbidden(false);
+					setReadError(message);
 				}
 				setReading(false);
 			});
@@ -163,13 +232,23 @@ export function CustomerProfileForm({
 			active = false;
 			controller.abort();
 		};
-	}, [userId, reloadKey, router]);
+	}, [userId, reloadKey, router, mayRead, form]);
+
+	// antd keeps its field store across a Form unmount, so a new `initialValues`
+	// alone cannot replace an old draft. Write the freshly fetched (and, after
+	// recovery, rebased) values once the Form for this snapshot is mounted.
+	useEffect(() => {
+		if (snapshot !== null && formSeed !== null) {
+			form.setFieldsValue(formSeed);
+		}
+	}, [snapshot, formSeed, form]);
 
 	const watched = Form.useWatch(
 		(values: CustomerProfileFormValues) => values,
 		form,
 	);
-	const initialValues = snapshot ? toInitialValues(snapshot) : null;
+	const initialValues =
+		formSeed ?? (snapshot ? toInitialValues(snapshot) : null);
 	const effectiveValues: CustomerProfileFormValues = {
 		name: watched?.name ?? initialValues?.name ?? "",
 		phone: watched?.phone ?? initialValues?.phone ?? "",
@@ -180,10 +259,23 @@ export function CustomerProfileForm({
 		: {};
 	const nothingChanged = Object.keys(patch).length === 0;
 	const saveDisabled =
-		snapshot === null || reading || submitting || unknownOutcome || nothingChanged;
+		!mayRead ||
+		!mayUpdate ||
+		snapshot === null ||
+		reading ||
+		submitting ||
+		unknownOutcome ||
+		nothingChanged;
 
 	const submit = async (values: CustomerProfileFormValues) => {
-		if (submitting || snapshot === null || reading || unknownOutcome) {
+		if (
+			!mayRead ||
+			!mayUpdate ||
+			submitting ||
+			snapshot === null ||
+			reading ||
+			unknownOutcome
+		) {
 			return;
 		}
 		const nextPatch = diffCustomerProfilePatch(values, snapshot);
@@ -199,7 +291,17 @@ export function CustomerProfileForm({
 			// The parent closes the dialog and reloads; do not touch state here.
 			onSaved();
 		} catch (caught) {
+			// Hide protected fields while the session/permission check runs.
+			// The snapshot and draft stay in state, so recovery can restore a
+			// manual retry or read-only access without replaying the write.
+			const authRejected =
+				caught instanceof ApiError &&
+				(caught.status === 401 || caught.status === 403);
+			if (authRejected) {
+				setWriteRevalidating(true);
+			}
 			await handleAdminAuthFailure(caught, router);
+			setWriteRevalidating(false);
 			if (isUnknownWriteOutcome(caught)) {
 				setUnknownOutcome(true);
 			} else {
@@ -215,7 +317,16 @@ export function CustomerProfileForm({
 	};
 
 	let body;
-	if (snapshot === null) {
+	if (writeRevalidating) {
+		body = <LoadingState rows={3} label="Checking your access" />;
+	} else if (!mayRead) {
+		body = (
+			<AccessDeniedState
+				title="You do not have access to this customer"
+				description="Ask an administrator for the user:read permission."
+			/>
+		);
+	} else if (snapshot === null) {
 		if (readForbidden) {
 			body = (
 				<AccessDeniedState
@@ -240,8 +351,8 @@ export function CustomerProfileForm({
 			<Form<CustomerProfileFormValues>
 				form={form}
 				layout="vertical"
-				disabled={submitting}
-				initialValues={toInitialValues(snapshot)}
+				disabled={submitting || reading || !mayUpdate}
+				initialValues={initialValues ?? undefined}
 				onFinish={(values) => void submit(values)}
 			>
 				<Form.Item

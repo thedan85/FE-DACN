@@ -42,7 +42,11 @@ import {
 	listAdminUsers,
 	setAdminUserStatus,
 } from "../api/admin-users.api";
-import { handleAdminAuthFailure } from "../model/admin-auth-failure";
+import {
+	ADMIN_SESSION_REFRESHED_MESSAGE,
+	handleAdminAuthFailure,
+	recoveredAdminSession,
+} from "../model/admin-auth-failure";
 import { CustomerProfileForm } from "./customer-profile-form";
 import type {
 	AdminUser,
@@ -186,23 +190,30 @@ export function CustomersView() {
 				if (!active || controller.signal.aborted) {
 					return;
 				}
+				// Protected rows are hidden while the session is rechecked.
+				setState({ status: "loading" });
 				const outcome = await handleAdminAuthFailure(caught, router);
 				if (!active) {
 					return;
 				}
-				if (outcome === "unhandled") {
+				const message = apiErrorMessage(
+					caught,
+					"Could not load customers. Check your connection and try again.",
+				);
+				const recovered = recoveredAdminSession(outcome);
+				if (outcome === "unhandled" || recovered) {
+					// A recovered 401 is not a denial: offer a manual read retry.
 					setState({
 						status: "error",
 						requestKey,
-						message: apiErrorMessage(
-							caught,
-							"Could not load customers. Check your connection and try again.",
-						),
+						message: recovered
+							? `${ADMIN_SESSION_REFRESHED_MESSAGE} ${message}`
+							: message,
 					});
 					return;
 				}
-				// Denied read: hide the data; the helper redirects (401) or
-				// refreshes permissions (403).
+				// Denied read: the helper redirected (401) or refreshed
+				// permissions (403); no data is left on screen.
 				setState({ status: "forbidden" });
 			});
 
@@ -264,17 +275,23 @@ export function CustomersView() {
 				if (!active || controller.signal.aborted) {
 					return;
 				}
+				// Hide the protected detail while the session is rechecked.
+				setDetailState({ status: "loading" });
 				const outcome = await handleAdminAuthFailure(caught, router);
 				if (!active) {
 					return;
 				}
-				if (outcome === "unhandled") {
+				const message = apiErrorMessage(
+					caught,
+					"Could not load the customer detail.",
+				);
+				const recovered = recoveredAdminSession(outcome);
+				if (outcome === "unhandled" || recovered) {
 					setDetailState({
 						status: "error",
-						message: apiErrorMessage(
-							caught,
-							"Could not load the customer detail.",
-						),
+						message: recovered
+							? `${ADMIN_SESSION_REFRESHED_MESSAGE} ${message}`
+							: message,
 					});
 					return;
 				}

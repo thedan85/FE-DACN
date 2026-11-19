@@ -22,11 +22,14 @@ import {
 	DeleteOutlined,
 	EditOutlined,
 	PlusOutlined,
+	SearchOutlined,
 } from "@ant-design/icons";
 
 import {
+	ADMIN_SESSION_REFRESHED_MESSAGE,
 	adminAuthFailureFeedback,
 	handleAdminAuthFailure,
+	recoveredAdminSession,
 } from "@/features/auth/admin/model/admin-auth-failure";
 import { AccessDeniedState } from "@/components/feedback/access-denied-state";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -93,6 +96,7 @@ export function CategoriesView() {
 	const [state, setState] = useState<CategoriesState>({ status: "loading" });
 	const [reloadKey, setReloadKey] = useState(0);
 	const [formTarget, setFormTarget] = useState<FormTarget | null>(null);
+	const [search, setSearch] = useState("");
 
 	const settled =
 		state.status === "ready" ||
@@ -121,25 +125,34 @@ export function CategoriesView() {
 					return;
 				}
 
+				// Hide protected rows while the session is rechecked; nothing is
+				// retried automatically.
+				setState({ status: "loading" });
 				const outcome = await handleAdminAuthFailure(caught, router);
 
 				if (!active) {
 					return;
 				}
 
-				if (outcome === "unhandled") {
+				const message = apiErrorMessage(
+					caught,
+					"Could not reach the server. Check your connection and try again.",
+				);
+				const recovered = recoveredAdminSession(outcome);
+				if (outcome === "unhandled" || recovered) {
+					// A recovered 401 stays on the page: offer an explicit manual
+					// read retry instead of replaying the failed request.
 					setState({
 						status: "error",
-						message: apiErrorMessage(
-							caught,
-							"Could not reach the server. Check your connection and try again.",
-						),
+						message: recovered
+							? `${ADMIN_SESSION_REFRESHED_MESSAGE} ${message}`
+							: message,
 					});
 					return;
 				}
 
-				// Denied read: at this point the helper has refreshed permissions
-				// (403) or redirected to sign-in when the session is gone (401).
+				// Denied read: the helper redirected (401) or refreshed
+				// permissions (403); no stale data is left on screen.
 				setState({ status: "forbidden" });
 			});
 
@@ -153,6 +166,19 @@ export function CategoriesView() {
 		[state],
 	);
 	const flat = useMemo(() => flattenCategoryHierarchy(categories), [categories]);
+	const normalizedSearch = search.trim().toLocaleLowerCase();
+	// The filter narrows only the displayed rows. The hierarchy, parent
+	// choices, cycle handling and child delete guard keep the complete list.
+	const visibleFlat = useMemo(() => {
+		if (!normalizedSearch) {
+			return flat;
+		}
+		return flat.filter(
+			(entry) =>
+				entry.category.name.toLocaleLowerCase().includes(normalizedSearch) ||
+				entry.category.slug.toLocaleLowerCase().includes(normalizedSearch),
+		);
+	}, [flat, normalizedSearch]);
 	const categoryNameById = useMemo(
 		() => new Map(categories.map((category) => [category.categoryId, category.name])),
 		[categories],
@@ -271,6 +297,25 @@ export function CategoriesView() {
 				</header>
 
 				<Card styles={{ body: { padding: 0 } }}>
+					{state.status === "ready" && (
+						<div className={styles.toolbar}>
+							<form
+								className={styles.searchForm}
+								role="search"
+								onSubmit={(event) => event.preventDefault()}
+							>
+								<Input
+									className={styles.search}
+									aria-label="Search categories by name or slug"
+									prefix={<SearchOutlined />}
+									placeholder="Search by name or slug…"
+									value={search}
+									allowClear
+									onChange={(event) => setSearch(event.target.value)}
+								/>
+							</form>
+						</div>
+					)}
 					{state.status === "forbidden" ? (
 						<AccessDeniedState
 							title="You do not have access to categories"
@@ -285,28 +330,38 @@ export function CategoriesView() {
 						/>
 					) : state.status === "loading" ? (
 						<LoadingState rows={6} label="Loading categories" />
-					) : flat.length === 0 ? (
-						<EmptyState
-							title="No categories yet"
-							description="Create the first category to build the catalog hierarchy."
-							action={
-								mayCreate ? (
-									<Button
-										type="primary"
-										onClick={(event) => {
-											captureTrigger(event);
-											setFormTarget({ mode: "create" });
-										}}
-									>
-										Add category
-									</Button>
-								) : undefined
-							}
-						/>
+					) : visibleFlat.length === 0 ? (
+						normalizedSearch ? (
+							<EmptyState
+								title="No categories match your search"
+								description="Try a different name or slug."
+								action={
+									<Button onClick={() => setSearch("")}>Clear search</Button>
+								}
+							/>
+						) : (
+							<EmptyState
+								title="No categories yet"
+								description="Create the first category to build the catalog hierarchy."
+								action={
+									mayCreate ? (
+										<Button
+											type="primary"
+											onClick={(event) => {
+												captureTrigger(event);
+												setFormTarget({ mode: "create" });
+											}}
+										>
+											Add category
+										</Button>
+									) : undefined
+								}
+							/>
+						)
 					) : (
 						<Table<FlatCategory>
 							rowKey={(entry) => entry.category.categoryId}
-							dataSource={flat}
+							dataSource={visibleFlat}
 							columns={columns}
 							pagination={false}
 						/>

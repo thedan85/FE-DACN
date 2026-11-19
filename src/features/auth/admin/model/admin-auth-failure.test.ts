@@ -4,7 +4,11 @@ import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
 import { getAccessToken } from "@/features/auth/session";
-import { adminAuthFailureFeedback, handleAdminAuthFailure } from "./admin-auth-failure";
+import {
+	adminAuthFailureFeedback,
+	handleAdminAuthFailure,
+	recoveredAdminSession,
+} from "./admin-auth-failure";
 
 vi.mock("@/features/auth/session", () => ({
 	getAccessToken: vi.fn(),
@@ -91,6 +95,16 @@ it("feedback_401WithARehydratedSessionAsksForARetry", () => {
 
 it("feedback_unhandledStaysTheCallersOwnBusiness", () => {
 	expect(adminAuthFailureFeedback("unhandled")).toBeNull();
+});
+
+it("recoveredAdminSession_onlyMatchesRehydratedUnauthorized", () => {
+	vi.mocked(getAccessToken).mockReturnValue("fresh-token");
+	expect(recoveredAdminSession("unauthorized")).toBe(true);
+	expect(recoveredAdminSession("forbidden")).toBe(false);
+	expect(recoveredAdminSession("unhandled")).toBe(false);
+
+	vi.mocked(getAccessToken).mockReturnValue(null);
+	expect(recoveredAdminSession("unauthorized")).toBe(false);
 });
 
 it("leaves non-auth failures unhandled", async () => {

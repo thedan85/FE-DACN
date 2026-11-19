@@ -1,0 +1,27 @@
+.body {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.copy {
+	margin: 0;
+	font-size: 13px;
+	line-height: 18.2px;
+	color: var(--color-admin-panel-text-muted);
+}
+
+.summary {
+	margin: 0 0 6px;
+}
+
+.failures {
+	margin: 0;
+	padding-inline-start: 18px;
+	font-size: 13px;
+	line-height: 18.2px;
+}
+
+.failures li + li {
+	margin-top: 4px;
+}

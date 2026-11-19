@@ -16,6 +16,8 @@ export type AdminHeaderIdentity = {
 };
 
 type AdminHeaderProps = {
+	/** Breadcrumb section — the design's middle crumb, when a page has one. */
+	parentPage?: string;
 	/** Breadcrumb tail — the page currently shown in the shell. */
 	currentPage: string;
 	/** Signed-in identity. The guard resolves the session before the shell mounts. */
@@ -26,6 +28,7 @@ type AdminHeaderProps = {
 };
 
 export function AdminHeader({
+	parentPage,
 	currentPage,
 	identity,
 	onOpenNav,
@@ -101,6 +104,19 @@ export function AdminHeader({
 						unoptimized
 						className={styles.breadcrumbSeparator}
 					/>
+					{parentPage !== undefined ? (
+						<>
+							<span className={styles.breadcrumbParent}>{parentPage}</span>
+							<Image
+								src="/images/admin/header/chevron-right.svg"
+								alt=""
+								width={13}
+								height={13}
+								unoptimized
+								className={styles.breadcrumbSeparator}
+							/>
+						</>
+					) : null}
 					<span className={styles.breadcrumbCurrent} aria-current="page">
 						{currentPage}
 					</span>

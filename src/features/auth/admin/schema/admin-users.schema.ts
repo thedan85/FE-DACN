@@ -27,19 +27,8 @@ export const AdminUserDetailSchema = AdminUserSchema.extend({
 	permissions: z.array(z.string()),
 });
 
-export const CreateAdminUserRequestSchema = z.object({
-	email: z.string(),
-	password: z.string(),
-	name: z.string(),
-	phone: z.string(),
-	address: z.string().optional(),
-	roleCode: z.string(),
-});
-
-export type AdminUserStatus = z.infer<typeof AdminUserStatusSchema>;
 export type AdminUser = z.infer<typeof AdminUserSchema>;
 export type AdminUserDetail = z.infer<typeof AdminUserDetailSchema>;
-export type AdminUserCreateInput = z.infer<typeof CreateAdminUserRequestSchema>;
 
 /**
  * Partial customer-profile update sent to `PATCH /admin/users/{userId}/profile`.

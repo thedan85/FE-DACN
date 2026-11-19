@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { Product, UploadResult, VariantDetail } from "../../types";
 import {
@@ -6,6 +6,7 @@ import {
 	IMAGE_ACCEPT_ATTRIBUTE,
 	MAX_IMAGE_BYTES,
 	buildThumbnailRemovalRequest,
+	mediaPreviewKind,
 	validateImageFile,
 	withUploadedThumbnail,
 } from "./media";
@@ -194,6 +195,60 @@ it("projects a variant's existing images onto its row", () => {
 
 it("starts a variant with no images when it has none", () => {
 	expect(toVariantRows([{ ...variantWithImage, media: [] }])[0]!.images).toEqual([]);
+});
+
+/**
+ * Media Library previews. A row URL must be an absolute HTTPS URL without
+ * credentials before it is considered at all. The image branch then reuses
+ * the same gate as a catalog `<Image>`; safe external HTTPS rows degrade to
+ * links. Relative and credentialed URLs render nothing clickable.
+ */
+describe("mediaPreviewKind", () => {
+	it("renders an eligible Cloudinary URL as an image", () => {
+		expect(mediaPreviewKind(probe.thumbnail!)).toEqual({ kind: "image" });
+	});
+
+	it("keeps an external HTTPS URL as a link", () => {
+		expect(mediaPreviewKind("https://cdn.example.com/a.png")).toEqual({
+			kind: "link",
+			href: "https://cdn.example.com/a.png",
+		});
+	});
+
+	it("renders neither image nor link for a relative URL", () => {
+		// A media row is an absolute HTTPS URL by contract. A legacy relative
+		// path must not become an automatic preview just because the shared
+		// image gate also accepts local static assets.
+		expect(mediaPreviewKind("/images/products/a.png")).toEqual({
+			kind: "none",
+		});
+		expect(mediaPreviewKind("//cdn.example.com/a.png")).toEqual({
+			kind: "none",
+		});
+	});
+
+	it("renders neither image nor link for a credentialed URL", () => {
+		// A credential would be copied into the rendered href and leaked to
+		// anyone who can see the table, whichever host it points at.
+		expect(
+			mediaPreviewKind(
+				"https://user:pass@res.cloudinary.com/ibk3z2nt/image/upload/a.png",
+			),
+		).toEqual({ kind: "none" });
+		expect(mediaPreviewKind("https://user:pass@cdn.example.com/a.png")).toEqual(
+			{ kind: "none" },
+		);
+	});
+
+	it("does not render a noncanonical Cloudinary host as an image", () => {
+		const url = "HTTPS://RES.CLOUDINARY.COM/ibk3z2nt/image/upload/a.png";
+
+		expect(mediaPreviewKind(url).kind).not.toBe("image");
+	});
+
+	it("still renders a malformed URL as nothing", () => {
+		expect(mediaPreviewKind("javascript:alert(1)")).toEqual({ kind: "none" });
+	});
 });
 
 it("adds a freshly uploaded image to its row", () => {

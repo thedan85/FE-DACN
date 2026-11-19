@@ -54,6 +54,17 @@ export async function handleAdminAuthFailure(
 	return "unhandled";
 }
 
+/**
+ * True for a 401 that the revalidation absorbed: the session is still usable,
+ * so a read may be retried manually. A 401 that cleared the token redirected
+ * already and must not offer a retry on the page being left.
+ */
+export function recoveredAdminSession(
+	outcome: AdminAuthFailureOutcome,
+): boolean {
+	return outcome === "unauthorized" && getAccessToken() !== null;
+}
+
 /** Shown when a write is refused because the account lacks the permission. */
 export const ADMIN_FORBIDDEN_ACTION_MESSAGE =
 	"You do not have permission to perform this action.";

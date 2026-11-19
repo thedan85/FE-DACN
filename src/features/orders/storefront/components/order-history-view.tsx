@@ -17,6 +17,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
 import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import { addToCart } from "@/features/cart/api/cart.api";
 import { VietQrPaymentModal } from "@/features/payments/storefront/components/vietqr-payment-modal";
@@ -452,7 +453,7 @@ export function OrderHistoryView() {
 
 											<div className={styles.item}>
 												<div className={styles.thumb}>
-													{firstItem?.thumbnail ? (
+													{isOptimizableImageUrl(firstItem?.thumbnail) ? (
 														<Image
 															src={firstItem.thumbnail}
 															alt=""

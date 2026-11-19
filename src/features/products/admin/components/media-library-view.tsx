@@ -28,8 +28,10 @@ import {
 } from "@ant-design/icons";
 
 import {
+	ADMIN_SESSION_REFRESHED_MESSAGE,
 	adminAuthFailureFeedback,
 	handleAdminAuthFailure,
+	recoveredAdminSession,
 } from "@/features/auth/admin/model/admin-auth-failure";
 import { AccessDeniedState } from "@/components/feedback/access-denied-state";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -70,6 +72,10 @@ import styles from "./media-library-view.module.css";
 const { Title, Text } = Typography;
 
 const PAGE_SIZE = 20;
+
+/** Same debounce and keyword cap as the order search: no new dependency. */
+const PRODUCT_SEARCH_DEBOUNCE_MS = 300;
+const MAX_PRODUCT_KEYWORD_LENGTH = 100;
 
 const PRODUCT_STATUS_OPTIONS: { value: ProductStatus; label: string }[] = [
 	{ value: "ACTIVE", label: "Active" },
@@ -162,25 +168,34 @@ export function MediaLibraryView() {
 					return;
 				}
 
+				// Hide any protected payload while the session is rechecked.
+				setState({ status: "loading" });
 				const outcome = await handleAdminAuthFailure(caught, router);
 
 				if (!active) {
 					return;
 				}
 
-				if (outcome === "unhandled") {
+				const message = apiErrorMessage(
+					caught,
+					"Could not reach the server. Check your connection and try again.",
+				);
+				const recovered = recoveredAdminSession(outcome);
+
+				if (outcome === "unhandled" || recovered) {
+					// A recovered 401 is not a denial: offer a manual read retry.
+					// No read is replayed and no write is ever replayed here.
 					setState({
 						status: "error",
-						message: apiErrorMessage(
-							caught,
-							"Could not reach the server. Check your connection and try again.",
-						),
+						message: recovered
+							? `${ADMIN_SESSION_REFRESHED_MESSAGE} ${message}`
+							: message,
 					});
 					return;
 				}
 
-				// Denied read: at this point the helper has refreshed permissions
-				// (403) or redirected to sign-in when the session is gone (401).
+				// Denied read: the helper redirected (401) or refreshed
+				// permissions (403); no data is left on screen.
 				setState({ status: "forbidden" });
 			});
 
@@ -449,6 +464,9 @@ function OwnerFields({
 	const {
 		status,
 		setStatus,
+		setKeyword,
+		setDebouncedKeyword,
+		keywordTooLong,
 		state: productsState,
 		reload: reloadProducts,
 	} = useProductOptions(enabled && kind !== "all");
@@ -458,19 +476,63 @@ function OwnerFields({
 			productsState.status === "ready" ? productsState.products : [],
 		[productsState],
 	);
-	const selectedProduct =
-		products.find((product) => product.productId === productId) ?? null;
+	// Remember the chosen row so its label and variants survive an option
+	// refresh (a keyword search need not include it).
+	const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+	useEffect(() => {
+		const match = products.find((product) => product.productId === productId);
+
+		if (match) {
+			setSelectedProduct(match);
+		}
+	}, [products, productId]);
+
+	// Losing product:create pins the lookup to ACTIVE and drops any hidden
+	// owner that could no longer be shown or submitted.
+	const wasAllowed = useRef(maySeeHidden);
+
+	useEffect(() => {
+		if (wasAllowed.current && !maySeeHidden) {
+			setStatus("ACTIVE");
+			setKeyword("");
+			setDebouncedKeyword("");
+			setSelectedProduct(null);
+			onProductChange(null);
+			onVariantChange(null);
+		}
+		wasAllowed.current = maySeeHidden;
+	}, [
+		maySeeHidden,
+		setStatus,
+		setKeyword,
+		setDebouncedKeyword,
+		onProductChange,
+		onVariantChange,
+	]);
+
 	const { state: variantsState, reload: reloadVariants } =
 		useVariantOptions(kind === "variant" ? selectedProduct : null);
 
-	const productOptions = useMemo(
-		() =>
-			products.map((product) => ({
-				value: product.productId,
-				label: product.name,
-			})),
-		[products],
-	);
+	const productOptions = useMemo(() => {
+		const options = products.map((product) => ({
+			value: product.productId,
+			label: product.name,
+		}));
+
+		// Keep the selection visible while options refresh from the backend.
+		if (
+			productId &&
+			!options.some((option) => option.value === productId)
+		) {
+			options.unshift({
+				value: productId,
+				label: selectedProduct?.name ?? productId,
+			});
+		}
+
+		return options;
+	}, [products, productId, selectedProduct]);
 
 	const variantOptions =
 		variantsState.status === "ready" ? variantsState.variants : [];
@@ -500,6 +562,9 @@ function OwnerFields({
 					onKindChange(value);
 					onProductChange(null);
 					onVariantChange(null);
+					setSelectedProduct(null);
+					setKeyword("");
+					setDebouncedKeyword("");
 				}}
 			/>
 			{enabled && maySeeHidden && (
@@ -508,7 +573,16 @@ function OwnerFields({
 					aria-label="Product status"
 					value={status}
 					options={PRODUCT_STATUS_OPTIONS}
-					onChange={(value: ProductStatus) => setStatus(value)}
+					onChange={(value: ProductStatus) => {
+						// A product picked under one status need not exist under
+						// another, so the query and the whole owner scope reset.
+						setStatus(value);
+						setKeyword("");
+						setDebouncedKeyword("");
+						setSelectedProduct(null);
+						onProductChange(null);
+						onVariantChange(null);
+					}}
 				/>
 			)}
 			{enabled &&
@@ -528,7 +602,14 @@ function OwnerFields({
 					<Select
 						className={styles.selectWide}
 						aria-label="Product"
-						showSearch={{ optionFilterProp: "label" }}
+						// Search runs on the backend so products past the first
+						// page are reachable; local option filtering is off.
+						showSearch={{ filterOption: false, onSearch: setKeyword }}
+						notFoundContent={
+							keywordTooLong
+								? `Search must be at most ${MAX_PRODUCT_KEYWORD_LENGTH} characters.`
+								: undefined
+						}
 						placeholder="Choose a product"
 						loading={productsState.status === "loading"}
 						value={productId ?? undefined}
@@ -584,6 +665,9 @@ function useProductOptions(enabled: boolean) {
 	const maySeeHidden = can(CATALOG_PERMISSIONS.productCreate);
 
 	const [status, setStatus] = useState<ProductStatus>("ACTIVE");
+	const [keyword, setKeyword] = useState("");
+	const [debouncedKeyword, setDebouncedKeyword] = useState("");
+	const keywordTooLong = keyword.trim().length > MAX_PRODUCT_KEYWORD_LENGTH;
 	const [state, setState] = useState<ProductOptionsState>({ status: "idle" });
 	const [reloadKey, setReloadKey] = useState(0);
 	const requestRef = useRef(0);
@@ -591,6 +675,17 @@ function useProductOptions(enabled: boolean) {
 	// Without the permission the lookup is pinned to ACTIVE even if the
 	// status state somehow drifted (e.g. permissions changed mid-session).
 	const effectiveStatus: ProductStatus = maySeeHidden ? status : "ACTIVE";
+
+	// Debounce the backend search so typing does not flood the API.
+	useEffect(() => {
+		if (keywordTooLong || keyword.trim() === debouncedKeyword) {
+			return;
+		}
+		const timer = window.setTimeout(() => {
+			setDebouncedKeyword(keyword.trim());
+		}, PRODUCT_SEARCH_DEBOUNCE_MS);
+		return () => window.clearTimeout(timer);
+	}, [keyword, debouncedKeyword, keywordTooLong]);
 
 	useEffect(() => {
 		if (!enabled) {
@@ -604,7 +699,12 @@ function useProductOptions(enabled: boolean) {
 
 		setState({ status: "loading" });
 
-		listAdminProducts({ status: effectiveStatus, page: 0, size: 100 })
+		listAdminProducts({
+			status: effectiveStatus,
+			keyword: debouncedKeyword || undefined,
+			page: 0,
+			size: 100,
+		})
 			.then((result) => {
 				if (!active || requestRef.current !== requestId) {
 					return;
@@ -628,11 +728,19 @@ function useProductOptions(enabled: boolean) {
 		return () => {
 			active = false;
 		};
-	}, [enabled, effectiveStatus, reloadKey, router]);
+	}, [enabled, effectiveStatus, debouncedKeyword, reloadKey, router]);
 
 	const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
-	return { status: effectiveStatus, setStatus, state, reload };
+	return {
+		status: effectiveStatus,
+		setStatus,
+		setKeyword,
+		setDebouncedKeyword,
+		keywordTooLong,
+		state,
+		reload,
+	};
 }
 
 type VariantOptionsState =

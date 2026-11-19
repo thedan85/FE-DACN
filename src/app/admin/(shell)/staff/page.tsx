@@ -1,23 +1,40 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
-import { StaffPermissionsView } from "@/features/auth/admin/components/staff-permissions-view";
-import { LoadingState } from "@/components/feedback/loading-state";
+import {
+	UsersListing,
+	UsersListSkeleton,
+} from "@/features/users/admin/components/users-listing";
+import { rolesTabRedirect } from "@/features/users/admin/model/listing-query";
 
 export const metadata: Metadata = {
 	title: "Staff & Permissions",
 };
 
+type AdminStaffPageProps = {
+	searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
 /**
- * Both tabs read their state from the URL (`tab`, plus the directory's
- * filters), so the view needs a Suspense boundary: `useSearchParams` opts
- * the subtree out of static rendering, and without a fallback the whole
- * route would be client-rendered.
+ * The `/admin/staff` compatibility route: the canonical user directory in a
+ * staff-scoped mode. The retired `?tab=roles` destination now lives at
+ * `/admin/roles`, which applies its own `role:read` gate, so the redirect
+ * never crosses a permission boundary. The listing reads its filters from
+ * the URL, hence the Suspense boundary.
  */
-export default function AdminStaffPage() {
+export default async function AdminStaffPage({
+	searchParams,
+}: AdminStaffPageProps) {
+	const target = rolesTabRedirect((await searchParams).tab);
+
+	if (target !== null) {
+		redirect(target);
+	}
+
 	return (
-		<Suspense fallback={<LoadingState label="Loading staff accounts" />}>
-			<StaffPermissionsView />
+		<Suspense fallback={<UsersListSkeleton />}>
+			<UsersListing staff />
 		</Suspense>
 	);
 }

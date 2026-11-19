@@ -1,11 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
 
 import {
-	createAdminUser,
-	deleteAdminUser,
 	listAdminUsers,
 	patchCustomerProfile,
-	setAdminUserRole,
 	setAdminUserStatus,
 } from "./admin-users.api";
 
@@ -72,66 +69,6 @@ it("staffList_usesExactRoleAndZeroBasedPaging", async () => {
 	expect(url.searchParams.get("page")).toBe("0");
 	expect(url.searchParams.has("keyword")).toBe(false);
 	expect(page.content).toHaveLength(1);
-});
-
-it("sends the role assignment exactly as documented", async () => {
-	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
-	const fetch = stubFetch(
-		ok({
-			...employee,
-			address: "Employee Desk",
-			roleCode: "catalog_editor",
-			roleName: "Catalog Editor",
-			permissions: [],
-		}),
-	);
-
-	const updated = await setAdminUserRole("USR_employee-1", "catalog_editor");
-
-	const [input, init] = fetch.mock.calls[0] as [string, RequestInit];
-	expect(new URL(String(input)).pathname).toBe(
-		"/api/v1/admin/users/USR_employee-1/role",
-	);
-	expect(init.method).toBe("PATCH");
-	expect(JSON.parse(String(init.body))).toEqual({ roleCode: "catalog_editor" });
-	expect(updated.roleCode).toBe("catalog_editor");
-});
-
-it("accepts the {code:200,message:OK,data:null} deletion envelope", async () => {
-	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
-	stubFetch({ code: 200, message: "OK", data: null });
-
-	await expect(deleteAdminUser("USR_employee-1")).resolves.toBeUndefined();
-});
-
-it("parses the create response, including the 201 envelope", async () => {
-	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
-	const fetch = stubFetch({
-		code: 201,
-		message: "Created",
-		data: {
-			...employee,
-			userId: "USR_new-1",
-			email: "new-employee@test.com",
-			address: "New Address",
-			lastLogin: null,
-			permissions: [],
-		},
-	});
-
-	const created = await createAdminUser({
-		email: "new-employee@test.com",
-		password: "newpassword123",
-		name: "New Staff",
-		phone: "0912345678",
-		address: "New Address",
-		roleCode: "employee",
-	});
-
-	const [input, init] = fetch.mock.calls[0] as [string, RequestInit];
-	expect(new URL(String(input)).pathname).toBe("/api/v1/admin/users");
-	expect(init.method).toBe("POST");
-	expect(created.userId).toBe("USR_new-1");
 });
 
 it("sends only the supplied profile field in the patch body", async () => {

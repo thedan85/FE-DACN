@@ -1,0 +1,29 @@
+.pill:global(.ant-tag) {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	margin: 0;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-family: var(--font-family-sans);
+	font-size: 11px;
+	line-height: 15.4px;
+	font-weight: 400;
+}
+
+.dot {
+	width: 4px;
+	height: 4px;
+	border-radius: var(--radius-pill);
+	background: currentColor;
+}
+
+.success:global(.ant-tag) {
+	background: var(--color-admin-avatar-surface);
+	color: var(--color-brand-deep-teal);
+}
+
+.danger:global(.ant-tag) {
+	background: var(--color-admin-status-danger-surface);
+	color: var(--color-admin-status-danger-text);
+}

@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
 import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import { effectiveStock } from "@/features/stock/model/effective-stock";
 import { stockInterestKey, useStockSnapshots } from "@/features/stock/use-stock-snapshots";
@@ -215,7 +216,7 @@ export function CartView() {
 								return (
 									<li key={item.cartItemId} className={styles.item}>
 										<div className={styles.thumb}>
-											{item.thumbnail ? (
+											{isOptimizableImageUrl(item.thumbnail) ? (
 												<Image
 													src={item.thumbnail}
 													alt={item.productName}

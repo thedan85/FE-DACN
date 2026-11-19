@@ -25,6 +25,27 @@
 /* The card's radius and border come from AdminCatalogTheme; nothing here
    duplicates them. */
 
+.toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 20px;
+	border-bottom: 1px solid var(--color-admin-panel-border);
+}
+
+.searchForm {
+	flex: 1;
+	min-width: 200px;
+}
+
+/* 38px is the design's control height; antd's affix wrapper computes 36 from
+   its own padding, so it is set explicitly rather than left to the token. */
+.search:global(.ant-input-affix-wrapper) {
+	min-height: 38px;
+	border-radius: 6px;
+}
+
 .nameCell {
 	display: inline-flex;
 	align-items: center;

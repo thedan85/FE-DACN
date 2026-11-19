@@ -14,29 +14,70 @@ type AdminLayoutProps = {
 
 const MOBILE_NAV_QUERY = "(max-width: 900px)";
 
+type PageCrumb = {
+	title: string;
+	/** Rendered between "Store admin" and the title when a design has three levels. */
+	parent?: string;
+};
+
 /**
  * The breadcrumb tail for a path. Listed explicitly rather than derived from
  * the last URL segment: a product's edit route ends in `/edit`, which would
  * label the page "Edit", and the section name is what the design shows.
+ *
+ * The `/admin/users` routes are listed before the section itself so the
+ * three-level pages win over the generic "User accounts" prefix match. The
+ * flat catalog and customer sections each match their own segment.
  */
-export const PAGE_TITLES: { href: string; title: string }[] = [
-	{ href: "/admin/dashboard", title: "Dashboard" },
-	{ href: "/admin/orders", title: "Orders" },
-	{ href: "/admin/products", title: "Products & Variants" },
-	{ href: "/admin/notifications", title: "Notifications" },
-	{ href: "/admin/staff", title: "Staff & Permissions" },
-	{ href: "/admin/customers", title: "Customers" },
-	{ href: "/admin/categories", title: "Categories" },
-	{ href: "/admin/attributes", title: "Attributes" },
-	{ href: "/admin/media", title: "Media" },
+const PAGE_TITLES: {
+	matches: (pathname: string) => boolean;
+	title: string;
+	parent?: string;
+}[] = [
+	{ matches: (pathname) => pathname === "/admin/dashboard", title: "Dashboard" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/orders"), title: "Orders" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/notifications"), title: "Notifications" },
+	{ matches: (pathname) => pathname === "/admin/roles/new", title: "Add role", parent: "Roles & permissions" },
+	{ matches: (pathname) => /^\/admin\/roles\/[^/]+\/?$/.test(pathname), title: "Role detail", parent: "Roles & permissions" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/roles"), title: "Roles & permissions" },
+	{
+		matches: (pathname) => isAtOrBelow(pathname, "/admin/products"),
+		title: "Products & Variants",
+	},
+	{
+		matches: (pathname) => pathname === "/admin/users/new",
+		title: "Add user",
+		parent: "User accounts",
+	},
+	{
+		matches: (pathname) => /^\/admin\/users\/[^/]+\/edit\/?$/.test(pathname),
+		title: "Edit user",
+		parent: "User accounts",
+	},
+	{
+		matches: (pathname) => /^\/admin\/users\/[^/]+\/?$/.test(pathname),
+		title: "User detail",
+		parent: "User accounts",
+	},
+	{
+		matches: (pathname) => isAtOrBelow(pathname, "/admin/users"),
+		title: "User accounts",
+	},
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/staff"), title: "Staff & Permissions" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/customers"), title: "Customers" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/categories"), title: "Categories" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/attributes"), title: "Attributes" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/media"), title: "Media" },
 ];
 
-function currentPageTitle(pathname: string): string {
-	const match = PAGE_TITLES.find(
-		(entry) => pathname === entry.href || pathname.startsWith(`${entry.href}/`),
-	);
+function isAtOrBelow(pathname: string, href: string): boolean {
+	return pathname === href || pathname.startsWith(`${href}/`);
+}
 
-	return match?.title ?? "Dashboard";
+function currentPageCrumb(pathname: string): PageCrumb {
+	const match = PAGE_TITLES.find((entry) => entry.matches(pathname));
+
+	return match ?? { title: "Dashboard" };
 }
 
 /**
@@ -51,6 +92,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 	const [mobileNavOpen, setMobileNavOpen] = useState(false);
 	const user = useAuthStore((state) => state.user);
 	const pathname = usePathname();
+	const crumb = currentPageCrumb(pathname);
 
 	useEffect(() => {
 		closeMobileNav();
@@ -88,7 +130,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
 			<div className={styles.workspace}>
 				<AdminHeader
-					currentPage={currentPageTitle(pathname)}
+					parentPage={crumb.parent}
+					currentPage={crumb.title}
 					identity={{ name: user.name, roleName: user.roleName }}
 					navOpen={mobileNavOpen}
 					onOpenNav={() => {

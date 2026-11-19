@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
 import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import {
 	formatDate,
@@ -255,7 +256,7 @@ function OrderItems({ order }: { order: OrderView }) {
 				{order.items.map((item, index) => (
 					<li key={`${item.variantId}-${index}`} className={styles.item}>
 						<div className={styles.thumb}>
-							{item.thumbnail ? (
+							{isOptimizableImageUrl(item.thumbnail) ? (
 								<Image
 									src={item.thumbnail}
 									alt=""

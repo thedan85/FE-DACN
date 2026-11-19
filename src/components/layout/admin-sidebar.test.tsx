@@ -3,7 +3,6 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { useAuthStore } from "@/stores/auth-store";
 import { AdminSidebar } from "./admin-sidebar";
-import { PAGE_TITLES } from "./admin-layout";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/admin/dashboard" }));
 
@@ -37,30 +36,16 @@ it("hides Orders without order:read", () => {
 	expect(screen.queryByRole("link", { name: "Orders" })).toBeNull();
 });
 
-it("links Staff & Permissions with role:read", () => {
-	useAuthStore.setState({
-		status: "authenticated",
-		user: { ...user, permissions: ["role:read"] },
-	});
+it("links Staff & Permissions to the roles page", () => {
 	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
 	expect(screen.getByRole("link", { name: "Staff & Permissions" }).getAttribute("href"))
-		.toBe("/admin/staff");
+		.toBe("/admin/roles");
 });
 
-it("links Staff & Permissions when the account can read users", () => {
-	useAuthStore.setState({
-		status: "authenticated",
-		user: { ...user, permissions: ["user:read"] },
-	});
+it("links User accounts to the users page", () => {
 	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
-	expect(screen.getByRole("link", { name: "Staff & Permissions" }).getAttribute("href"))
-		.toBe("/admin/staff");
-});
-
-it("hides Staff & Permissions without an accepted read permission", () => {
-	useAuthStore.setState({ status: "authenticated", user: { ...user, permissions: [] } });
-	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
-	expect(screen.queryByRole("link", { name: "Staff & Permissions" })).toBeNull();
+	expect(screen.getByRole("link", { name: "User accounts" }).getAttribute("href"))
+		.toBe("/admin/users");
 });
 
 it("links Customers with user:read", () => {
@@ -90,18 +75,35 @@ it("renders the three catalog links without permissions", () => {
 		.toBe("/admin/media");
 });
 
-it("has a PAGE_TITLES row for each of the five new labels", () => {
-	for (const entry of [
-		{ href: "/admin/staff", title: "Staff & Permissions" },
-		{ href: "/admin/customers", title: "Customers" },
-		{ href: "/admin/categories", title: "Categories" },
-		{ href: "/admin/attributes", title: "Attributes" },
-		{ href: "/admin/media", title: "Media" },
+it("keeps an accessible name on every link when collapsed", () => {
+	useAuthStore.setState({
+		status: "authenticated",
+		user: { ...user, permissions: ["order:read", "user:read"] },
+	});
+	render(<AdminSidebar collapsed onToggleCollapse={vi.fn()} />);
+
+	// The collapsed rail hides the label text, so the name must come from the
+	// link itself; a label that only exists as visible text is not a name.
+	for (const name of [
+		"Dashboard",
+		"Orders",
+		"Products & Variants",
+		"Categories",
+		"Attributes",
+		"Media",
+		"Customers",
+		"Staff & Permissions",
+		"User accounts",
+		"View storefront",
 	]) {
-		expect(
-			PAGE_TITLES.some(
-				(row) => row.href === entry.href && row.title === entry.title,
-			),
-		).toBe(true);
+		const link = screen.getByRole("link", { name });
+		expect(link.getAttribute("aria-label"), name).toBeTruthy();
 	}
+});
+
+it("keeps the collapse control named when collapsed", () => {
+	render(<AdminSidebar collapsed onToggleCollapse={vi.fn()} />);
+	expect(
+		screen.getByRole("button", { name: "Expand sidebar" }),
+	).toBeTruthy();
 });

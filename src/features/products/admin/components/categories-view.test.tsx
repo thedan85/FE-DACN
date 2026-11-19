@@ -78,6 +78,16 @@ const orphanCategory = {
 	updatedAt: "2026-11-03T00:00:00Z",
 };
 
+const livestockCategory = {
+	categoryId: "LIVESTOCK",
+	name: "Livestock",
+	slug: "livestock",
+	parentCategoryId: null,
+	deleted: false,
+	createdAt: "2026-11-04T00:00:00Z",
+	updatedAt: "2026-11-04T00:00:00Z",
+};
+
 function ok(data: unknown) {
 	return { body: { code: 200, message: "OK", data } };
 }
@@ -109,6 +119,16 @@ function stubFetch(...responses: { status?: number; body: unknown }[]) {
 	}
 	vi.stubGlobal("fetch", fetch);
 	return fetch;
+}
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
 }
 
 async function flush() {
@@ -598,4 +618,169 @@ it("create from the empty state lands focus on the heading once the table replac
 			screen.getByRole("heading", { name: "Categories" }),
 		);
 	});
+});
+
+it("search filters the full loaded list by name or slug, ignoring case and surrounding space", async () => {
+	stubFetch(page([rootCategory], 0, 2, 2), page([livestockCategory], 1, 2, 2));
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+
+	const search = screen.getByLabelText("Search categories by name or slug");
+	fireEvent.change(search, { target: { value: "  LIVESTOCK  " } });
+	await flush();
+
+	const table = screen.getByRole("table");
+	expect(within(table).getByText("Livestock")).toBeTruthy();
+	expect(within(table).queryByText("Reef tanks")).toBeNull();
+
+	// Slug search is also case-insensitive and spans the second page.
+	fireEvent.change(search, { target: { value: "REEF-TANKS" } });
+	await flush();
+	expect(within(table).getByText("Reef tanks")).toBeTruthy();
+	expect(within(table).queryByText("Livestock")).toBeNull();
+});
+
+it("search does not narrow the child delete guard", async () => {
+	stubFetch(page([rootCategory, childCategory]));
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+
+	// "reef" matches only the parent; the child is hidden but still counts.
+	fireEvent.change(screen.getByLabelText("Search categories by name or slug"), {
+		target: { value: "reef" },
+	});
+	await flush();
+
+	const parentDelete = screen.getByRole("button", {
+		name: "Delete Reef tanks",
+	}) as HTMLButtonElement;
+	expect(parentDelete.disabled).toBe(true);
+});
+
+it("search does not narrow the parent picker", async () => {
+	stubFetch(page([rootCategory, childCategory, livestockCategory]));
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.change(screen.getByLabelText("Search categories by name or slug"), {
+		target: { value: "Livestock" },
+	});
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Edit Livestock" }));
+	fireEvent.mouseDown(screen.getByRole("combobox", { name: "Parent category" }));
+
+	// Both hidden categories remain eligible parents; the picker reads the
+	// complete loaded dataset, not the filtered view.
+	expect(await screen.findByText("Reef tanks")).toBeTruthy();
+	expect(await screen.findByText("Reef tanks / Coral")).toBeTruthy();
+});
+
+it("search no-match is distinct from an empty catalog and can be cleared", async () => {
+	stubFetch(page([rootCategory]));
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.change(screen.getByLabelText("Search categories by name or slug"), {
+		target: { value: "zzz" },
+	});
+	await flush();
+
+	expect(screen.getByText("No categories match your search")).toBeTruthy();
+	expect(screen.queryByText("No categories yet")).toBeNull();
+
+	fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+	await flush();
+	expect(screen.getByText("Reef tanks")).toBeTruthy();
+});
+
+it("recovered 401 on a read clears the list and offers a manual retry without replaying the write", async () => {
+	setAccessToken("rehydrated-token");
+	const revalidate = deferred<void>();
+	vi.mocked(useAuthStore.getState().revalidate).mockReturnValue(
+		revalidate.promise,
+	);
+	const secondGet = deferred<Response>();
+	let getCount = 0;
+	let deleteCount = 0;
+	const response = (body: unknown, status = 200) =>
+		new Response(JSON.stringify(body), {
+			status,
+			headers: { "Content-Type": "application/json" },
+		});
+	const fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+		if (init?.method === "DELETE") {
+			deleteCount += 1;
+			return Promise.resolve(response(ok(null).body));
+		}
+		getCount += 1;
+		if (getCount === 1) {
+			return Promise.resolve(response(page([rootCategory, childCategory]).body));
+		}
+		if (getCount === 2) {
+			return secondGet.promise;
+		}
+		return Promise.resolve(response(page([rootCategory]).body));
+	});
+	vi.stubGlobal("fetch", fetch);
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+	expect(screen.getAllByText("Reef tanks").length).toBeGreaterThan(0);
+
+	// A successful delete triggers a read reload; that read is refused with 401.
+	fireEvent.click(screen.getByRole("button", { name: "Delete Coral" }));
+	fireEvent.click(screen.getByRole("button", { name: "Delete category" }));
+	await flush();
+
+	await act(async () => {
+		secondGet.resolve(
+			response({ code: 401, message: "Unauthorized", data: null }, 401),
+		);
+	});
+	await flush();
+
+	// Stale protected rows are gone while the session is rechecked.
+	expect(screen.queryByText("Reef tanks")).toBeNull();
+	expect(screen.getByLabelText("Loading categories")).toBeTruthy();
+
+	await act(async () => {
+		revalidate.resolve();
+	});
+	await flush();
+
+	expect(screen.getByText("We couldn't load categories")).toBeTruthy();
+	expect(screen.getByText(/Your session was refreshed/)).toBeTruthy();
+	// No automatic re-read and no replay of the delete.
+	expect(getCount).toBe(2);
+	expect(deleteCount).toBe(1);
+
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	await flush();
+	expect(getCount).toBe(3);
+	expect(screen.getByText("Reef tanks")).toBeTruthy();
 });

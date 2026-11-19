@@ -4,7 +4,6 @@ import { parseOrThrow } from "@/lib/api/parse";
 import {
 	createApiResponseSchema,
 	createPageResponseSchema,
-	nullDataResponseSchema,
 } from "@/lib/api/schema";
 import type { PageData } from "@/features/products/types";
 
@@ -12,16 +11,16 @@ import {
 	AdminUserDetailSchema,
 	AdminUserSchema,
 	type AdminUser,
-	type AdminUserCreateInput,
 	type AdminUserDetail,
 	type CustomerProfilePatch,
 } from "../schema/admin-users.schema";
 
 /**
  * Admin User API (`/admin/users`), mirrored from `docs/admin-users-api.md` in
- * the backend repo. `roleCode` is required by this client because the staff
+ * the backend repo. `roleCode` is required by this client because the customer
  * directory always shows exactly one role at a time; the backend itself
- * treats it as optional.
+ * treats it as optional. Staff account management lives in the canonical
+ * users feature; this module survives for the customer flow.
  *
  * Pages are zero-based end to end — callers convert from the UI's one-based
  * page before calling. `size` stays well under the 100 ceiling the backend
@@ -107,22 +106,6 @@ export async function getAdminUser(
 	).data;
 }
 
-export async function createAdminUser(
-	input: AdminUserCreateInput,
-): Promise<AdminUserDetail> {
-	const payload = await apiFetch<unknown>("admin/users", {
-		method: "POST",
-		headers: getAuthHeaders(),
-		body: JSON.stringify(input),
-	});
-
-	return parseOrThrow(
-		adminUserResponseSchema,
-		payload,
-		"The created admin user response",
-	).data;
-}
-
 export async function setAdminUserStatus(
 	userId: string,
 	status: "ACTIVE" | "LOCKED",
@@ -140,26 +123,6 @@ export async function setAdminUserStatus(
 		adminUserResponseSchema,
 		payload,
 		"The updated admin user status response",
-	).data;
-}
-
-export async function setAdminUserRole(
-	userId: string,
-	roleCode: string,
-): Promise<AdminUserDetail> {
-	const payload = await apiFetch<unknown>(
-		`admin/users/${encodeURIComponent(userId)}/role`,
-		{
-			method: "PATCH",
-			headers: getAuthHeaders(),
-			body: JSON.stringify({ roleCode }),
-		},
-	);
-
-	return parseOrThrow(
-		adminUserResponseSchema,
-		payload,
-		"The updated admin user role response",
 	).data;
 }
 
@@ -181,20 +144,4 @@ export async function patchCustomerProfile(
 		payload,
 		"The updated customer profile response",
 	).data;
-}
-
-export async function deleteAdminUser(userId: string): Promise<void> {
-	const payload = await apiFetch<unknown>(
-		`admin/users/${encodeURIComponent(userId)}`,
-		{
-			method: "DELETE",
-			headers: getAuthHeaders(),
-		},
-	);
-
-	parseOrThrow(
-		nullDataResponseSchema,
-		payload,
-		"The delete-admin-user response",
-	);
 }

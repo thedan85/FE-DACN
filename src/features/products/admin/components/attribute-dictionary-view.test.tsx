@@ -12,6 +12,7 @@ import {
 import { App } from "antd";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { clearSession, setAccessToken } from "@/features/auth/session";
 import { useAuthStore } from "@/stores/auth-store";
 
 import { AttributeDictionaryView } from "./attribute-dictionary-view";
@@ -165,6 +166,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+	clearSession();
 	vi.unstubAllGlobals();
 	vi.unstubAllEnvs();
 	vi.restoreAllMocks();
@@ -552,4 +554,181 @@ it("Escape in Edit value returns focus to the row trigger", async () => {
 	await waitFor(() => {
 		expect(document.activeElement).toBe(trigger);
 	});
+});
+
+it("attribute name filter is local, case-insensitive and keeps the selection", async () => {
+	const fetch = stubFetch(
+		page([colorAttribute, sizeAttribute]),
+		page([blueValue]),
+	);
+
+	render(
+		<App>
+			<AttributeDictionaryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Color" }));
+	await flush();
+	expect(screen.getByText("Blue")).toBeTruthy();
+	const callsAfterSelection = fetch.mock.calls.length;
+
+	fireEvent.change(screen.getByLabelText("Filter attributes by name"), {
+		target: { value: "  SIZE " },
+	});
+	await flush();
+
+	const attributeTable = screen.getAllByRole("table")[0];
+	expect(within(attributeTable).getByText("Size")).toBeTruthy();
+	expect(within(attributeTable).queryByText("Color")).toBeNull();
+	// The hidden attribute stays selected; its values pane is untouched.
+	expect(screen.getByText("Values of Color")).toBeTruthy();
+	expect(screen.getByText("Blue")).toBeTruthy();
+	// Filtering never fetches.
+	expect(fetch.mock.calls.length).toBe(callsAfterSelection);
+});
+
+it("value filter is local and keeps the edit target on the real value", async () => {
+	const redValue = {
+		...blueValue,
+		attributeValueId: "color-red",
+		value: "Red",
+	};
+	const greenValue = {
+		...blueValue,
+		attributeValueId: "color-green",
+		value: "Green",
+	};
+	const fetch = stubFetch(
+		page([colorAttribute]),
+		page([blueValue, redValue, greenValue]),
+	);
+
+	render(
+		<App>
+			<AttributeDictionaryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Color" }));
+	await flush();
+	const callsAfterSelection = fetch.mock.calls.length;
+
+	fireEvent.change(screen.getByLabelText("Filter values by text"), {
+		target: { value: "  RED " },
+	});
+	await flush();
+
+	const valueTable = screen.getAllByRole("table")[1];
+	expect(within(valueTable).getByText("Red")).toBeTruthy();
+	expect(within(valueTable).queryByText("Blue")).toBeNull();
+	expect(fetch.mock.calls.length).toBe(callsAfterSelection);
+
+	// The filtered row still edits the real value, not a filtered index.
+	fireEvent.click(screen.getByRole("button", { name: "Edit value Red" }));
+	expect((screen.getByLabelText("Value") as HTMLInputElement).value).toBe("Red");
+});
+
+it("no-match filters are distinct from empty catalogs", async () => {
+	stubFetch(page([colorAttribute]), page([blueValue]));
+
+	render(
+		<App>
+			<AttributeDictionaryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.change(screen.getByLabelText("Filter attributes by name"), {
+		target: { value: "zzz" },
+	});
+	await flush();
+	expect(screen.getByText("No attributes match your filter")).toBeTruthy();
+	expect(screen.queryByText("No attributes yet")).toBeNull();
+
+	fireEvent.click(screen.getByRole("button", { name: "Clear attribute filter" }));
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Color" }));
+	await flush();
+	fireEvent.change(screen.getByLabelText("Filter values by text"), {
+		target: { value: "zzz" },
+	});
+	await flush();
+	expect(screen.getByText("No values match your filter")).toBeTruthy();
+	expect(screen.queryByText("No values yet")).toBeNull();
+});
+
+it("recovered 401 on the values read clears stale values and offers a manual retry", async () => {
+	setAccessToken("rehydrated-token");
+	const revalidate = deferred<void>();
+	vi.mocked(useAuthStore.getState().revalidate).mockReturnValue(
+		revalidate.promise,
+	);
+	const secondValuesGet = deferred<Response>();
+	let valuesGetCount = 0;
+	let deleteCount = 0;
+	const fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+		const url = String(input);
+		if (init?.method === "DELETE") {
+			deleteCount += 1;
+			return Promise.resolve(jsonResponse(ok(null).body));
+		}
+		if (url.includes("/attributes?")) {
+			return Promise.resolve(jsonResponse(page([colorAttribute]).body));
+		}
+		if (url.includes("/values")) {
+			valuesGetCount += 1;
+			if (valuesGetCount === 2) {
+				return secondValuesGet.promise;
+			}
+			return Promise.resolve(jsonResponse(page([blueValue]).body));
+		}
+		return Promise.reject(new Error(`Unexpected request: ${url}`));
+	});
+	vi.stubGlobal("fetch", fetch);
+
+	render(
+		<App>
+			<AttributeDictionaryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Color" }));
+	await flush();
+	expect(screen.getByText("Blue")).toBeTruthy();
+
+	// A successful delete triggers a values reload; that read is refused 401.
+	fireEvent.click(screen.getByRole("button", { name: "Delete value Blue" }));
+	fireEvent.click(screen.getByRole("button", { name: "Delete value" }));
+	await flush();
+
+	await act(async () => {
+		secondValuesGet.resolve(
+			jsonResponse({ code: 401, message: "Unauthorized", data: null }, 401),
+		);
+	});
+	await flush();
+
+	// Stale values are gone while the session is rechecked.
+	expect(screen.queryByText("Blue")).toBeNull();
+
+	await act(async () => {
+		revalidate.resolve();
+	});
+	await flush();
+
+	expect(screen.getByText("We couldn't load values")).toBeTruthy();
+	expect(screen.getByText(/Your session was refreshed/)).toBeTruthy();
+	// No automatic re-read and no replay of the delete.
+	expect(valuesGetCount).toBe(2);
+	expect(deleteCount).toBe(1);
+
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+	await flush();
+	expect(valuesGetCount).toBe(3);
+	expect(screen.getByText("Blue")).toBeTruthy();
 });

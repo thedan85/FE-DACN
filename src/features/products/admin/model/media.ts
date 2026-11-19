@@ -1,3 +1,5 @@
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
+
 import type { Product, ProductUpdateInput, UploadResult } from "../../types";
 import { productCurrentValues } from "./product-edit";
 
@@ -63,16 +65,19 @@ export function validateMediaUrl(url: string): string | null {
 export type MediaPreview =
 	/** The Cloudinary host the Next image config allows — rendered as an image. */
 	| { kind: "image" }
-	/** Any other HTTPS host renders as a labelled external link. */
+	/** Another absolute HTTPS host without credentials renders as an external link. */
 	| { kind: "link"; href: string }
-	/** A `javascript:` or malformed URL renders neither image nor link. */
+	/** Relative, credentialed, non-HTTPS or malformed URLs render neither. */
 	| { kind: "none" };
 
 /**
- * What a media row is allowed to render. Only the configured Cloudinary
- * host renders as an image — `next.config.ts` remotePatterns is the
- * allowlist — every other HTTPS host degrades to a link with
- * `rel="noreferrer"`, and anything else renders nothing clickable.
+ * What a media row is allowed to render. A row URL is bound by the media
+ * contract to an absolute HTTPS URL without credentials: relative paths must
+ * not turn into previews just because the shared image gate also accepts local
+ * static assets, and a credential must never be copied into a rendered href.
+ * Only after parsing does the image branch reuse the same gate as every catalog
+ * `<Image>`; a safe external HTTPS host degrades to a link with
+ * `rel="noreferrer"`, and an unusable URL renders nothing clickable.
  */
 export function mediaPreviewKind(url: string): MediaPreview {
 	let parsed: URL;
@@ -83,14 +88,15 @@ export function mediaPreviewKind(url: string): MediaPreview {
 		return { kind: "none" };
 	}
 
-	if (parsed.protocol !== "https:") {
+	if (
+		parsed.protocol !== "https:" ||
+		parsed.username !== "" ||
+		parsed.password !== ""
+	) {
 		return { kind: "none" };
 	}
 
-	if (
-		parsed.hostname === "res.cloudinary.com" &&
-		parsed.pathname.startsWith("/ibk3z2nt/")
-	) {
+	if (isOptimizableImageUrl(url)) {
 		return { kind: "image" };
 	}
 
