@@ -1,10 +1,10 @@
 /**
- * The media library's delete action ships disabled.
+ * The media library's delete action is released.
  *
- * Deleting a media row removes the image everywhere it renders, including a
- * product's live thumbnail — and listing/detail rendering has not been
- * re-verified since `PUT /products/{id}` started clearing thumbnails. Until
- * Task 9 runs that check, this stays `false`; flipping it is a release
- * decision, not a code change.
+ * The release check deleted a current product thumbnail through
+ * `DELETE /media/{id}`: the product list and detail stayed readable and the
+ * thumbnail cleared to `null`, matching the confirmation copy. A backend data
+ * defect still breaks the unfiltered admin media list (one row fails to
+ * serialize), but that is unrelated to deletion.
  */
-export const mediaDeleteEnabled = false;
+export const mediaDeleteEnabled = true;

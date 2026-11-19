@@ -415,8 +415,9 @@ it("mediaDelete_explainsPossibleThumbnailRemoval", async () => {
 	);
 });
 
-it("mediaDelete_isDisabledUntilReleaseCheck", async () => {
-	const fetch = stubFetch(page([mediaRow({ mediaId: "MED_LOCKED" })]));
+it("mediaDelete_isEnabledAfterReleaseCheck", async () => {
+	release.value = true;
+	stubFetch(page([mediaRow({ mediaId: "MED_RELEASED" })]));
 
 	render(
 		<App>
@@ -426,17 +427,16 @@ it("mediaDelete_isDisabledUntilReleaseCheck", async () => {
 	await flush();
 
 	const button = screen.getByRole("button", {
-		name: "Delete media MED_LOCKED",
+		name: "Delete media MED_RELEASED",
 	}) as HTMLButtonElement;
-	expect(button.disabled).toBe(true);
+	expect(button.disabled).toBe(false);
 
 	fireEvent.click(button);
 	await flush();
 
-	const deletes = fetch.mock.calls.filter(
-		([, init]) => (init as RequestInit)?.method === "DELETE",
-	);
-	expect(deletes).toHaveLength(0);
+	expect(
+		screen.getByText(/may disappear from product and variant rendering/i),
+	).toBeTruthy();
 });
 
 it("mediaCreate_usesExactlyOneOwner", async () => {
