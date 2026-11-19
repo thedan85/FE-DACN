@@ -21,6 +21,7 @@ import {
 	setAdminUserRole,
 	setAdminUserStatus,
 } from "../api/admin-users.api";
+import { listAdminRoles } from "../api/admin-roles.api";
 import type { AdminUser } from "../schema/admin-users.schema";
 import { StaffDirectory } from "./staff-directory";
 
@@ -44,6 +45,10 @@ vi.mock("../api/admin-users.api", () => ({
 	setAdminUserStatus: vi.fn(),
 	setAdminUserRole: vi.fn(),
 	deleteAdminUser: vi.fn(),
+}));
+
+vi.mock("../api/admin-roles.api", () => ({
+	listAdminRoles: vi.fn(),
 }));
 
 vi.mock("@/features/products/admin/components/admin-catalog-theme", () => ({
@@ -134,11 +139,62 @@ beforeEach(() => {
 	vi.mocked(deleteAdminUser).mockReset().mockResolvedValue(undefined);
 	vi.mocked(setAdminUserRole).mockReset();
 	vi.mocked(setAdminUserStatus).mockReset();
+	vi.mocked(listAdminRoles).mockReset().mockResolvedValue([]);
 });
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+});
+
+it("staffList_loadsLiveRoleChoicesWithRoleRead", async () => {
+	useAuthStore.setState({
+		status: "authenticated",
+		user: { ...user, permissions: ["user:read", "role:read"] },
+	});
+	const timestamp = "2026-11-09T14:21:32.965135Z";
+	vi.mocked(listAdminRoles).mockResolvedValue([
+		{
+			roleId: "ROLE_employee",
+			code: "employee",
+			name: "Employee",
+			description: null,
+			system: true,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+		},
+		{
+			roleId: "ROLE_catalog-editor",
+			code: "catalog_editor",
+			name: "Catalog Editor",
+			description: null,
+			system: false,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+		},
+		{
+			roleId: "ROLE_customer",
+			code: "customer",
+			name: "Customer",
+			description: null,
+			system: true,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+		},
+	]);
+
+	renderDirectory();
+	await flush();
+
+	expect(listAdminRoles).toHaveBeenCalled();
+
+	fireEvent.mouseDown(
+		screen.getByRole("combobox", { name: "Filter by role" }),
+	);
+
+	// Live choices replace the built-in list; the customer role is never offered.
+	expect(await screen.findByTitle("Catalog Editor")).toBeTruthy();
+	expect(screen.queryByTitle("Customer")).toBeNull();
 });
 
 it("staffDirectory_rendersInsideAdminCatalogTheme", async () => {

@@ -39,6 +39,7 @@ import {
 	setAdminUserRole,
 	setAdminUserStatus,
 } from "../api/admin-users.api";
+import { listAdminRoles } from "../api/admin-roles.api";
 import { handleAdminAuthFailure } from "../model/admin-auth-failure";
 import type { AdminUser } from "../schema/admin-users.schema";
 import styles from "./staff-directory.module.css";
@@ -50,13 +51,17 @@ const MAX_PAGE = 10_000;
 const DEFAULT_ROLE = "employee";
 
 /**
- * Built-in roles offered until role discovery lands (Task 2). A known custom
- * code can be entered in the inline input next to the select.
+ * Built-in roles offered until role discovery lands (or when the account
+ * lacks `role:read`). A known custom code can be entered in the inline
+ * input next to the select.
  */
 const BUILT_IN_ROLE_OPTIONS = [
 	{ value: "employee", label: "Employee" },
 	{ value: "admin", label: "Administrator" },
 ];
+
+/** The customer role is storefront-owned and can never hold staff. */
+const STAFF_HIDDEN_ROLE_CODES = new Set(["customer"]);
 
 interface StaffDirectoryQuery {
 	role: string;
@@ -129,6 +134,7 @@ export function StaffDirectory() {
 	const mayCreate = permissions?.includes("user:create") === true;
 	const mayUpdate = permissions?.includes("user:update") === true;
 	const mayDelete = permissions?.includes("user:delete") === true;
+	const mayRoleRead = permissions?.includes("role:read") === true;
 
 	const [keywordDraft, setKeywordDraft] = useState("");
 	const [keyword, setKeyword] = useState("");
@@ -139,6 +145,55 @@ export function StaffDirectory() {
 	const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null);
 	const [statusTarget, setStatusTarget] = useState<AdminUser | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
+	const [roleOptions, setRoleOptions] = useState(BUILT_IN_ROLE_OPTIONS);
+
+	// Live role choices need role:read; without it the built-in pair plus
+	// the known-code input stay in place. The customer role is never offered:
+	// the backend rejects it for staff assignment.
+	useEffect(() => {
+		if (!mayRoleRead) {
+			return;
+		}
+
+		let active = true;
+
+		listAdminRoles()
+			.then((roles) => {
+				if (!active) {
+					return;
+				}
+
+				const options = roles
+					.filter((role) => !STAFF_HIDDEN_ROLE_CODES.has(role.code))
+					.map((role) => ({ value: role.code, label: role.name }));
+
+				if (options.length > 0) {
+					setRoleOptions(options);
+				}
+			})
+			.catch(async (caught: unknown) => {
+				if (!active) {
+					return;
+				}
+
+				const outcome = await handleAdminAuthFailure(caught, router);
+				if (!active) {
+					return;
+				}
+
+				// A failed role discovery must not take down the directory;
+				// the built-in pair and the known-code input stay available.
+				if (outcome === "unhandled") {
+					message.error(
+						"Could not load roles. Showing the built-in role list.",
+					);
+				}
+			});
+
+		return () => {
+			active = false;
+		};
+	}, [mayRoleRead, message, router]);
 
 	const query = useMemo(() => parseQuery(searchParams), [searchParams]);
 	const requestKey = JSON.stringify([
@@ -425,7 +480,7 @@ export function StaffDirectory() {
 							className={styles.select}
 							aria-label="Filter by role"
 							value={query.role}
-							options={BUILT_IN_ROLE_OPTIONS}
+							options={roleOptions}
 							onChange={(value: string) =>
 								updateQuery({ role: value, page: 1 })
 							}
@@ -528,6 +583,7 @@ export function StaffDirectory() {
 
 				{createOpen && (
 					<CreateStaffModal
+						roleOptions={roleOptions}
 						onClose={() => setCreateOpen(false)}
 						onCreated={handleCreated}
 					/>
@@ -536,6 +592,7 @@ export function StaffDirectory() {
 					<RoleDialog
 						key={roleTarget.userId}
 						target={roleTarget}
+						roleOptions={roleOptions}
 						onClose={() => setRoleTarget(null)}
 						onSaved={handleRoleSaved}
 					/>
@@ -577,9 +634,11 @@ interface CreateStaffFormValues {
  * the modal unmounts on success or cancel, so nothing retains it afterwards.
  */
 function CreateStaffModal({
+	roleOptions,
 	onClose,
 	onCreated,
 }: {
+	roleOptions: { value: string; label: string }[];
 	onClose: () => void;
 	onCreated: (name: string) => void;
 }) {
@@ -697,7 +756,7 @@ function CreateStaffModal({
 					<Input autoComplete="off" />
 				</Form.Item>
 				<Form.Item name="roleCode" label="Role">
-					<Select options={BUILT_IN_ROLE_OPTIONS} />
+					<Select options={roleOptions} />
 				</Form.Item>
 				<Form.Item
 					name="customRoleCode"
@@ -717,21 +776,23 @@ function CreateStaffModal({
 
 function RoleDialog({
 	target,
+	roleOptions,
 	onClose,
 	onSaved,
 }: {
 	target: AdminUser;
+	roleOptions: { value: string; label: string }[];
 	onClose: () => void;
 	onSaved: (roleCode: string) => void;
 }) {
 	const router = useRouter();
-	const isBuiltIn = BUILT_IN_ROLE_OPTIONS.some(
+	const isInOptions = roleOptions.some(
 		(option) => option.value === target.roleCode,
 	);
 	const [selected, setSelected] = useState(
-		isBuiltIn ? target.roleCode : DEFAULT_ROLE,
+		isInOptions ? target.roleCode : DEFAULT_ROLE,
 	);
-	const [custom, setCustom] = useState(isBuiltIn ? "" : target.roleCode);
+	const [custom, setCustom] = useState(isInOptions ? "" : target.roleCode);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -781,7 +842,7 @@ function RoleDialog({
 					className={styles.fullWidth}
 					aria-label="Role"
 					value={selected}
-					options={BUILT_IN_ROLE_OPTIONS}
+					options={roleOptions}
 					onChange={setSelected}
 				/>
 				<Input

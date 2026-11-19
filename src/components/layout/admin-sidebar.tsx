@@ -31,6 +31,9 @@ type NavItem = {
 /** Staff and customer accounts share the `user:read` grant (see Admin User API). */
 const USER_READ_PERMISSION = "user:read";
 
+/** Staff & Permissions also opens for role administration alone (see Admin Role API). */
+const ROLE_READ_PERMISSION = "role:read";
+
 /** Static design data — the nav items from the Figma admin design. */
 const navItems: NavItem[] = [
 	{
@@ -78,7 +81,7 @@ const navItems: NavItem[] = [
 		label: "Staff & Permissions",
 		icon: "/images/admin/nav/shield-check.svg",
 		href: "/admin/staff",
-		anyPermission: [USER_READ_PERMISSION],
+		anyPermission: [USER_READ_PERMISSION, ROLE_READ_PERMISSION],
 	},
 	{ label: "Settings", icon: "/images/admin/nav/settings.svg" },
 ];

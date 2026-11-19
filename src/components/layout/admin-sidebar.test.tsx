@@ -37,6 +37,16 @@ it("hides Orders without order:read", () => {
 	expect(screen.queryByRole("link", { name: "Orders" })).toBeNull();
 });
 
+it("links Staff & Permissions with role:read", () => {
+	useAuthStore.setState({
+		status: "authenticated",
+		user: { ...user, permissions: ["role:read"] },
+	});
+	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
+	expect(screen.getByRole("link", { name: "Staff & Permissions" }).getAttribute("href"))
+		.toBe("/admin/staff");
+});
+
 it("links Staff & Permissions when the account can read users", () => {
 	useAuthStore.setState({
 		status: "authenticated",
@@ -47,7 +57,7 @@ it("links Staff & Permissions when the account can read users", () => {
 		.toBe("/admin/staff");
 });
 
-it("hides Staff & Permissions without user:read", () => {
+it("hides Staff & Permissions without an accepted read permission", () => {
 	useAuthStore.setState({ status: "authenticated", user: { ...user, permissions: [] } });
 	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
 	expect(screen.queryByRole("link", { name: "Staff & Permissions" })).toBeNull();
