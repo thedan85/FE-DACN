@@ -19,11 +19,16 @@ const MOBILE_NAV_QUERY = "(max-width: 900px)";
  * the last URL segment: a product's edit route ends in `/edit`, which would
  * label the page "Edit", and the section name is what the design shows.
  */
-const PAGE_TITLES: { href: string; title: string }[] = [
+export const PAGE_TITLES: { href: string; title: string }[] = [
 	{ href: "/admin/dashboard", title: "Dashboard" },
 	{ href: "/admin/orders", title: "Orders" },
 	{ href: "/admin/products", title: "Products & Variants" },
 	{ href: "/admin/notifications", title: "Notifications" },
+	{ href: "/admin/staff", title: "Staff & Permissions" },
+	{ href: "/admin/customers", title: "Customers" },
+	{ href: "/admin/categories", title: "Categories" },
+	{ href: "/admin/attributes", title: "Attributes" },
+	{ href: "/admin/media", title: "Media" },
 ];
 
 function currentPageTitle(pathname: string): string {
