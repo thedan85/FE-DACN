@@ -6,6 +6,7 @@ import {
 	fireEvent,
 	render,
 	screen,
+	waitFor,
 	within,
 } from "@testing-library/react";
 import { App } from "antd";
@@ -332,6 +333,237 @@ it("keeps the delete dialog open when the server answers 409", async () => {
 		screen.getByText("Cannot modify the last active administrator"),
 	).toBeTruthy();
 	expect(screen.getByRole("dialog")).toBeTruthy();
+});
+
+it("staffDirectory_escapeReturnsFocusToAddStaffTrigger", async () => {
+	renderDirectory();
+	await flush();
+
+	const addStaff = screen.getByRole("button", { name: "Add staff" });
+	addStaff.focus();
+	fireEvent.click(addStaff);
+	await flush();
+
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	// Move focus inside the dialog the way the browser does on open.
+	screen.getByLabelText("Email").focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	// The trigger is connected, so focus returns to it, not to <body>.
+	await waitFor(() => {
+		expect(document.activeElement).toBe(addStaff);
+	});
+});
+
+it("staffDirectory_escapeInChangeRoleReturnsFocusToRowTrigger", async () => {
+	renderDirectory();
+	await flush();
+
+	const trigger = screen.getByRole("button", {
+		name: "Change role for Employee User",
+	});
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	within(screen.getByRole("dialog"))
+		.getByLabelText("Known role code")
+		.focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(trigger);
+	});
+});
+
+it("staffDirectory_escapeInStatusDialogReturnsFocusToRowTrigger", async () => {
+	renderDirectory();
+	await flush();
+
+	const trigger = screen.getByRole("button", {
+		name: "Lock Employee User",
+	});
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	// Focus the dialog's own confirm control, not the trigger.
+	screen.getByRole("button", { name: /^Lock$/ }).focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(trigger);
+	});
+});
+
+it("staffDirectory_settleWhileDialogOpenKeepsAddStaffFocus", async () => {
+	let resolveList!: (value: ReturnType<typeof page>) => void;
+	const initialList = new Promise<ReturnType<typeof page>>((resolve) => {
+		resolveList = resolve;
+	});
+
+	vi.mocked(listAdminUsers).mockReset();
+	vi.mocked(listAdminUsers).mockReturnValueOnce(initialList);
+
+	renderDirectory();
+	await flush();
+
+	// The button renders before the list lands; the operator opens the
+	// dialog while the initial read is still pending.
+	const addStaff = screen.getByRole("button", { name: "Add staff" });
+	addStaff.focus();
+	fireEvent.click(addStaff);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	// Focus sits inside the dialog, as it does in the browser.
+	screen.getByLabelText("Email").focus();
+
+	// The initial list settles while the dialog is open.
+	await act(async () => {
+		resolveList(page([employee]));
+	});
+	await flush();
+	expect(screen.getByText("Employee User")).toBeTruthy();
+
+	fireEvent.keyDown(document, { key: "Escape" });
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	// The trigger was never consumed by the initial read settling, so
+	// focus returns to it instead of the heading.
+	await waitFor(() => {
+		expect(document.activeElement).toBe(addStaff);
+	});
+});
+
+it("staffDirectory_deleteLastRemainingRowMovesFocusToTheHeading", async () => {
+	vi.mocked(listAdminUsers).mockReset();
+	vi.mocked(listAdminUsers)
+		.mockResolvedValueOnce(page([employee]))
+		.mockResolvedValue(page([], 0, 1, 0));
+
+	renderDirectory();
+	await flush();
+
+	const deleteButton = screen.getByRole("button", {
+		name: "Delete Employee User",
+	});
+	deleteButton.focus();
+	fireEvent.click(deleteButton);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+	await flush();
+
+	// The row (and its trigger) is gone; focus lands on the stable heading.
+	expect(screen.queryByRole("dialog")).toBeNull();
+	expect(screen.queryByText("employee@example.com")).toBeNull();
+	await waitFor(() => {
+		expect(document.activeElement).toBe(
+			screen.getByRole("heading", { name: "Staff & Permissions" }),
+		);
+	});
+});
+
+it("staffDirectory_reloadKeepsFocusOnControlsTheOperatorReached", async () => {
+	let resolveReload!: (value: ReturnType<typeof page>) => void;
+	const reloadPromise = new Promise<ReturnType<typeof page>>((resolve) => {
+		resolveReload = resolve;
+	});
+
+	vi.mocked(listAdminUsers).mockReset();
+	vi.mocked(listAdminUsers)
+		.mockResolvedValueOnce(page([employee]))
+		.mockReturnValueOnce(reloadPromise);
+
+	renderDirectory();
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Delete Employee User" }),
+	);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+	await flush();
+
+	// The reload is in flight; the operator lands on the search box.
+	const search = screen.getByLabelText("Search staff by email or name");
+	search.focus();
+
+	// Only now does the reload resolve and the row leave the table.
+	await act(async () => {
+		resolveReload(page([], 0, 1, 0));
+	});
+	await flush();
+
+	expect(screen.queryByText("employee@example.com")).toBeNull();
+	// The reload dropped the trigger, but the operator is on another
+	// control — moving focus would steal it.
+	expect(document.activeElement).toBe(search);
+});
+
+it("staffDirectory_reloadErrorFallsBackToTheHeading", async () => {
+	vi.mocked(listAdminUsers).mockReset();
+	vi.mocked(listAdminUsers)
+		.mockResolvedValueOnce(page([employee]))
+		.mockRejectedValueOnce(new Error("boom"));
+
+	renderDirectory();
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Delete Employee User" }),
+	);
+	await flush();
+expect(screen.getByRole("dialog")).toBeTruthy();
+
+	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+	await flush();
+	await flush();
+
+	// The reload failed, so the list is gone and its row trigger went
+	// with it — focus falls back to the stable heading, not <body>.
+	expect(screen.getByText("We couldn't load staff accounts")).toBeTruthy();
+	expect(document.activeElement).toBe(
+		screen.getByRole("heading", { name: "Staff & Permissions" }),
+	);
+});
+
+it("staffDirectory_reopeningAddStaffStartsWithAnEmptyPassword", async () => {
+	renderDirectory();
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Add staff" }));
+	const password = screen.getByLabelText("Initial password");
+	fireEvent.change(password, { target: { value: "sup3r-secret" } });
+	expect((password as HTMLInputElement).value).toBe("sup3r-secret");
+
+	// Cancel, then reopen: nothing of the draft survives.
+	fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Add staff" }));
+	expect(
+		(screen.getByLabelText("Initial password") as HTMLInputElement).value,
+	).toBe("");
 });
 
 it("staffList_returnsToPreviousPageAfterDeletingLastRow", async () => {

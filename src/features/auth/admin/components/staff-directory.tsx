@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
 	Alert,
@@ -122,6 +122,19 @@ type DirectoryState =
  * catch path runs through `handleAdminAuthFailure`, and a denied read renders
  * the shared access-denied state instead of the data.
  */
+// The element that holds focus is gone for good: fallen back to
+// <body>, detached from the document, or (when a dialog is closing)
+// still pointing inside the dialog that is being removed. Anything else
+// is a control the operator landed on during the close or the reload.
+function focusIsGone(active: Element | null): boolean {
+	return (
+		active === null ||
+		active === document.body ||
+		!active.isConnected ||
+		active.closest('[role="dialog"]') !== null
+	);
+}
+
 export function StaffDirectory() {
 	const router = useRouter();
 	const pathname = usePathname();
@@ -146,6 +159,13 @@ export function StaffDirectory() {
 	const [statusTarget, setStatusTarget] = useState<AdminUser | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
 	const [roleOptions, setRoleOptions] = useState(BUILT_IN_ROLE_OPTIONS);
+	// An always-open Modal that is unmounted by the parent never runs
+	// rc-dialog's controlled close path, so focus would fall to <body>.
+	// Track the trigger instead and restore it (or the page heading) once
+	// the dialog is detached; see rescueFocusAfterClose.
+	const headingRef = useRef<HTMLElement | null>(null);
+	const dialogTriggerRef = useRef<HTMLElement | null>(null);
+	const pendingFocusRestoreRef = useRef(false);
 
 	// Live role choices need role:read; without it the built-in pair plus
 	// the known-code input stay in place. The customer role is never offered:
@@ -289,31 +309,109 @@ export function StaffDirectory() {
 		query.role !== DEFAULT_ROLE ||
 		query.status !== undefined;
 
-	const handleCreated = useCallback((name: string) => {
-		message.success(`Created ${name}.`);
-		setCreateOpen(false);
-		setReloadKey((key) => key + 1);
-	}, [message]);
+	// rc-dialog's focus trap (useLockFocus) re-targets anything focused
+	// while it is armed, and <body> takes over once the closing dialog is
+	// detached. Decide where focus goes only after that cleanup has run:
+	// a passive effect flush, which runs after commit.
+	const rescueFocusAfterClose = useCallback(() => {
+		if (focusIsGone(document.activeElement)) {
+			const trigger = dialogTriggerRef.current;
+			if (trigger !== null && trigger.isConnected) {
+				trigger.focus({ preventScroll: true });
+				return;
+			}
+			headingRef.current?.focus({ preventScroll: true });
+		}
+		// The operator is on another control; don't steal it.
+	}, []);
 
-	const handleRoleSaved = useCallback((roleCode: string) => {
-		message.success(`Role updated to ${roleCode}.`);
-		setRoleTarget(null);
-		setReloadKey((key) => key + 1);
-	}, [message]);
+	const requestFocusRestore = useCallback(() => {
+		pendingFocusRestoreRef.current = true;
+	}, []);
+
+	// Runs after every commit; only acts when a close actually happened.
+	// Passive effects flush after the commit that detaches the dialog,
+	// so the trap has already let go of focus by now.
+	useEffect(() => {
+		if (!pendingFocusRestoreRef.current) {
+			return;
+		}
+		pendingFocusRestoreRef.current = false;
+		rescueFocusAfterClose();
+	});
+
+	// The close commits before the reload lands. When that reload drops
+	// the captured trigger (the deleted row) or errors out, focus falls
+	// back to the stable heading - unless the operator moved to another
+	// control in the meantime, in which case it stays there.
+	//
+	// A list read may also settle while a dialog is open (the initial
+	// read, or anything else). That settle must not consume the capture:
+	// the open dialog still owns it, and the close path restores focus.
+	const anyDialogOpen =
+		createOpen ||
+		roleTarget !== null ||
+		statusTarget !== null ||
+		deleteTarget !== null;
+
+	useEffect(() => {
+		if (anyDialogOpen) {
+			return;
+		}
+		if (state.status !== "ready" && state.status !== "error") {
+			return;
+		}
+
+		const trigger = dialogTriggerRef.current;
+		if (trigger === null) {
+			return;
+		}
+		dialogTriggerRef.current = null;
+
+		if (trigger.isConnected) {
+			return;
+		}
+
+		if (focusIsGone(document.activeElement)) {
+			headingRef.current?.focus({ preventScroll: true });
+		}
+	}, [state, anyDialogOpen]);
+
+	const handleCreated = useCallback(
+		(name: string) => {
+			message.success(`Created ${name}.`);
+			setCreateOpen(false);
+			requestFocusRestore();
+			setReloadKey((key) => key + 1);
+		},
+		[message, requestFocusRestore],
+	);
+
+	const handleRoleSaved = useCallback(
+		(roleCode: string) => {
+			message.success(`Role updated to ${roleCode}.`);
+			setRoleTarget(null);
+			requestFocusRestore();
+			setReloadKey((key) => key + 1);
+		},
+		[message, requestFocusRestore],
+	);
 
 	const handleStatusDone = useCallback(
 		(name: string, action: "locked" | "unlocked") => {
 			message.success(`${name} ${action}.`);
 			setStatusTarget(null);
+			requestFocusRestore();
 			setReloadKey((key) => key + 1);
 		},
-		[message],
+		[message, requestFocusRestore],
 	);
 
 	const handleDeleted = useCallback(
 		(name: string, wasLastRow: boolean) => {
 			message.success(`Deleted ${name}.`);
 			setDeleteTarget(null);
+			requestFocusRestore();
 			if (wasLastRow && query.page > 1) {
 				// The page we were on no longer exists: clamp to max(0,totalPages-1).
 				updateQuery({ page: query.page - 1 });
@@ -321,7 +419,7 @@ export function StaffDirectory() {
 			}
 			setReloadKey((key) => key + 1);
 		},
-		[message, query.page, updateQuery],
+		[message, query.page, updateQuery, requestFocusRestore],
 	);
 
 	const columns = useMemo<TableColumnsType<AdminUser>>(
@@ -391,7 +489,10 @@ export function StaffDirectory() {
 									aria-label={`${
 										row.status === "ACTIVE" ? "Lock" : "Unlock"
 									} ${row.name}`}
-									onClick={() => setStatusTarget(row)}
+									onClick={(event) => {
+										dialogTriggerRef.current = event.currentTarget;
+										setStatusTarget(row);
+									}}
 								>
 									{row.status === "ACTIVE" ? "Lock" : "Unlock"}
 								</Button>
@@ -401,7 +502,10 @@ export function StaffDirectory() {
 									type="link"
 									size="small"
 									aria-label={`Change role for ${row.name}`}
-									onClick={() => setRoleTarget(row)}
+									onClick={(event) => {
+										dialogTriggerRef.current = event.currentTarget;
+										setRoleTarget(row);
+									}}
 								>
 									Change role
 								</Button>
@@ -412,7 +516,10 @@ export function StaffDirectory() {
 									size="small"
 									danger
 									aria-label={`Delete ${row.name}`}
-									onClick={() => setDeleteTarget(row)}
+									onClick={(event) => {
+										dialogTriggerRef.current = event.currentTarget;
+										setDeleteTarget(row);
+									}}
 								>
 									Delete
 								</Button>
@@ -437,7 +544,12 @@ export function StaffDirectory() {
 			<section className={styles.page}>
 				<header className={styles.header}>
 					<div>
-						<Title level={1} className={styles.title}>
+						<Title
+							level={1}
+							className={styles.title}
+							ref={headingRef}
+							tabIndex={-1}
+						>
 							Staff &amp; Permissions
 						</Title>
 						<Text type="secondary">
@@ -445,7 +557,13 @@ export function StaffDirectory() {
 						</Text>
 					</div>
 					{mayRead && mayCreate && (
-						<Button type="primary" onClick={() => setCreateOpen(true)}>
+						<Button
+							type="primary"
+							onClick={(event) => {
+								dialogTriggerRef.current = event.currentTarget;
+								setCreateOpen(true);
+							}}
+						>
 							Add staff
 						</Button>
 					)}
@@ -551,7 +669,13 @@ export function StaffDirectory() {
 								hasFilters ? (
 									<Button onClick={clearFilters}>Clear filters</Button>
 								) : mayCreate ? (
-									<Button type="primary" onClick={() => setCreateOpen(true)}>
+									<Button
+										type="primary"
+										onClick={(event) => {
+											dialogTriggerRef.current = event.currentTarget;
+											setCreateOpen(true);
+										}}
+									>
 										Add staff
 									</Button>
 								) : undefined
@@ -584,7 +708,10 @@ export function StaffDirectory() {
 				{createOpen && (
 					<CreateStaffModal
 						roleOptions={roleOptions}
-						onClose={() => setCreateOpen(false)}
+						onClose={() => {
+							requestFocusRestore();
+							setCreateOpen(false);
+						}}
 						onCreated={handleCreated}
 					/>
 				)}
@@ -593,14 +720,20 @@ export function StaffDirectory() {
 						key={roleTarget.userId}
 						target={roleTarget}
 						roleOptions={roleOptions}
-						onClose={() => setRoleTarget(null)}
+						onClose={() => {
+							requestFocusRestore();
+							setRoleTarget(null);
+						}}
 						onSaved={handleRoleSaved}
 					/>
 				)}
 				{statusTarget && (
 					<StatusActionModal
 						target={statusTarget}
-						onClose={() => setStatusTarget(null)}
+						onClose={() => {
+							requestFocusRestore();
+							setStatusTarget(null);
+						}}
 						onDone={handleStatusDone}
 					/>
 				)}
@@ -610,7 +743,10 @@ export function StaffDirectory() {
 						wasLastRow={
 							pageData !== null && pageData.content.length === 1
 						}
-						onClose={() => setDeleteTarget(null)}
+						onClose={() => {
+							requestFocusRestore();
+							setDeleteTarget(null);
+						}}
 						onDone={handleDeleted}
 					/>
 				)}
