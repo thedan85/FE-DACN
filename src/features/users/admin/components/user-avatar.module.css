@@ -1,0 +1,23 @@
+.avatar {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--radius-pill);
+	background: var(--color-admin-avatar-surface);
+	color: var(--color-brand-deep-teal);
+	font-weight: 700;
+	line-height: 1.2;
+}
+
+.sm {
+	width: 34px;
+	height: 34px;
+	font-size: 12px;
+}
+
+.lg {
+	width: 64px;
+	height: 64px;
+	font-size: 22px;
+}

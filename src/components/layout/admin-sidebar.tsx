@@ -31,7 +31,7 @@ type NavItem = {
 	permission?: OrderPermission;
 };
 
-/** Static design data — the 11 nav items from the Figma admin design. */
+/** Static design data — the Figma admin design's nav items. */
 const navItems: NavItem[] = [
 	{
 		label: "Dashboard",
@@ -55,7 +55,12 @@ const navItems: NavItem[] = [
 	{ label: "Reviews", icon: "/images/admin/nav/message-square.svg" },
 	{ label: "Promotions", icon: "/images/admin/nav/tag.svg" },
 	{ label: "Analytics", icon: "/images/admin/nav/chart-no-axes-combined.svg" },
-	{ label: "Staff & Permissions", icon: "/images/admin/nav/shield-check.svg" },
+	{ label: "Staff & Permissions", icon: "/images/admin/nav/shield-check.svg", href: "/admin/roles" },
+	{
+		label: "User accounts",
+		icon: "/images/admin/nav/user-cog.svg",
+		href: "/admin/users",
+	},
 	{ label: "Settings", icon: "/images/admin/nav/settings.svg" },
 ];
 

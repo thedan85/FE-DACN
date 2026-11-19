@@ -152,12 +152,8 @@ export function toListingHref(query: ListingQuery): string {
 }
 
 /**
- * Converts the URL's 1-based page to the API's 0-based index.
- *
- * Kept separate from the query type so no caller has to remember which
- * convention it is holding; passing the URL page straight to `listProducts`
- * would silently skip the first page.
+ * Re-exported from the shared API layer. Kept here because the catalog modules
+ * and tests import it from this module, and the conversion itself is not
+ * catalog-specific.
  */
-export function toApiPage(page: number): number {
-	return Math.max(page - 1, 0);
-}
+export { toApiPage } from "@/lib/api/pagination";
