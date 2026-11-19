@@ -121,4 +121,8 @@ Verification after conflict resolution:
 - Ran `npm.cmd ci` because installed ESLint 10/config 16 did not match `dev`'s locked ESLint 9/config 15. No manifest or lockfile changes were made. Installation reported **7 moderate vulnerabilities**; no automatic audit fix or dependency upgrade was performed.
 - jsdom emitted non-fatal pseudo-element and document-navigation warnings. No live browser/backend flow was run.
 
-Final read-only review and index-resolution verification are pending. No commit, merge continuation, or push has been performed.
+Read-only review found no actionable issues. Notification preservation was checked in source; the new shell tests mock notification transport, while the full suite includes the existing notification tests.
+
+All four conflicts are marked resolved in the index; there are no remaining unmerged paths or conflict markers. The scoped `git diff --cached --check` passed for the resolution files. The whole-index whitespace check still flags a pre-existing space-before-tab at `FE_CONTEXT.md:543` from the incoming branch; that unrelated documentation line was left unchanged.
+
+Resolution sources, regression tests, and this report are staged. The merge is intentionally awaiting the user's commit. No commit, merge continuation, or push has been performed.
