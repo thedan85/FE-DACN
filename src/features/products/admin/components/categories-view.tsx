@@ -433,9 +433,9 @@ function CategoryFormModal({
 	const [formError, setFormError] = useState<string | null>(null);
 
 	const parentOptions = useMemo(() => {
-		// Editing ROOT: its own descendants are not offered as parents. The
-		// empty create case passes an id absent from the list, which excludes
-		// nothing.
+		// The edited node is excluded along with everything below it, and any
+		// cyclic legacy row is always excluded. The absent id passed for
+		// create mode excludes no descendant, so only those rules apply.
 		const eligible = eligibleCategoryParents(categories, initial?.categoryId ?? "");
 
 		return [
