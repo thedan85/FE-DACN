@@ -50,10 +50,11 @@ const { Title, Text } = Typography;
  * Reads are gated on `role:read` before any request fires; writes gate on
  * their own permissions and are still handled for 401/403 server-side via
  * `handleAdminAuthFailure`. Grants are edited against the whole permission
- * set the backend replaces — the sender convention is unique IDs — and the
- * admin role's user/role grants are locked because the server would answer
- * `409` otherwise. The customer role is read-only here: it manages
- * storefront accounts and is never editable from this screen.
+ * set the backend replaces — the sender convention is unique IDs — and an
+ * admin-required user/role grant cannot be REMOVED from the admin role
+ * because the server would answer `409` otherwise. Re-adding a drifted
+ * admin-required grant stays enabled. The customer role is read-only here:
+ * it manages storefront accounts and is never editable from this screen.
  *
  * After a grant change the edited role comes from the `PUT` response, and the
  * actor's session is revalidated because permissions apply on the next
@@ -273,7 +274,11 @@ export function RolesPermissionsPanel() {
 			.sort((left, right) => left.resource.localeCompare(right.resource));
 	}, [catalog]);
 
-	const lockedPermissionIds = useMemo(() => {
+	// Protected = admin-required (user:*/role:*) permissions. They may not be
+	// REMOVED from the admin role, but they may always be added: an
+	// admin-required grant that drifted out of storage can be restored from
+	// this screen, so the lock only applies while the draft box is checked.
+	const protectedPermissionIds = useMemo(() => {
 		if (!detail || !isAdminRole(detail)) {
 			return new Set<string>();
 		}
@@ -305,7 +310,8 @@ export function RolesPermissionsPanel() {
 	const metadataValid = name.trim() !== "";
 
 	const toggleGrant = (permissionId: string) => {
-		if (lockedPermissionIds.has(permissionId)) {
+		// Block unchecking an admin-required grant; re-adding one stays open.
+		if (protectedPermissionIds.has(permissionId) && checked.has(permissionId)) {
 			return;
 		}
 
@@ -641,9 +647,11 @@ export function RolesPermissionsPanel() {
 														group.resource.slice(1)}
 												</legend>
 												{group.items.map((permission) => {
-													const locked = lockedPermissionIds.has(
-														permission.permissionId,
-													);
+													const isChecked = checked.has(permission.permissionId);
+													// Only unchecking a held admin-required grant is locked.
+													const locked =
+														protectedPermissionIds.has(permission.permissionId) &&
+														isChecked;
 
 													return (
 														<div
@@ -651,9 +659,7 @@ export function RolesPermissionsPanel() {
 															className={styles.grantRow}
 														>
 															<Checkbox
-																checked={checked.has(
-																	permission.permissionId,
-																)}
+																checked={isChecked}
 																disabled={
 																	!editable ||
 																	grantsSaving ||

@@ -446,6 +446,57 @@ it("adminRole_requiredGrantsCannotBeUnchecked", async () => {
 	expect(roleReadBox.disabled).toBe(true);
 });
 
+it("adminRole_canRegrantDriftedProtectedGrantButCannotRemoveHeldOne", async () => {
+	const fetchMock = installFetchStub();
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockResolvedValue(undefined);
+	// Drift: the admin role lost role:read in storage.
+	details.ROLE_admin = {
+		...details.ROLE_admin,
+		permissions: [productCreate, userRead],
+	};
+
+	renderPanel();
+	await flush();
+
+	const roleReadBox = screen.getByRole("checkbox", {
+		name: /role:read/i,
+	}) as HTMLInputElement;
+	const userReadBox = screen.getByRole("checkbox", {
+		name: /user:read/i,
+	}) as HTMLInputElement;
+
+	// A protected grant the admin does NOT hold can be re-added…
+	expect(roleReadBox.checked).toBe(false);
+	expect(roleReadBox.disabled).toBe(false);
+	fireEvent.click(roleReadBox);
+	expect(roleReadBox.checked).toBe(true);
+
+	// …while a held protected grant cannot be unchecked.
+	expect(userReadBox.checked).toBe(true);
+	expect(userReadBox.disabled).toBe(true);
+	fireEvent.click(userReadBox);
+	expect(userReadBox.checked).toBe(true);
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Save permission changes" }),
+	);
+	fireEvent.click(
+		screen.getByRole("button", { name: "Save permissions" }),
+	);
+	await flush();
+
+	// The payload carries the re-added grant and keeps the held one.
+	expect(putCallBodies(fetchMock)).toEqual([
+		{
+			permissionIds: [
+				"PERM_product-create",
+				"PERM_role-read",
+				"PERM_user-read",
+			],
+		},
+	]);
+});
+
 it("systemRole_cannotBeDeleted", async () => {
 	const fetchMock = installFetchStub();
 	renderPanel();
