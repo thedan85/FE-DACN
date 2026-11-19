@@ -949,7 +949,7 @@ function MediaFormModal({ initial, onCancel, onSaved }: MediaFormModalProps) {
 					label="Image URL"
 					rules={[
 						{ required: true, whitespace: true, message: "Enter the image URL." },
-						{ max: MEDIA_URL_MAX_LENGTH, message: "The URL must be 500 characters or fewer." },
+						{ max: MEDIA_URL_MAX_LENGTH, message: `The URL must be ${MEDIA_URL_MAX_LENGTH} characters or fewer.` },
 						{
 							validator: (_, value: string) => {
 								const problem = validateMediaUrl(value ?? "");

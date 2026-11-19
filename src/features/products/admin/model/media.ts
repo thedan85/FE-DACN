@@ -59,12 +59,13 @@ export function validateMediaUrl(url: string): string | null {
 	return null;
 }
 
+/** What a media row renders as. */
 export type MediaPreview =
-	/// The row renders as an image (the Cloudinary host the Next image config allows).
+	/** The Cloudinary host the Next image config allows — rendered as an image. */
 	| { kind: "image" }
-	/// Any other HTTPS host renders as a labelled external link.
-	| { kind: "link"; href: string; host: string }
-	/// A `javascript:` or malformed URL renders neither image nor link.
+	/** Any other HTTPS host renders as a labelled external link. */
+	| { kind: "link"; href: string }
+	/** A `javascript:` or malformed URL renders neither image nor link. */
 	| { kind: "none" };
 
 /**
@@ -93,7 +94,7 @@ export function mediaPreviewKind(url: string): MediaPreview {
 		return { kind: "image" };
 	}
 
-	return { kind: "link", href: parsed.toString(), host: parsed.hostname };
+	return { kind: "link", href: parsed.toString() };
 }
 
 /**
