@@ -687,7 +687,7 @@ export function RolesPermissionsPanel() {
 										<Alert
 											type="error"
 											showIcon
-											className={`${styles.notice} ${styles.grantsError}`}
+											className={styles.notice}
 											title={grantsError}
 										/>
 									)}
