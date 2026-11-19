@@ -10,13 +10,13 @@ import { EditOutlined } from "@ant-design/icons";
 
 import { ApiError } from "@/lib/api/client";
 import { formatVndPrice } from "@/features/products/storefront/model/product-format";
-import { getCategories } from "@/features/products/api/products.api";
 import type {
 	Category,
 	ProductDetail,
 	ProductPage,
 } from "@/features/products/types";
 
+import { listAdminCategories } from "../api/categories.api";
 import {
 	getAdminProductDetailBySlug,
 	listAdminProducts,
@@ -161,7 +161,7 @@ export function ProductsListing() {
 	useEffect(() => {
 		let active = true;
 
-		getCategories()
+		listAdminCategories()
 			.then((result) => {
 				if (active) {
 					setCategories(result);

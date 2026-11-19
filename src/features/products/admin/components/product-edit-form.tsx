@@ -6,7 +6,6 @@ import { Alert, App, Button, Card, Form, Popconfirm, Typography } from "antd";
 import { ArrowLeftOutlined, ExportOutlined } from "@ant-design/icons";
 
 import { ApiError } from "@/lib/api/client";
-import { getCategories } from "@/features/products/api/products.api";
 import { formatDate } from "@/features/products/storefront/model/product-format";
 import type {
 	Category,
@@ -14,6 +13,7 @@ import type {
 	ProductDetail,
 } from "@/features/products/types";
 
+import { listAdminCategories } from "../api/categories.api";
 import { deleteProduct, patchProduct, putProduct } from "../api/products.api";
 import { CATALOG_PERMISSIONS } from "../model/permissions";
 import {
@@ -123,7 +123,7 @@ export function ProductEditForm({ detail }: ProductEditFormProps) {
 	useEffect(() => {
 		let active = true;
 
-		getCategories()
+		listAdminCategories()
 			.then((result) => {
 				if (active) {
 					setCategories(result);

@@ -23,6 +23,9 @@ it("mirrors the backend's permission codes exactly", () => {
 		variantDelete: "variant:delete",
 		attributeCreate: "attribute:create",
 		attributeDelete: "attribute:delete",
+		categoryCreate: "category:create",
+		categoryUpdate: "category:update",
+		categoryDelete: "category:delete",
 		mediaCreate: "media:create",
 	});
 });
