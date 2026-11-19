@@ -1,0 +1,77 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 20px;
+}
+
+.title:global(.ant-typography) {
+	margin: 0 0 4px;
+	color: var(--color-admin-panel-text-strong);
+	/* 34px/700 is the design's page title, matching the other admin views. */
+	font-size: 34px;
+	line-height: 42px;
+	font-weight: 700;
+	letter-spacing: -0.85px;
+}
+
+/* The cards' radius and border come from AdminCatalogTheme; nothing here
+   duplicates them. */
+.columns {
+	display: grid;
+	grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+	gap: 24px;
+	align-items: start;
+}
+
+.nameCell {
+	padding-inline: 0;
+	height: auto;
+	color: var(--color-admin-panel-text-strong);
+	font-size: 13px;
+	font-weight: 600;
+	white-space: normal;
+	text-align: start;
+}
+
+.nameCell:global(.ant-btn) {
+	text-align: start;
+}
+
+.selectedRow:global(.ant-table-row) > :global(.ant-table-cell) {
+	background: var(--color-admin-panel-surface-subtle);
+}
+
+.valueCell {
+	color: var(--color-admin-panel-text-strong);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.valueAlert {
+	margin: 16px 16px 0;
+}
+
+.formError {
+	margin-bottom: 16px;
+}
+
+@media (max-width: 900px) {
+	.columns {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 767px) {
+	.title:global(.ant-typography) {
+		font-size: 24px;
+		line-height: 32px;
+	}
+}

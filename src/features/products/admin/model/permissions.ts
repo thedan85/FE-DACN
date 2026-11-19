@@ -15,6 +15,7 @@ export const CATALOG_PERMISSIONS = {
 	variantUpdate: "variant:update",
 	variantDelete: "variant:delete",
 	attributeCreate: "attribute:create",
+	attributeUpdate: "attribute:update",
 	attributeDelete: "attribute:delete",
 	categoryCreate: "category:create",
 	categoryUpdate: "category:update",
