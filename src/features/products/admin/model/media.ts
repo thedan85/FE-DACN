@@ -20,6 +20,108 @@ import { productCurrentValues } from "./product-edit";
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 /**
+ * The media row's URL rules as the UI enforces them. The backend's
+ * `MediaCreateRequest` only checks `@NotBlank`, so these are the UI's
+ * responsibility — HTTPS only, bounded length, no embedded credentials
+ * (`https://user:pass@host/...` would leak the secret into every rendered
+ * image URL).
+ */
+export const MEDIA_URL_MAX_LENGTH = 500;
+
+/** Why this URL cannot be used for a media row, or `null` when it can. */
+export function validateMediaUrl(url: string): string | null {
+	const trimmed = url.trim();
+
+	if (!trimmed) {
+		return "Enter the image URL.";
+	}
+
+	if (trimmed.length > MEDIA_URL_MAX_LENGTH) {
+		return `The URL must be ${MEDIA_URL_MAX_LENGTH} characters or fewer.`;
+	}
+
+	let parsed: URL;
+
+	try {
+		parsed = new URL(trimmed);
+	} catch {
+		return "That URL is not valid. Check it and try again.";
+	}
+
+	if (parsed.protocol !== "https:") {
+		return "The URL must start with https://.";
+	}
+
+	if (parsed.username || parsed.password) {
+		return "The URL must not embed credentials.";
+	}
+
+	return null;
+}
+
+export type MediaPreview =
+	/// The row renders as an image (the Cloudinary host the Next image config allows).
+	| { kind: "image" }
+	/// Any other HTTPS host renders as a labelled external link.
+	| { kind: "link"; href: string; host: string }
+	/// A `javascript:` or malformed URL renders neither image nor link.
+	| { kind: "none" };
+
+/**
+ * What a media row is allowed to render. Only the configured Cloudinary
+ * host renders as an image — `next.config.ts` remotePatterns is the
+ * allowlist — every other HTTPS host degrades to a link with
+ * `rel="noreferrer"`, and anything else renders nothing clickable.
+ */
+export function mediaPreviewKind(url: string): MediaPreview {
+	let parsed: URL;
+
+	try {
+		parsed = new URL(url);
+	} catch {
+		return { kind: "none" };
+	}
+
+	if (parsed.protocol !== "https:") {
+		return { kind: "none" };
+	}
+
+	if (
+		parsed.hostname === "res.cloudinary.com" &&
+		parsed.pathname.startsWith("/ibk3z2nt/")
+	) {
+		return { kind: "image" };
+	}
+
+	return { kind: "link", href: parsed.toString(), host: parsed.hostname };
+}
+
+/**
+ * The owner label for a media row. Rows are labelled from their returned
+ * owner fields, never from the filter that found them: the product media
+ * endpoint falls back to variant-owned rows when the product has no direct
+ * media. Absent metadata degrades to "—" rather than a guess.
+ */
+export function ownerLabel(media: {
+	productId: string | null;
+	variantId: string | null;
+}): string {
+	const variant = media.variantId?.trim();
+
+	if (variant) {
+		return `Variant ${variant}`;
+	}
+
+	const product = media.productId?.trim();
+
+	if (product) {
+		return `Product ${product}`;
+	}
+
+	return "—";
+}
+
+/**
  * `UploadService.ALLOWED_TYPES`, in the order the picker lists them.
  *
  * Exported because the file picker's `accept` attribute has to name the same

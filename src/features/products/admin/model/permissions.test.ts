@@ -28,6 +28,8 @@ it("mirrors the backend's permission codes exactly", () => {
 		categoryUpdate: "category:update",
 		categoryDelete: "category:delete",
 		mediaCreate: "media:create",
+		mediaUpdate: "media:update",
+		mediaDelete: "media:delete",
 	});
 });
 

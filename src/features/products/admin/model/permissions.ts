@@ -21,6 +21,8 @@ export const CATALOG_PERMISSIONS = {
 	categoryUpdate: "category:update",
 	categoryDelete: "category:delete",
 	mediaCreate: "media:create",
+	mediaUpdate: "media:update",
+	mediaDelete: "media:delete",
 } as const;
 
 /** A permission this feature knows how to check. */

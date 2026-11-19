@@ -1,0 +1,126 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 20px;
+}
+
+.title:global(.ant-typography) {
+	margin: 0 0 4px;
+	color: var(--color-admin-panel-text-strong);
+	/* 34px/700 is the design's page title, matching the other admin views. */
+	font-size: 34px;
+	line-height: 42px;
+	font-weight: 700;
+	letter-spacing: -0.85px;
+}
+
+.toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 20px;
+	border-bottom: 1px solid var(--color-admin-panel-border);
+}
+
+.select {
+	min-width: 150px;
+	min-height: 38px;
+}
+
+.select :global(.ant-select-selector) {
+	border-radius: 6px;
+}
+
+.selectWide {
+	min-width: 220px;
+	min-height: 38px;
+	flex: 1;
+}
+
+.selectWide :global(.ant-select-selector) {
+	border-radius: 6px;
+}
+
+.notice {
+	margin: 12px 20px 0;
+}
+
+.thumb {
+	position: relative;
+	display: block;
+	width: 64px;
+	height: 64px;
+	overflow: hidden;
+	border-radius: 6px;
+	border: 1px solid var(--color-admin-panel-border);
+	background: var(--color-admin-panel-surface-subtle);
+}
+
+.thumbImage {
+	object-fit: cover;
+}
+
+.externalLink {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--color-brand-deep-teal);
+	font-size: 13px;
+}
+
+.urlCell {
+	display: inline-block;
+	max-width: 320px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	vertical-align: bottom;
+	color: var(--color-admin-panel-text-strong);
+	font-size: 13px;
+}
+
+.ownerCell {
+	color: var(--color-admin-panel-text-strong);
+	font-size: 13px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.pagination {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 12px;
+	padding: 16px 20px;
+	border-top: 1px solid var(--color-admin-panel-border);
+}
+
+.formError {
+	margin-bottom: 16px;
+}
+
+.mutedCell {
+	color: var(--color-admin-panel-text-muted);
+	font-size: 13px;
+}
+
+@media (max-width: 767px) {
+	.title:global(.ant-typography) {
+		font-size: 24px;
+		line-height: 32px;
+	}
+
+	.urlCell {
+		max-width: 160px;
+	}
+}

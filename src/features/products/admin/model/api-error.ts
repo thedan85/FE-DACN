@@ -24,6 +24,14 @@ export function apiErrorMessage(caught: unknown, fallback: string): string {
 }
 
 /**
+ * True when the server said the row is already gone. A concurrent delete
+ * wins the race and the caller refreshes the list instead of retrying.
+ */
+export function isNotFound(caught: unknown): caught is ApiError {
+	return caught instanceof ApiError && caught.status === 404;
+}
+
+/**
  * True when the server rejected the request because the value is already taken.
  *
  * Only the caller knows which field a 409 belongs to — a variant's is its SKU, a
