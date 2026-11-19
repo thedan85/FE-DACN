@@ -38,7 +38,9 @@ const PAGE_SIZE = 100;
 
 async function fetchCategoryPage(page: number): Promise<CategoryPage> {
 	const payload = await apiFetch<unknown>(
-		`categories?page=${page}&size=${PAGE_SIZE}`,
+		// `sort` keeps every page on one stable order; offset paging cannot
+		// promise a snapshot under concurrent writes.
+		`categories?page=${page}&size=${PAGE_SIZE}&sort=categoryId,asc`,
 		{ headers: getAuthHeaders() },
 	);
 

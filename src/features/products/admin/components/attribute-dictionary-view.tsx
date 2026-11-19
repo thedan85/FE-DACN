@@ -22,7 +22,10 @@ import {
 	PlusOutlined,
 } from "@ant-design/icons";
 
-import { handleAdminAuthFailure } from "@/features/auth/admin/model/admin-auth-failure";
+import {
+	adminAuthFailureFeedback,
+	handleAdminAuthFailure,
+} from "@/features/auth/admin/model/admin-auth-failure";
 import { AccessDeniedState } from "@/components/feedback/access-denied-state";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -554,6 +557,11 @@ function DeleteAttributeButton({
 				message.error(
 					apiErrorMessage(caught, `Could not delete "${attribute.name}".`),
 				);
+			} else {
+				const feedback = adminAuthFailureFeedback(outcome);
+				if (feedback !== null) {
+					message.error(feedback);
+				}
 			}
 		} finally {
 			setDeleting(false);
@@ -626,6 +634,11 @@ function DeleteValueButton({ value, onDeleted, onError }: DeleteValueButtonProps
 							`Could not delete "${value.value}". Please try again.`,
 						),
 					);
+				}
+			} else {
+				const feedback = adminAuthFailureFeedback(outcome);
+				if (feedback !== null) {
+					onError(feedback);
 				}
 			}
 		} finally {

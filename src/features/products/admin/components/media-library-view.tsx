@@ -27,7 +27,10 @@ import {
 	PlusOutlined,
 } from "@ant-design/icons";
 
-import { handleAdminAuthFailure } from "@/features/auth/admin/model/admin-auth-failure";
+import {
+	adminAuthFailureFeedback,
+	handleAdminAuthFailure,
+} from "@/features/auth/admin/model/admin-auth-failure";
 import { AccessDeniedState } from "@/components/feedback/access-denied-state";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -784,6 +787,11 @@ function DeleteMediaButton({
 							`Could not delete media ${media.mediaId}.`,
 						),
 					);
+				}
+			} else {
+				const feedback = adminAuthFailureFeedback(outcome);
+				if (feedback !== null) {
+					message.error(feedback);
 				}
 			}
 		} finally {

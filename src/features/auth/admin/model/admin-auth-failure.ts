@@ -53,3 +53,30 @@ export async function handleAdminAuthFailure(
 
 	return "unhandled";
 }
+
+/** Shown when a write is refused because the account lacks the permission. */
+export const ADMIN_FORBIDDEN_ACTION_MESSAGE =
+	"You do not have permission to perform this action.";
+/** Shown when a 401 stayed on the page because the session rehydrated. */
+export const ADMIN_SESSION_REFRESHED_MESSAGE =
+	"Your session was refreshed. Please try again.";
+
+/**
+ * The feedback copy for a rejected admin action, or `null` when none should
+ * be shown. A 401 that redirects to `/admin/login` leaves no page for a
+ * toast to land on, so it is suppressed; only the surviving (rehydrated)
+ * session gets told to retry. `unhandled` stays the caller's own copy.
+ */
+export function adminAuthFailureFeedback(
+	outcome: AdminAuthFailureOutcome,
+): string | null {
+	if (outcome === "forbidden") {
+		return ADMIN_FORBIDDEN_ACTION_MESSAGE;
+	}
+
+	if (outcome === "unauthorized") {
+		return getAccessToken() !== null ? ADMIN_SESSION_REFRESHED_MESSAGE : null;
+	}
+
+	return null;
+}

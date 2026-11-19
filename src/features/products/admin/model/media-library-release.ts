@@ -3,8 +3,9 @@
  *
  * The release check deleted a current product thumbnail through
  * `DELETE /media/{id}`: the product list and detail stayed readable and the
- * thumbnail cleared to `null`, matching the confirmation copy. A backend data
- * defect still breaks the unfiltered admin media list (one row fails to
- * serialize), but that is unrelated to deletion.
+ * thumbnail cleared to `null`, matching the confirmation copy. The unfiltered
+ * admin media list returns 500 (observed live); the cause is not confirmed
+ * and is unrelated to deletion. The product-owner filter is the documented
+ * workaround until the backend is fixed.
  */
 export const mediaDeleteEnabled = true;

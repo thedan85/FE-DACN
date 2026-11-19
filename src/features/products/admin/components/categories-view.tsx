@@ -24,7 +24,10 @@ import {
 	PlusOutlined,
 } from "@ant-design/icons";
 
-import { handleAdminAuthFailure } from "@/features/auth/admin/model/admin-auth-failure";
+import {
+	adminAuthFailureFeedback,
+	handleAdminAuthFailure,
+} from "@/features/auth/admin/model/admin-auth-failure";
 import { AccessDeniedState } from "@/components/feedback/access-denied-state";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -369,6 +372,13 @@ function DeleteCategoryButton({
 				message.error(
 					apiErrorMessage(caught, `Could not delete "${category.name}".`),
 				);
+			} else {
+				// A 401 that is on its way to login gets no toast; a rehydrated
+				// session and a 403 both get actionable copy.
+				const feedback = adminAuthFailureFeedback(outcome);
+				if (feedback !== null) {
+					message.error(feedback);
+				}
 			}
 		} finally {
 			setDeleting(false);
@@ -378,7 +388,7 @@ function DeleteCategoryButton({
 	return (
 		<Popconfirm
 			title={`Delete "${category.name}"?`}
-			description="The category is soft-deleted and stops appearing everywhere it is listed. This cannot be undone from the portal."
+			description="The category is soft-deleted and stops appearing everywhere it is listed. Products attached to this category may lose their category — the portal does not verify product associations. This cannot be undone from the portal."
 			okText="Delete category"
 			okButtonProps={{ danger: true, disabled: deleting }}
 			cancelText="Cancel"

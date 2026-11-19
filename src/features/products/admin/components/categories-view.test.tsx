@@ -11,6 +11,7 @@ import {
 import { App } from "antd";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { clearSession, setAccessToken } from "@/features/auth/session";
 import { useAuthStore } from "@/stores/auth-store";
 
 import { CategoriesView } from "./categories-view";
@@ -143,6 +144,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+	clearSession();
 	vi.unstubAllGlobals();
 	vi.unstubAllEnvs();
 	vi.restoreAllMocks();
@@ -325,6 +327,110 @@ it("moving a category to the root submits one PUT with parentCategoryId null", a
 	expect(JSON.parse(String((init as RequestInit).body))).toEqual({
 		parentCategoryId: null,
 	});
+});
+
+it("delete confirmation warns that attached products may lose the category", async () => {
+	stubFetch(page([rootCategory, childCategory]));
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Delete Coral" }));
+
+	expect(
+		screen.getByText(
+			/products attached to this category may lose their category/i,
+		),
+	).toBeTruthy();
+});
+
+it("delete403_showsTheSharedPermissionMessage", async () => {
+	stubFetch(
+		page([rootCategory, childCategory]),
+		{
+			status: 403,
+			body: { code: 403, message: "Access denied", data: null },
+		},
+	);
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Delete Coral" }));
+	fireEvent.click(screen.getByRole("button", { name: "Delete category" }));
+	await flush();
+
+	expect(
+		screen.getByText("You do not have permission to perform this action."),
+	).toBeTruthy();
+	// The row stays clickable; nothing is retried.
+	expect(
+		screen.getByRole("button", { name: "Delete Coral" }),
+	).toBeTruthy();
+});
+
+it("delete401_navigatesToLoginWithoutAStaleToast", async () => {
+	stubFetch(
+		page([rootCategory, childCategory]),
+		{
+			status: 401,
+			body: { code: 401, message: "Unauthorized", data: null },
+		},
+	);
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Delete Coral" }));
+	fireEvent.click(screen.getByRole("button", { name: "Delete category" }));
+	await flush();
+
+	expect(nav.replace).toHaveBeenCalledWith("/admin/login");
+	expect(
+		screen.queryByText("You do not have permission to perform this action."),
+	).toBeNull();
+	expect(
+		screen.queryByText("Your session was refreshed. Please try again."),
+	).toBeNull();
+});
+
+it("delete401_sessionRehydrated_showsTheRetryMessage", async () => {
+	setAccessToken("rehydrated-token");
+	stubFetch(
+		page([rootCategory, childCategory]),
+		{
+			status: 401,
+			body: { code: 401, message: "Unauthorized", data: null },
+		},
+	);
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Delete Coral" }));
+	fireEvent.click(screen.getByRole("button", { name: "Delete category" }));
+	await flush();
+
+	expect(nav.replace).not.toHaveBeenCalled();
+	expect(
+		screen.getByText("Your session was refreshed. Please try again."),
+	).toBeTruthy();
 });
 
 it("a successful delete reloads the list", async () => {

@@ -91,6 +91,27 @@ it("reads every page of the admin category list", async () => {
 	).toBe(true);
 });
 
+/**
+ * Offset paging can only sort what it is told to sort: every page of the
+ * admin category list must carry the order the UI relies on.
+ */
+it("sends sort=categoryId,asc on every category list page", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const pageZero = { ...root, name: "Zeta root" };
+	const pageOne = { ...child, name: "Alpha child" };
+	const fetch = stubFetch(
+		categoryPage([pageZero], 0, 2, 2),
+		categoryPage([pageOne], 1, 2, 2),
+	);
+
+	await listAdminCategories();
+
+	const sorts = fetch.mock.calls.map(([url]) =>
+		new URL(String(url)).searchParams.get("sort"),
+	);
+	expect(sorts).toEqual(["categoryId,asc", "categoryId,asc"]);
+});
+
 it("moveCategoryToRoot sends one PUT with parentCategoryId null", async () => {
 	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
 	const fetch = stubFetch(ok({ ...child, parentCategoryId: null }));

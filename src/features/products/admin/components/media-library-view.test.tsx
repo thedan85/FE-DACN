@@ -439,6 +439,66 @@ it("mediaDelete_isEnabledAfterReleaseCheck", async () => {
 	).toBeTruthy();
 });
 
+it("mediaDelete403_showsTheSharedPermissionMessage", async () => {
+	release.value = true;
+	stubFetch(
+		page([mediaRow({ mediaId: "MED_DENIED" })]),
+		{
+			status: 403,
+			body: { code: 403, message: "Access denied", data: null },
+		},
+	);
+
+	render(
+		<App>
+			<MediaLibraryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Delete media MED_DENIED" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Delete media" }));
+	await flush();
+
+	expect(
+		screen.getByText("You do not have permission to perform this action."),
+	).toBeTruthy();
+});
+
+it("mediaDelete401_navigatesToLoginWithoutAStaleToast", async () => {
+	release.value = true;
+	stubFetch(
+		page([mediaRow({ mediaId: "MED_GONE" })]),
+		{
+			status: 401,
+			body: { code: 401, message: "Unauthorized", data: null },
+		},
+	);
+
+	render(
+		<App>
+			<MediaLibraryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Delete media MED_GONE" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Delete media" }));
+	await flush();
+
+	expect(nav.replace).toHaveBeenCalledWith("/admin/login");
+	expect(
+		screen.queryByText("You do not have permission to perform this action."),
+	).toBeNull();
+	expect(
+		screen.queryByText("Your session was refreshed. Please try again."),
+	).toBeNull();
+});
+
 it("mediaCreate_usesExactlyOneOwner", async () => {
 	// A URL-routed mock keeps this test robust against call-order changes.
 	const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

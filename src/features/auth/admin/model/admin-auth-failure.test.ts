@@ -4,7 +4,7 @@ import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
 import { getAccessToken } from "@/features/auth/session";
-import { handleAdminAuthFailure } from "./admin-auth-failure";
+import { adminAuthFailureFeedback, handleAdminAuthFailure } from "./admin-auth-failure";
 
 vi.mock("@/features/auth/session", () => ({
 	getAccessToken: vi.fn(),
@@ -65,6 +65,32 @@ it("adminAuthFailure_403RefreshesPermissions", async () => {
 	expect(revalidate).toHaveBeenCalledTimes(1);
 	expect(replace).not.toHaveBeenCalled();
 	expect(outcome).toBe("forbidden");
+});
+
+it("feedback_forbiddenNamesTheMissingPermission", () => {
+	expect(adminAuthFailureFeedback("forbidden")).toBe(
+		"You do not have permission to perform this action.",
+	);
+});
+
+it("feedback_401WithoutASurvivingSessionSaysNothing", () => {
+	vi.mocked(getAccessToken).mockReturnValue(null);
+
+	// The redirect to /admin/login is already on its way; a toast would be
+	// stale before it renders.
+	expect(adminAuthFailureFeedback("unauthorized")).toBeNull();
+});
+
+it("feedback_401WithARehydratedSessionAsksForARetry", () => {
+	vi.mocked(getAccessToken).mockReturnValue("fresh-token");
+
+	expect(adminAuthFailureFeedback("unauthorized")).toBe(
+		"Your session was refreshed. Please try again.",
+	);
+});
+
+it("feedback_unhandledStaysTheCallersOwnBusiness", () => {
+	expect(adminAuthFailureFeedback("unhandled")).toBeNull();
 });
 
 it("leaves non-auth failures unhandled", async () => {

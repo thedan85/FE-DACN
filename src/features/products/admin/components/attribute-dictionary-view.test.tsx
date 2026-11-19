@@ -263,6 +263,102 @@ it("linkedValueDelete_keepsRowOnConflict", async () => {
 	);
 });
 
+it("attributeDelete403_showsTheSharedPermissionMessage", async () => {
+	stubFetch(
+		page([colorAttribute]),
+		page([blueValue]),
+		{
+			status: 403,
+			body: { code: 403, message: "Access denied", data: null },
+		},
+	);
+
+	render(
+		<App>
+			<AttributeDictionaryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Color" }));
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Delete Color" }));
+	fireEvent.click(screen.getByRole("button", { name: "Delete attribute" }));
+	await flush();
+
+	expect(
+		screen.getByText("You do not have permission to perform this action."),
+	).toBeTruthy();
+});
+
+it("valueDelete403_showsTheSharedPermissionMessageInThePane", async () => {
+	stubFetch(
+		page([colorAttribute]),
+		page([blueValue]),
+		{
+			status: 403,
+			body: { code: 403, message: "Access denied", data: null },
+		},
+	);
+
+	render(
+		<App>
+			<AttributeDictionaryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Color" }));
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Delete value Blue" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Delete value" }));
+	await flush();
+
+	expect(
+		screen.getByText("You do not have permission to perform this action."),
+	).toBeTruthy();
+	expect(screen.getByText("Blue")).toBeTruthy();
+});
+
+it("valueDelete401_navigatesToLoginWithoutPaneNoise", async () => {
+	stubFetch(
+		page([colorAttribute]),
+		page([blueValue]),
+		{
+			status: 401,
+			body: { code: 401, message: "Unauthorized", data: null },
+		},
+	);
+
+	render(
+		<App>
+			<AttributeDictionaryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Color" }));
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Delete value Blue" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Delete value" }));
+	await flush();
+
+	expect(nav.replace).toHaveBeenCalledWith("/admin/login");
+	expect(
+		screen.queryByText("You do not have permission to perform this action."),
+	).toBeNull();
+	expect(
+		screen.queryByText("Your session was refreshed. Please try again."),
+	).toBeNull();
+});
+
 it("deleting the selected attribute clears the selection", async () => {
 	stubFetch(
 		page([colorAttribute, sizeAttribute]),
