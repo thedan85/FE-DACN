@@ -484,9 +484,6 @@ export function CustomersView() {
 							rowClassName={(row) =>
 								row.userId === selectedId ? styles.selectedRow : ""
 							}
-							onRow={(row) => ({
-								onClick: () => setSelectedId(row.userId),
-							})}
 						/>
 					)}
 
