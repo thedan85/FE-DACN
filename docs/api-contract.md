@@ -307,6 +307,28 @@ deviation from the normalizer, not as a body-shape fact.
 | Admin vs Employee | Both seeded accounts hold identical catalog rights; Admin's only extra is `order:complete`, so a catalog difference between them is **not observable** | **[both]** |
 | `403` shape | `ApiResponse{code:403, message:"Access denied"}` via `CustomAccessDeniedHandler` (filter chain) / `GlobalExceptionHandler` (`@PreAuthorize`) | **[source]** until re-verified live |
 
+## Admin management surfaces
+
+Verified while implementing the admin-management pages. The admin screens read
+the same endpoints the storefront uses; the differences are auth headers and
+the hidden-row allowance for staff.
+
+| Fact | Behaviour | Mark |
+|---|---|---|
+| Category verbs | `PATCH /categories/{id}` keeps the current parent when `parentCategoryId` is omitted; `PUT` with `parentCategoryId: null` detaches to root. A rename-only `PATCH` must not carry `parentCategoryId` | **[both]** |
+| Category delete | Soft delete with **no child guard** on the server. The UI blocks the button while a loaded child exists; a stale view can still delete a parent | **[source]** |
+| Category slugs | DB-unique, duplicate answers `409`; name and slug are `VARCHAR(255)`. The UI trims and enforces nonblank and ≤255 before the request | **[both]** |
+| Attribute/value writes | Attribute bodies are `{name}`; value create is `{attributeId, value}`; value update is `{value}` **only**. Value delete is a **hard** delete, and a value still linked to a product or variant answers `409` | **[both]** |
+| Attribute permissions | There is no `attribute-value:*` code. Value writes use `attribute:create/update/delete` | **[source]** |
+| Attribute uniqueness | Attribute names and values are case-insensitively unique; duplicates answer `409`, widths are `VARCHAR(255)` | **[source]** |
+| Product media filter | `GET /products/{id}/media` **falls back to variant-owned rows when the product has no direct media**. Label rows from the returned `variantId`, never from the filter | **[source]** |
+| `POST /media` URL | The backend validates only `@NotBlank`. HTTPS, length ≤500, and no embedded credentials are UI rules, not server rules | **[source]** |
+| Media delete release | Deleting a current product thumbnail returns `200 data:null`; the product list and detail stay `200` and the thumbnail becomes `null`. Release check ran live before enabling the UI action | **[both]** |
+| Thumbnail authority mismatch | Media deletion needs `media:delete`, while removing a thumbnail through the product form needs `product:update`. An account can therefore delete the row but not clear the product's pointer. Accepted risk for this release; the backend needs a reject-or-unlink guard before the two permissions can be treated as one | **[source]** |
+| Shared `401`/`403` | `401` revalidates the session and redirects to login only when no access token remains; `403` revalidates permissions. Admin views route every failure through the shared helper and keep a readable result on the page | **[both]** |
+| Customer profile PATCH | `PATCH /admin/users/{id}/profile` accepts `name`, `phone`, `address`; omitted fields stay, explicit `address: null` clears, blank values read as cleared. `400` for empty/invalid/extra fields, `403` without `user:update`, `404` for absent, deleted, or non-customer targets; a locked target is allowed | **[both]** |
+| `assertNoCycle` legacy risk | The category cycle check walks parents without a visited set. A legacy cyclic row can make it loop; the UI keeps cyclic rows out of parent pickers but the server risk stays until the backend guards it | **[source]** |
+
 ## antd naming that reads like a backend fact
 
 Not the API's business, but recorded here because it cost the same debugging
