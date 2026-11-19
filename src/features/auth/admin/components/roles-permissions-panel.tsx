@@ -23,6 +23,7 @@ import { AccessDeniedState } from "@/components/feedback/access-denied-state";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
+import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore";
 import { useAuthStore } from "@/stores/auth-store";
 
 import {
@@ -124,6 +125,15 @@ export function RolesPermissionsPanel() {
 	const [deleting, setDeleting] = useState(false);
 
 	const initializedFor = useRef<string | null>(null);
+
+	const anyDialogOpen =
+		createOpen || grantsConfirmOpen || deleteTarget !== null;
+	const { headingRef, captureTrigger, requestFocusRestore } =
+		useDialogFocusRestore({
+			settled: listState.status !== "loading",
+			anyDialogOpen,
+			settleSignal: listState,
+		});
 
 	useEffect(() => {
 		if (!mayRoleRead) {
@@ -367,6 +377,8 @@ export function RolesPermissionsPanel() {
 				),
 			);
 		} finally {
+			// Every path through the try closes the confirmation dialog.
+			requestFocusRestore();
 			setGrantsSaving(false);
 		}
 	};
@@ -440,6 +452,8 @@ export function RolesPermissionsPanel() {
 				apiErrorMessage(caught, "Could not delete the role."),
 			);
 		} finally {
+			// Every path through the try closes the confirmation dialog.
+			requestFocusRestore();
 			setDeleting(false);
 		}
 	};
@@ -460,7 +474,7 @@ export function RolesPermissionsPanel() {
 			<section className={styles.page}>
 				<header className={styles.header}>
 					<div>
-						<Title level={1} className={styles.title}>
+						<Title level={1} className={styles.title} ref={headingRef} tabIndex={-1}>
 							Roles &amp; Permissions
 						</Title>
 						<Text type="secondary">
@@ -470,7 +484,10 @@ export function RolesPermissionsPanel() {
 					{mayCreate && (
 						<Button
 							type="primary"
-							onClick={() => setCreateOpen(true)}
+							onClick={(event) => {
+								captureTrigger(event);
+								setCreateOpen(true);
+							}}
 						>
 							New role
 						</Button>
@@ -496,7 +513,13 @@ export function RolesPermissionsPanel() {
 						title="No roles yet."
 						action={
 							mayCreate ? (
-								<Button type="primary" onClick={() => setCreateOpen(true)}>
+								<Button
+									type="primary"
+									onClick={(event) => {
+										captureTrigger(event);
+										setCreateOpen(true);
+									}}
+								>
 									New role
 								</Button>
 							) : undefined
@@ -540,7 +563,10 @@ export function RolesPermissionsPanel() {
 												size="small"
 												danger
 												aria-label={`Delete ${role.name}`}
-												onClick={() => setDeleteTarget(role)}
+												onClick={(event) => {
+													captureTrigger(event);
+													setDeleteTarget(role);
+												}}
 											>
 												Delete
 											</Button>
@@ -707,7 +733,10 @@ export function RolesPermissionsPanel() {
 											<Button
 												type="primary"
 												disabled={!grantsDirty || grantsSaving}
-												onClick={() => setGrantsConfirmOpen(true)}
+												onClick={(event) => {
+													captureTrigger(event);
+													setGrantsConfirmOpen(true);
+												}}
 											>
 												Save permission changes
 											</Button>
@@ -721,8 +750,12 @@ export function RolesPermissionsPanel() {
 
 				{createOpen && (
 					<CreateRoleModal
-						onClose={() => setCreateOpen(false)}
+						onClose={() => {
+							requestFocusRestore();
+							setCreateOpen(false);
+						}}
 						onCreated={(created) => {
+							requestFocusRestore();
 							setCreateOpen(false);
 							setListReloadKey((key) => key + 1);
 							setSelectedRoleId(created.roleId);
@@ -740,7 +773,10 @@ export function RolesPermissionsPanel() {
 						cancelText="Cancel"
 						confirmLoading={deleting}
 						onConfirm={confirmDelete}
-						onCancel={() => setDeleteTarget(null)}
+						onCancel={() => {
+							requestFocusRestore();
+							setDeleteTarget(null);
+						}}
 					/>
 				)}
 
@@ -753,7 +789,10 @@ export function RolesPermissionsPanel() {
 						cancelText="Cancel"
 						confirmLoading={grantsSaving}
 						onConfirm={saveGrants}
-						onCancel={() => setGrantsConfirmOpen(false)}
+						onCancel={() => {
+							requestFocusRestore();
+							setGrantsConfirmOpen(false);
+						}}
 					/>
 				)}
 			</section>

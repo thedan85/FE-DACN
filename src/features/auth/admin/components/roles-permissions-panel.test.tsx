@@ -6,6 +6,7 @@ import {
 	fireEvent,
 	render,
 	screen,
+	waitFor,
 } from "@testing-library/react";
 import { App } from "antd";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -676,4 +677,143 @@ it("deleteRole_conflict409_keepsRoleInList", async () => {
 	expect(
 		screen.getByRole("button", { name: /^Support\b/ }),
 	).toBeTruthy();
+});
+
+it("newRole_escapeReturnsFocusToNewRoleButton", async () => {
+	installFetchStub();
+	renderPanel();
+	await flush();
+
+	const trigger = screen.getByRole("button", { name: "New role" });
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByLabelText("Code").focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(trigger);
+	});
+});
+
+it("grantSave_escapeReturnsFocusToSavePermissionChanges", async () => {
+	installFetchStub();
+	renderPanel();
+	await flush();
+	await selectRole("Support");
+
+	fireEvent.click(
+		screen.getByRole("checkbox", { name: /order:read/i }),
+	);
+	const trigger = screen.getByRole("button", {
+		name: "Save permission changes",
+	});
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByRole("button", { name: "Save permissions" }).focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(trigger);
+	});
+});
+
+it("grantSave_successDisablesTheTriggerAndFocusMovesToTheHeading", async () => {
+	installFetchStub();
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockResolvedValue(undefined);
+	renderPanel();
+	await flush();
+	await selectRole("Support");
+
+	fireEvent.click(
+		screen.getByRole("checkbox", { name: /order:read/i }),
+	);
+	const trigger = screen.getByRole("button", {
+		name: "Save permission changes",
+	});
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	fireEvent.click(screen.getByRole("button", { name: "Save permissions" }));
+	await flush();
+	await flush();
+
+	expect(screen.queryByRole("dialog")).toBeNull();
+	// The clean save disables the trigger; focus must not strand there.
+	expect(
+		(
+			screen.getByRole("button", {
+				name: "Save permission changes",
+			}) as HTMLButtonElement
+		).disabled,
+	).toBe(true);
+	await waitFor(() => {
+		expect(document.activeElement).toBe(
+			screen.getByRole("heading", { name: "Roles & Permissions" }),
+		);
+	});
+});
+
+it("deleteRole_escapeReturnsFocusToDeleteTrigger", async () => {
+	installFetchStub();
+	renderPanel();
+	await flush();
+	await selectRole("Support");
+
+	const trigger = screen.getByRole("button", { name: "Delete Support" });
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByRole("button", { name: "Delete" }).focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(trigger);
+	});
+});
+
+it("deleteRole_successRemovalMovesFocusToTheHeading", async () => {
+	installFetchStub();
+	renderPanel();
+	await flush();
+	await selectRole("Support");
+
+	const trigger = screen.getByRole("button", { name: "Delete Support" });
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+	await flush();
+	await flush();
+
+	expect(screen.queryByRole("dialog")).toBeNull();
+	// The row left the list with the reload; the trigger is gone.
+	expect(
+		screen.queryByRole("button", { name: "Delete Support" }),
+	).toBeNull();
+	await waitFor(() => {
+		expect(document.activeElement).toBe(
+			screen.getByRole("heading", { name: "Roles & Permissions" }),
+		);
+	});
 });

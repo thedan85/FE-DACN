@@ -195,6 +195,60 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
+it("Escape in Add media returns focus to the header button", async () => {
+	stubFetch(page([mediaRow()]));
+
+	render(
+		<App>
+			<MediaLibraryView />
+		</App>,
+	);
+	await flush();
+
+	const add = screen.getByRole("button", { name: /add media/i });
+	add.focus();
+	fireEvent.click(add);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByLabelText("Image URL").focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(add);
+	});
+});
+
+it("Escape in Edit media returns focus to the row trigger", async () => {
+	stubFetch(page([mediaRow()]));
+
+	render(
+		<App>
+			<MediaLibraryView />
+		</App>,
+	);
+	await flush();
+
+	const trigger = screen.getByRole("button", { name: "Edit media MED_1" });
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByLabelText("Image URL").focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(trigger);
+	});
+});
+
 it("mediaList_showsOneBasedPageAndResetsOnFilterChange", { timeout: 20000 }, async () => {
 	const fetch = stubFetch(
 		page([mediaRow()], 0, 3, 50),

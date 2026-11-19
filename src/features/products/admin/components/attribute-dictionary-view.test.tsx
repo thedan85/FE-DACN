@@ -6,6 +6,8 @@ import {
 	fireEvent,
 	render,
 	screen,
+	waitFor,
+	within,
 } from "@testing-library/react";
 import { App } from "antd";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -433,4 +435,121 @@ it("shows the error surface with a retry when the list read fails", async () => 
 
 	expect(screen.getByText("We couldn't load attributes")).toBeTruthy();
 	expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+});
+
+it("Escape in Add attribute returns focus to the header button", async () => {
+	stubFetch(page([colorAttribute]));
+
+	render(
+		<App>
+			<AttributeDictionaryView />
+		</App>,
+	);
+	await flush();
+
+	const add = screen.getByRole("button", { name: /add attribute/i });
+	add.focus();
+	fireEvent.click(add);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByLabelText("Name").focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(add);
+	});
+});
+
+it("Escape in Edit attribute returns focus to the row trigger", async () => {
+	stubFetch(page([colorAttribute]));
+
+	render(
+		<App>
+			<AttributeDictionaryView />
+		</App>,
+	);
+	await flush();
+
+	const trigger = screen.getByRole("button", { name: "Edit Color" });
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByLabelText("Name").focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(trigger);
+	});
+});
+
+it("Escape in Add value from the empty state returns focus to it", async () => {
+	// Two "Add value" buttons render once a selection is made (card header
+	// extra and the empty-state action); target the empty-state one.
+	stubFetch(page([colorAttribute]), page([]));
+
+	render(
+		<App>
+			<AttributeDictionaryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Color" }));
+	await flush();
+
+	const status = screen.getAllByRole("status").at(-1) as HTMLElement;
+	const add = within(status).getByRole("button", { name: "Add value" });
+	add.focus();
+	fireEvent.click(add);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByLabelText("Value").focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(add);
+	});
+});
+
+it("Escape in Edit value returns focus to the row trigger", async () => {
+	stubFetch(page([colorAttribute]), page([blueValue]));
+
+	render(
+		<App>
+			<AttributeDictionaryView />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Color" }));
+	await flush();
+
+	const trigger = screen.getByRole("button", { name: "Edit value Blue" });
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByLabelText("Value").focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(trigger);
+	});
 });

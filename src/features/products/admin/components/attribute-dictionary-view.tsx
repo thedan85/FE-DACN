@@ -45,6 +45,7 @@ import {
 import { apiErrorMessage, isConflict } from "../model/api-error";
 import { CATALOG_PERMISSIONS } from "../model/permissions";
 import { useCatalogPermissions } from "../use-catalog-permissions";
+import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore";
 import { AdminCatalogTheme } from "./admin-catalog-theme";
 import styles from "./attribute-dictionary-view.module.css";
 
@@ -107,6 +108,20 @@ export function AttributeDictionaryView() {
 		useState<AttributeFormTarget | null>(null);
 	const [valueFormTarget, setValueFormTarget] =
 		useState<ValueFormTarget | null>(null);
+
+	// The list that can detach a trigger changes identity on every settle;
+	// the values pane flips through loading, the attributes list does not.
+	const settleSignal = useMemo(
+		() => ({ attributes: state, values: valuesState }),
+		[state, valuesState],
+	);
+	const anyDialogOpen = attributeFormTarget !== null || valueFormTarget !== null;
+	const { headingRef, captureTrigger, requestFocusRestore } =
+		useDialogFocusRestore({
+			settled: state.status !== "loading" && valuesState.status !== "loading",
+			anyDialogOpen,
+			settleSignal,
+		});
 
 	const reloadAttributes = useCallback(() => setReloadKey((key) => key + 1), []);
 	const reloadValues = useCallback(
@@ -248,9 +263,10 @@ export function AttributeDictionaryView() {
 								type="link"
 								icon={<EditOutlined />}
 								aria-label={`Edit ${attribute.name}`}
-								onClick={() =>
-									setAttributeFormTarget({ mode: "edit", attribute })
-								}
+								onClick={(event) => {
+									captureTrigger(event);
+									setAttributeFormTarget({ mode: "edit", attribute });
+								}}
 							/>
 						)}
 						{mayDelete && (
@@ -270,7 +286,7 @@ export function AttributeDictionaryView() {
 				),
 			},
 		],
-		[mayUpdate, mayDelete, selectedAttributeId, reloadAttributes],
+		[mayUpdate, mayDelete, selectedAttributeId, reloadAttributes, captureTrigger],
 	);
 
 	const handleValueError = useCallback((reason: string) => {
@@ -302,7 +318,10 @@ export function AttributeDictionaryView() {
 								type="link"
 								icon={<EditOutlined />}
 								aria-label={`Edit value ${value.value}`}
-								onClick={() => setValueFormTarget({ mode: "edit", value })}
+								onClick={(event) => {
+									captureTrigger(event);
+									setValueFormTarget({ mode: "edit", value });
+								}}
 							/>
 						)}
 						{mayDelete && (
@@ -316,7 +335,7 @@ export function AttributeDictionaryView() {
 				),
 			},
 		],
-		[mayUpdate, mayDelete, handleValueChanged, handleValueError],
+		[mayUpdate, mayDelete, handleValueChanged, handleValueError, captureTrigger],
 	);
 
 	const values = valuesState.status === "ready" ? valuesState.values : [];
@@ -326,7 +345,7 @@ export function AttributeDictionaryView() {
 			<section className={styles.page}>
 				<header className={styles.header}>
 					<div>
-						<Title level={1} className={styles.title}>
+						<Title level={1} className={styles.title} ref={headingRef} tabIndex={-1}>
 							Attributes
 						</Title>
 						<Text type="secondary">
@@ -338,7 +357,10 @@ export function AttributeDictionaryView() {
 						<Button
 							type="primary"
 							icon={<PlusOutlined />}
-							onClick={() => setAttributeFormTarget({ mode: "create" })}
+							onClick={(event) => {
+								captureTrigger(event);
+								setAttributeFormTarget({ mode: "create" });
+							}}
 						>
 							Add attribute
 						</Button>
@@ -369,7 +391,10 @@ export function AttributeDictionaryView() {
 									mayCreate ? (
 										<Button
 											type="primary"
-											onClick={() => setAttributeFormTarget({ mode: "create" })}
+											onClick={(event) => {
+												captureTrigger(event);
+												setAttributeFormTarget({ mode: "create" });
+											}}
 										>
 											Add attribute
 										</Button>
@@ -402,7 +427,10 @@ export function AttributeDictionaryView() {
 								<Button
 									type="primary"
 									icon={<PlusOutlined />}
-									onClick={() => setValueFormTarget({ mode: "create" })}
+									onClick={(event) => {
+										captureTrigger(event);
+										setValueFormTarget({ mode: "create" });
+									}}
 								>
 									Add value
 								</Button>
@@ -452,7 +480,10 @@ export function AttributeDictionaryView() {
 											mayCreate ? (
 												<Button
 													type="primary"
-													onClick={() => setValueFormTarget({ mode: "create" })}
+													onClick={(event) => {
+														captureTrigger(event);
+														setValueFormTarget({ mode: "create" });
+													}}
 												>
 													Add value
 												</Button>
@@ -485,8 +516,12 @@ export function AttributeDictionaryView() {
 							? attributeFormTarget.attribute
 							: null
 					}
-					onCancel={() => setAttributeFormTarget(null)}
+					onCancel={() => {
+						requestFocusRestore();
+						setAttributeFormTarget(null);
+					}}
 					onSaved={() => {
+						requestFocusRestore();
 						setAttributeFormTarget(null);
 						reloadAttributes();
 					}}
@@ -503,8 +538,12 @@ export function AttributeDictionaryView() {
 						valueFormTarget.mode === "edit" ? valueFormTarget.value : null
 					}
 					attributeId={selectedAttribute.attributeId}
-					onCancel={() => setValueFormTarget(null)}
+					onCancel={() => {
+						requestFocusRestore();
+						setValueFormTarget(null);
+					}}
 					onSaved={() => {
+						requestFocusRestore();
 						setValueFormTarget(null);
 						setValueActionError(null);
 						reloadValues();

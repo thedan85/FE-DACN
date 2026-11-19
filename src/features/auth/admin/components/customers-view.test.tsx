@@ -6,6 +6,7 @@ import {
 	fireEvent,
 	render,
 	screen,
+	waitFor,
 	within,
 } from "@testing-library/react";
 import { App } from "antd";
@@ -660,4 +661,57 @@ it("customers_ignoresLateDetailResultAfterSelectionChanges", async () => {
 
 	expect(screen.queryByText("Alpha address")).toBeNull();
 	expect(screen.getByText("Beta address")).toBeTruthy();
+});
+
+it("Escape in the lock confirmation returns focus to the row trigger", async () => {
+	vi.mocked(listAdminUsers).mockResolvedValue(page([customer]));
+
+	renderCustomers();
+	await flush();
+
+	const trigger = screen.getByRole("button", {
+		name: "Lock Customer User",
+	});
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByRole("button", { name: /^Lock$/ }).focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(trigger);
+	});
+});
+
+it("Escape in the profile editor returns focus to the Edit profile button", async () => {
+	vi.mocked(listAdminUsers).mockResolvedValue(page([customer]));
+
+	renderCustomers();
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "View details for Customer User" }),
+	);
+	await flush();
+
+	const editProfile = screen.getByRole("button", { name: /edit profile/i });
+	editProfile.focus();
+	fireEvent.click(editProfile);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	(await screen.findByLabelText("Name")).focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(editProfile);
+	});
 });

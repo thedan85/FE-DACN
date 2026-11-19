@@ -7,6 +7,7 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import { App } from "antd";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -501,4 +502,100 @@ it("shows the error surface with a retry when the list read fails", async () => 
 
 	expect(screen.getByText("We couldn't load categories")).toBeTruthy();
 	expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+});
+
+it("Escape in Add category returns focus to the header button", async () => {
+	stubFetch(page([rootCategory]));
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+
+	const add = screen.getByRole("button", { name: /add category/i });
+	add.focus();
+	fireEvent.click(add);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByLabelText("Name").focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(add);
+	});
+});
+
+it("Escape in Edit category returns focus to the row trigger", async () => {
+	stubFetch(page([rootCategory]));
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+
+	const trigger = screen.getByRole("button", { name: "Edit Reef tanks" });
+	trigger.focus();
+	fireEvent.click(trigger);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	screen.getByLabelText("Name").focus();
+	fireEvent.keyDown(document, { key: "Escape" });
+
+	await waitFor(() => {
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+	await waitFor(() => {
+		expect(document.activeElement).toBe(trigger);
+	});
+});
+
+it("create from the empty state lands focus on the heading once the table replaces it", async () => {
+	stubFetch(
+		page([]),
+		ok({ ...rootCategory, categoryId: "NEW_CAT", name: "Freshwater fish", slug: "freshwater-fish", parentCategoryId: null }),
+		page([{ ...rootCategory, categoryId: "NEW_CAT", name: "Freshwater fish", slug: "freshwater-fish", parentCategoryId: null }]),
+	);
+
+	render(
+		<App>
+			<CategoriesView />
+		</App>,
+	);
+	await flush();
+
+	// The empty state is the only place offering creation right now.
+	const status = screen.getByRole("status");
+	const add = within(status).getByRole("button", { name: /add category/i });
+	add.focus();
+	fireEvent.click(add);
+	await flush();
+	expect(screen.getByRole("dialog")).toBeTruthy();
+
+	fireEvent.change(screen.getByLabelText("Name"), {
+		target: { value: "Freshwater fish" },
+	});
+	fireEvent.change(screen.getByLabelText("Slug"), {
+		target: { value: "freshwater-fish" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Save category" }));
+	await flush();
+	await flush();
+
+	expect(screen.queryByRole("dialog")).toBeNull();
+	// The empty-state trigger unmounted with the empty state; focus must
+	// land on the stable heading, not <body> and not a detached node.
+	await waitFor(() => {
+		expect(document.activeElement).toBe(
+			screen.getByRole("heading", { name: "Categories" }),
+		);
+	});
 });

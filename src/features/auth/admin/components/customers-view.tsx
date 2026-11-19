@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
 	Alert,
@@ -34,6 +34,7 @@ import { AccessDeniedState } from "@/components/feedback/access-denied-state";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
+import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore";
 import { useAuthStore } from "@/stores/auth-store";
 
 import {
@@ -134,7 +135,6 @@ export function CustomersView() {
 	const [reloadKey, setReloadKey] = useState(0);
 	const [statusTarget, setStatusTarget] = useState<AdminUser | null>(null);
 	const [editOpen, setEditOpen] = useState(false);
-	const editProfileButtonRef = useRef<HTMLButtonElement>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [detailState, setDetailState] = useState<DetailState>({
 		status: "loading",
@@ -142,6 +142,13 @@ export function CustomersView() {
 	const [detailReloadKey, setDetailReloadKey] = useState(0);
 
 	const query = useMemo(() => parseQuery(searchParams), [searchParams]);
+	const settled = state.status !== "loading";
+	const { headingRef, captureTrigger, requestFocusRestore } =
+		useDialogFocusRestore({
+			settled,
+			anyDialogOpen: statusTarget !== null || editOpen,
+			settleSignal: state,
+		});
 	const requestKey = JSON.stringify([
 		query.status,
 		query.page,
@@ -284,6 +291,7 @@ export function CustomersView() {
 		(name: string, action: "locked" | "unlocked") => {
 			message.success(`${name} ${action}.`);
 			setStatusTarget(null);
+			requestFocusRestore();
 			setDetailReloadKey((key) => key + 1);
 			const removesFromFilter =
 				query.status !== undefined &&
@@ -298,21 +306,21 @@ export function CustomersView() {
 			}
 			setReloadKey((key) => key + 1);
 		},
-		[message, pageData, query.page, query.status, updateQuery],
+		[message, pageData, query.page, query.status, updateQuery, requestFocusRestore],
 	);
 
 	const handleProfileSaved = useCallback(() => {
 		message.success("Customer profile updated.");
 		setEditOpen(false);
-		editProfileButtonRef.current?.focus();
+		requestFocusRestore();
 		setDetailReloadKey((key) => key + 1);
 		setReloadKey((key) => key + 1);
-	}, [message]);
+	}, [message, requestFocusRestore]);
 
 	const handleProfileEditorClose = useCallback(() => {
 		setEditOpen(false);
-		editProfileButtonRef.current?.focus();
-	}, []);
+		requestFocusRestore();
+	}, [requestFocusRestore]);
 
 	const columns = useMemo<TableColumnsType<AdminUser>>(
 		() => [
@@ -389,7 +397,10 @@ export function CustomersView() {
 									aria-label={`${
 										row.status === "ACTIVE" ? "Lock" : "Unlock"
 									} ${row.name}`}
-									onClick={() => setStatusTarget(row)}
+									onClick={(event) => {
+										captureTrigger(event);
+										setStatusTarget(row);
+									}}
 								>
 									{row.status === "ACTIVE" ? "Lock" : "Unlock"}
 								</Button>
@@ -399,7 +410,7 @@ export function CustomersView() {
 				},
 			},
 		],
-		[mayUpdate, selectedId],
+		[mayUpdate, selectedId, captureTrigger],
 	);
 
 	const denied = (
@@ -414,7 +425,7 @@ export function CustomersView() {
 			<section className={styles.page}>
 				<header className={styles.header}>
 					<div>
-						<Title level={1} className={styles.title}>
+						<Title level={1} className={styles.title} ref={headingRef} tabIndex={-1}>
 							Customers
 						</Title>
 						<Text type="secondary">
@@ -529,10 +540,12 @@ export function CustomersView() {
 							<div className={styles.actions}>
 								{mayUpdate && (
 									<Button
-										ref={editProfileButtonRef}
 										icon={<EditOutlined />}
 										aria-label="Edit profile"
-										onClick={() => setEditOpen(true)}
+										onClick={(event) => {
+											captureTrigger(event);
+											setEditOpen(true);
+										}}
 									>
 										Edit profile
 									</Button>
@@ -614,7 +627,10 @@ export function CustomersView() {
 				{statusTarget && (
 					<StatusActionModal
 						target={statusTarget}
-						onClose={() => setStatusTarget(null)}
+						onClose={() => {
+							requestFocusRestore();
+							setStatusTarget(null);
+						}}
 						onDone={handleStatusDone}
 					/>
 				)}

@@ -50,6 +50,7 @@ import {
 import { categoryOptions } from "../model/product-form";
 import { CATALOG_PERMISSIONS } from "../model/permissions";
 import { useCatalogPermissions } from "../use-catalog-permissions";
+import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore";
 import { AdminCatalogTheme } from "./admin-catalog-theme";
 import styles from "./categories-view.module.css";
 
@@ -92,6 +93,17 @@ export function CategoriesView() {
 	const [state, setState] = useState<CategoriesState>({ status: "loading" });
 	const [reloadKey, setReloadKey] = useState(0);
 	const [formTarget, setFormTarget] = useState<FormTarget | null>(null);
+
+	const settled =
+		state.status === "ready" ||
+		state.status === "error" ||
+		state.status === "forbidden";
+	const { headingRef, captureTrigger, requestFocusRestore } =
+		useDialogFocusRestore({
+			settled,
+			anyDialogOpen: formTarget !== null,
+			settleSignal: state,
+		});
 
 	const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
@@ -211,9 +223,10 @@ export function CategoriesView() {
 									type="link"
 									icon={<EditOutlined />}
 									aria-label={`Edit ${category.name}`}
-									onClick={() =>
-										setFormTarget({ mode: "edit", category })
-									}
+									onClick={(event) => {
+										captureTrigger(event);
+										setFormTarget({ mode: "edit", category });
+									}}
 								/>
 							)}
 							{mayDelete && (
@@ -228,7 +241,7 @@ export function CategoriesView() {
 				},
 			},
 		],
-		[categoryNameById, childCountById, mayUpdate, mayDelete, reload],
+		[categoryNameById, childCountById, mayUpdate, mayDelete, reload, captureTrigger],
 	);
 
 	return (
@@ -236,7 +249,7 @@ export function CategoriesView() {
 			<section className={styles.page}>
 				<header className={styles.header}>
 					<div>
-						<Title level={1} className={styles.title}>
+						<Title level={1} className={styles.title} ref={headingRef} tabIndex={-1}>
 							Categories
 						</Title>
 						<Text type="secondary">
@@ -247,7 +260,10 @@ export function CategoriesView() {
 						<Button
 							type="primary"
 							icon={<PlusOutlined />}
-							onClick={() => setFormTarget({ mode: "create" })}
+							onClick={(event) => {
+								captureTrigger(event);
+								setFormTarget({ mode: "create" });
+							}}
 						>
 							Add category
 						</Button>
@@ -277,7 +293,10 @@ export function CategoriesView() {
 								mayCreate ? (
 									<Button
 										type="primary"
-										onClick={() => setFormTarget({ mode: "create" })}
+										onClick={(event) => {
+											captureTrigger(event);
+											setFormTarget({ mode: "create" });
+										}}
 									>
 										Add category
 									</Button>
@@ -300,8 +319,12 @@ export function CategoriesView() {
 					key={formTarget.mode === "edit" ? formTarget.category.categoryId : "new"}
 					initial={formTarget.mode === "edit" ? formTarget.category : null}
 					categories={categories}
-					onCancel={() => setFormTarget(null)}
+					onCancel={() => {
+						requestFocusRestore();
+						setFormTarget(null);
+					}}
 					onSaved={() => {
+						requestFocusRestore();
 						setFormTarget(null);
 						reload();
 					}}

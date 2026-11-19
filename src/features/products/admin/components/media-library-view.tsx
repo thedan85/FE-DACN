@@ -63,6 +63,7 @@ import {
 import { mediaDeleteEnabled } from "../model/media-library-release";
 import { CATALOG_PERMISSIONS } from "../model/permissions";
 import { useCatalogPermissions } from "../use-catalog-permissions";
+import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore";
 import { AdminCatalogTheme } from "./admin-catalog-theme";
 import styles from "./media-library-view.module.css";
 
@@ -117,6 +118,13 @@ export function MediaLibraryView() {
 	const [formTarget, setFormTarget] = useState<
 		{ mode: "create" } | { mode: "edit"; media: Media } | null
 	>(null);
+
+	const { headingRef, captureTrigger, requestFocusRestore } =
+		useDialogFocusRestore({
+			settled: state.status !== "loading",
+			anyDialogOpen: formTarget !== null,
+			settleSignal: state,
+		});
 
 	const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
@@ -241,7 +249,10 @@ export function MediaLibraryView() {
 								type="link"
 								icon={<EditOutlined />}
 								aria-label={`Edit media ${media.mediaId}`}
-								onClick={() => setFormTarget({ mode: "edit", media })}
+								onClick={(event) => {
+									captureTrigger(event);
+									setFormTarget({ mode: "edit", media });
+								}}
 							/>
 						)}
 						{mayDelete && (
@@ -255,7 +266,7 @@ export function MediaLibraryView() {
 				),
 			},
 		],
-		[mayUpdate, mayDelete, handleDeleted, handleNotFound],
+		[mayUpdate, mayDelete, handleDeleted, handleNotFound, captureTrigger],
 	);
 
 	const promptText =
@@ -268,7 +279,7 @@ export function MediaLibraryView() {
 			<section className={styles.page}>
 				<header className={styles.header}>
 					<div>
-						<Title level={1} className={styles.title}>
+						<Title level={1} className={styles.title} ref={headingRef} tabIndex={-1}>
 							Media
 						</Title>
 						<Text type="secondary">
@@ -279,7 +290,10 @@ export function MediaLibraryView() {
 						<Button
 							type="primary"
 							icon={<PlusOutlined />}
-							onClick={() => setFormTarget({ mode: "create" })}
+							onClick={(event) => {
+								captureTrigger(event);
+								setFormTarget({ mode: "create" });
+							}}
 						>
 							Add media
 						</Button>
@@ -337,7 +351,10 @@ export function MediaLibraryView() {
 								mayCreate ? (
 									<Button
 										type="primary"
-										onClick={() => setFormTarget({ mode: "create" })}
+										onClick={(event) => {
+											captureTrigger(event);
+											setFormTarget({ mode: "create" });
+										}}
 									>
 										Add media
 									</Button>
@@ -376,8 +393,12 @@ export function MediaLibraryView() {
 							: "new"
 					}
 					initial={formTarget.mode === "edit" ? formTarget.media : null}
-					onCancel={() => setFormTarget(null)}
+					onCancel={() => {
+						requestFocusRestore();
+						setFormTarget(null);
+					}}
 					onSaved={() => {
+						requestFocusRestore();
 						setFormTarget(null);
 						reload();
 					}}
