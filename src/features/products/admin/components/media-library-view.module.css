@@ -109,11 +109,6 @@
 	margin-bottom: 16px;
 }
 
-.mutedCell {
-	color: var(--color-admin-panel-text-muted);
-	font-size: 13px;
-}
-
 @media (max-width: 767px) {
 	.title:global(.ant-typography) {
 		font-size: 24px;
