@@ -141,14 +141,16 @@ export function CustomerProfileForm({
 					caught,
 					"Could not load the customer profile.",
 				);
-				if (snapshotRef.current === null) {
+				if (outcome === "unauthorized" || outcome === "forbidden") {
+					// The session is gone or the permission was revoked: hide the
+					// protected payload entirely. The draft is lost with it.
+					snapshotRef.current = null;
+					setSnapshot(null);
+					setReadForbidden(true);
+				} else if (snapshotRef.current === null) {
 					// First read failed: the dialog shows the failure state instead
 					// of a form prefilled with guesses.
-					if (outcome === "forbidden") {
-						setReadForbidden(true);
-					} else {
-						setReadError(message);
-					}
+					setReadError(message);
 				} else {
 					// Re-read after an unknown write outcome failed: keep the last
 					// snapshot and the draft, say so, and stay blocked.

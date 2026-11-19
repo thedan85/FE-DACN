@@ -541,6 +541,84 @@ it("profileEdit_unknownWriteOutcomeRequiresFreshRead", async () => {
 	).toBe(false);
 });
 
+it("profileEdit_recoveryReadUnauthorizedHidesProfile", async () => {
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockResolvedValue(undefined);
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Could not reach the API: connection reset", 0),
+	);
+	vi.mocked(getAdminUser)
+		// Detail panel read, then the form's fresh read: both succeed.
+		.mockResolvedValueOnce(customerDetail)
+		.mockResolvedValueOnce(customerDetail)
+		// The recovery re-read after the unknown outcome: session gone.
+		.mockRejectedValueOnce(new ApiError("Unauthorized", 401));
+
+	renderCustomers();
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "View details for Customer User" }),
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: /edit profile/i }));
+	await flush();
+
+	fireEvent.change(await screen.findByLabelText("Name"), {
+		target: { value: "Renamed Customer" },
+	});
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: /reload profile/i }));
+	await flush();
+
+	expect(screen.queryByLabelText("Name")).toBeNull();
+	expect(
+		screen.getByText("You do not have access to this customer"),
+	).toBeTruthy();
+});
+
+it("profileEdit_recoveryReadForbiddenHidesProfile", async () => {
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockResolvedValue(undefined);
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Could not reach the API: connection reset", 0),
+	);
+	vi.mocked(getAdminUser)
+		.mockResolvedValueOnce(customerDetail)
+		.mockResolvedValueOnce(customerDetail)
+		.mockRejectedValueOnce(new ApiError("Missing permission: user:read", 403));
+
+	renderCustomers();
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "View details for Customer User" }),
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: /edit profile/i }));
+	await flush();
+
+	fireEvent.change(await screen.findByLabelText("Name"), {
+		target: { value: "Renamed Customer" },
+	});
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: /reload profile/i }));
+	await flush();
+
+	expect(screen.queryByLabelText("Name")).toBeNull();
+	expect(
+		screen.getByText("You do not have access to this customer"),
+	).toBeTruthy();
+});
+
 it("customers_ignoresLateDetailResultAfterSelectionChanges", async () => {
 	const beta: AdminUser = {
 		...customer,
