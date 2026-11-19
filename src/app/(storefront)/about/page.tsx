@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import styles from "../info-page.module.css";
 
@@ -47,18 +46,6 @@ export default function AboutPage() {
 						</Link>
 					</div>
 				</div>
-				<figure className={styles.aboutFigure}>
-					<div className={styles.aboutPhoto}>
-						<Image
-							src="/images/hero_background.jpg"
-							alt="A planted aquarium with branching driftwood and bright green aquatic plants"
-							fill
-							sizes="(max-width: 820px) calc(100vw - 48px), (max-width: 1328px) 48vw, 640px"
-							loading="eager"
-						/>
-					</div>
-					<figcaption>Freshwater aquascaping</figcaption>
-				</figure>
 			</section>
 
 			<div className="page-container">

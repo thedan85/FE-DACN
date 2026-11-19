@@ -103,10 +103,11 @@ These are design targets, not measurements from a browser run.
 | Region | Metric | Value |
 | --- | --- | --- |
 | Page | Content width / side gutters | `1280px` maximum / `24px` |
-| Hero | Columns / image | `1fr : 1.1fr` above `820px`; stacked below; `4:3` image frame |
+| Hero | Layout | Centered text, `720px` maximum width; no imagery |
 | Metrics | Columns | Three above `640px`; one below |
 | Story, promises, and closing CTA | Layout | Two columns above `820px`; stacked below |
 | Shop and FAQ links | Minimum height | `48px` |
+| Shop Now button | Text / fill | White / deep teal |
 
 ### Admin portal shell — frame `5445-2495`
 
