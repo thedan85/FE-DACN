@@ -14,6 +14,7 @@ import {
 	type AdminUser,
 	type AdminUserCreateInput,
 	type AdminUserDetail,
+	type CustomerProfilePatch,
 } from "../schema/admin-users.schema";
 
 /**
@@ -159,6 +160,26 @@ export async function setAdminUserRole(
 		adminUserResponseSchema,
 		payload,
 		"The updated admin user role response",
+	).data;
+}
+
+export async function patchCustomerProfile(
+	userId: string,
+	input: CustomerProfilePatch,
+): Promise<AdminUserDetail> {
+	const payload = await apiFetch<unknown>(
+		`admin/users/${encodeURIComponent(userId)}/profile`,
+		{
+			method: "PATCH",
+			headers: getAuthHeaders(),
+			body: JSON.stringify(input),
+		},
+	);
+
+	return parseOrThrow(
+		adminUserResponseSchema,
+		payload,
+		"The updated customer profile response",
 	).data;
 }
 

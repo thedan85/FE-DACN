@@ -4,6 +4,7 @@ import {
 	createAdminUser,
 	deleteAdminUser,
 	listAdminUsers,
+	patchCustomerProfile,
 	setAdminUserRole,
 	setAdminUserStatus,
 } from "./admin-users.api";
@@ -131,6 +132,33 @@ it("parses the create response, including the 201 envelope", async () => {
 	expect(new URL(String(input)).pathname).toBe("/api/v1/admin/users");
 	expect(init.method).toBe("POST");
 	expect(created.userId).toBe("USR_new-1");
+});
+
+it("sends only the supplied profile field in the patch body", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = stubFetch(
+		ok({
+			...employee,
+			userId: "USR_customer",
+			roleCode: "customer",
+			roleName: "Customer",
+			address: "Employee Desk",
+			name: "New Name",
+			permissions: [],
+		}),
+	);
+
+	const updated = await patchCustomerProfile("USR_customer", {
+		name: "New Name",
+	});
+
+	const [input, init] = fetch.mock.calls[0] as [string, RequestInit];
+	expect(new URL(String(input)).pathname).toBe(
+		"/api/v1/admin/users/USR_customer/profile",
+	);
+	expect(init.method).toBe("PATCH");
+	expect(JSON.parse(String(init.body))).toEqual({ name: "New Name" });
+	expect(updated.name).toBe("New Name");
 });
 
 it("sends the documented status patch body", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
 	Alert,
@@ -17,7 +17,11 @@ import {
 	Typography,
 } from "antd";
 import type { TableColumnsType } from "antd";
-import { CloseOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+	CloseOutlined,
+	EditOutlined,
+	SearchOutlined,
+} from "@ant-design/icons";
 
 import type { PageData } from "@/features/products/types";
 import { AdminCatalogTheme } from "@/features/products/admin/components/admin-catalog-theme";
@@ -38,6 +42,7 @@ import {
 	setAdminUserStatus,
 } from "../api/admin-users.api";
 import { handleAdminAuthFailure } from "../model/admin-auth-failure";
+import { CustomerProfileForm } from "./customer-profile-form";
 import type {
 	AdminUser,
 	AdminUserDetail,
@@ -109,9 +114,9 @@ type DetailState =
  * aborts on unmount/selection change and late results are ignored.
  *
  * The list read is gated on `user:read` before any request is made; lock and
- * unlock are gated independently on `user:update`. Every catch path runs
- * through `handleAdminAuthFailure`, and a denied read renders the shared
- * access-denied state instead of the data.
+ * unlock are gated independently on `user:update`, as is the Edit profile
+ * action. Every catch path runs through `handleAdminAuthFailure`, and a
+ * denied read renders the shared access-denied state instead of the data.
  */
 export function CustomersView() {
 	const router = useRouter();
@@ -128,6 +133,8 @@ export function CustomersView() {
 	const [state, setState] = useState<DirectoryState>({ status: "loading" });
 	const [reloadKey, setReloadKey] = useState(0);
 	const [statusTarget, setStatusTarget] = useState<AdminUser | null>(null);
+	const [editOpen, setEditOpen] = useState(false);
+	const editProfileButtonRef = useRef<HTMLButtonElement>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [detailState, setDetailState] = useState<DetailState>({
 		status: "loading",
@@ -293,6 +300,19 @@ export function CustomersView() {
 		},
 		[message, pageData, query.page, query.status, updateQuery],
 	);
+
+	const handleProfileSaved = useCallback(() => {
+		message.success("Customer profile updated.");
+		setEditOpen(false);
+		editProfileButtonRef.current?.focus();
+		setDetailReloadKey((key) => key + 1);
+		setReloadKey((key) => key + 1);
+	}, [message]);
+
+	const handleProfileEditorClose = useCallback(() => {
+		setEditOpen(false);
+		editProfileButtonRef.current?.focus();
+	}, []);
 
 	const columns = useMemo<TableColumnsType<AdminUser>>(
 		() => [
@@ -506,12 +526,24 @@ export function CustomersView() {
 					<Card
 						title="Customer detail"
 						extra={
-							<Button
-								type="text"
-								icon={<CloseOutlined />}
-								aria-label="Close details"
-								onClick={() => setSelectedId(null)}
-							/>
+							<div className={styles.actions}>
+								{mayUpdate && (
+									<Button
+										ref={editProfileButtonRef}
+										icon={<EditOutlined />}
+										aria-label="Edit profile"
+										onClick={() => setEditOpen(true)}
+									>
+										Edit profile
+									</Button>
+								)}
+								<Button
+									type="text"
+									icon={<CloseOutlined />}
+									aria-label="Close details"
+									onClick={() => setSelectedId(null)}
+								/>
+							</div>
 						}
 					>
 						{detailState.status === "loading" ? (
@@ -584,6 +616,14 @@ export function CustomersView() {
 						target={statusTarget}
 						onClose={() => setStatusTarget(null)}
 						onDone={handleStatusDone}
+					/>
+				)}
+
+				{editOpen && selectedId !== null && (
+					<CustomerProfileForm
+						userId={selectedId}
+						onClose={handleProfileEditorClose}
+						onSaved={handleProfileSaved}
 					/>
 				)}
 			</section>

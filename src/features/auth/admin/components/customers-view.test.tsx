@@ -17,6 +17,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import {
 	getAdminUser,
 	listAdminUsers,
+	patchCustomerProfile,
 	setAdminUserStatus,
 } from "../api/admin-users.api";
 import type { AdminUser, AdminUserDetail } from "../schema/admin-users.schema";
@@ -42,6 +43,7 @@ vi.mock("../api/admin-users.api", () => ({
 	setAdminUserStatus: vi.fn(),
 	setAdminUserRole: vi.fn(),
 	deleteAdminUser: vi.fn(),
+	patchCustomerProfile: vi.fn(),
 }));
 
 vi.mock("@/features/products/admin/components/admin-catalog-theme", () => ({
@@ -129,11 +131,15 @@ beforeEach(() => {
 	vi.mocked(setAdminUserStatus)
 		.mockReset()
 		.mockResolvedValue({ ...customerDetail, status: "LOCKED" });
+	vi.mocked(patchCustomerProfile)
+		.mockReset()
+		.mockResolvedValue({ ...customerDetail });
 });
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+	vi.restoreAllMocks();
 });
 
 it("customers_ignoresStaffRoleInUrl", async () => {
@@ -324,6 +330,215 @@ it("customers_detailShowsAddressOnlyWhenSelected", async () => {
 		expect.any(AbortSignal),
 	);
 	expect(await screen.findByText("12 Nguyen Hue Street")).toBeTruthy();
+});
+
+it("profileEdit_sendsOnlyChangedFields", async () => {
+	vi.mocked(listAdminUsers).mockResolvedValue(
+		page([{ ...customer, phone: null }]),
+	);
+	// A null phone and a populated address: clearing the address sends only
+	// `address: null`.
+	vi.mocked(getAdminUser).mockResolvedValue({
+		...customerDetail,
+		phone: null,
+		address: "12 Nguyen Hue Street",
+	});
+
+	renderCustomers();
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "View details for Customer User" }),
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: /edit profile/i }));
+	await flush();
+
+	fireEvent.change(await screen.findByLabelText("Address"), {
+		target: { value: "" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	expect(patchCustomerProfile).toHaveBeenCalledWith("USR_customer", {
+		address: null,
+	});
+});
+
+it("profileEdit_validatesPhoneAndKeepsFailedDraft", async () => {
+	vi.spyOn(useAuthStore.getState(), "revalidate").mockResolvedValue(undefined);
+	vi.mocked(patchCustomerProfile).mockRejectedValue(
+		new ApiError("phone must match ^\\+?[0-9]{10,15}$", 400),
+	);
+
+	renderCustomers();
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "View details for Customer User" }),
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: /edit profile/i }));
+	await flush();
+
+	// Invalid input: the PATCH is never sent.
+	fireEvent.change(await screen.findByLabelText("Phone"), {
+		target: { value: "abc" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	expect(patchCustomerProfile).not.toHaveBeenCalled();
+
+	fireEvent.change(await screen.findByLabelText("Phone"), {
+		target: { value: "0901234567" },
+	});
+	fireEvent.change(screen.getByLabelText("Name"), {
+		target: { value: "Renamed Customer" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	// The 400 rejection keeps the draft while the page stays readable.
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(1);
+	expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe(
+		"Renamed Customer",
+	);
+	expect(screen.getByText(/phone must match/)).toBeTruthy();
+
+	// A 403 keeps the draft too.
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Missing permission: user:update", 403),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe(
+		"Renamed Customer",
+	);
+});
+
+it("profileEdit_pendingSaveBlocksDoubleSubmit", async () => {
+	let resolveSave: (value: AdminUserDetail) => void = () => {};
+	vi.mocked(patchCustomerProfile).mockReturnValue(
+		new Promise<AdminUserDetail>((resolve) => {
+			resolveSave = resolve;
+		}),
+	);
+
+	renderCustomers();
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "View details for Customer User" }),
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: /edit profile/i }));
+	await flush();
+
+	fireEvent.change(await screen.findByLabelText("Name"), {
+		target: { value: "Renamed Customer" },
+	});
+	await flush();
+
+	const save = screen.getByRole("button", { name: "Save changes" });
+	fireEvent.click(save);
+	fireEvent.click(save);
+	await flush();
+
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(1);
+
+	resolveSave({ ...customerDetail, name: "Renamed Customer" });
+	await flush();
+});
+
+it("profileEdit_successClosesRestoresFocusAndReloads", async () => {
+	vi.mocked(listAdminUsers)
+		.mockResolvedValueOnce(page())
+		.mockResolvedValue(page([{ ...customer, name: "Renamed Customer" }]));
+	vi.mocked(patchCustomerProfile).mockResolvedValue({
+		...customerDetail,
+		name: "Renamed Customer",
+	});
+
+	renderCustomers();
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "View details for Customer User" }),
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: /edit profile/i }));
+	await flush();
+
+	fireEvent.change(await screen.findByLabelText("Name"), {
+		target: { value: "Renamed Customer" },
+	});
+	await flush();
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	expect(patchCustomerProfile).toHaveBeenCalledWith("USR_customer", {
+		name: "Renamed Customer",
+	});
+	// The active list query reloads after a successful save.
+	expect(listAdminUsers).toHaveBeenCalledTimes(2);
+	expect(screen.queryByRole("dialog")).toBeNull();
+	expect(screen.getByRole("button", { name: /edit profile/i })).toBe(
+		document.activeElement,
+	);
+});
+
+it("profileEdit_unknownWriteOutcomeRequiresFreshRead", async () => {
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Could not reach the API: connection reset", 0),
+	);
+
+	renderCustomers();
+	await flush();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "View details for Customer User" }),
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: /edit profile/i }));
+	await flush();
+
+	fireEvent.change(await screen.findByLabelText("Name"), {
+		target: { value: "Renamed Customer" },
+	});
+	await flush();
+
+	const getCallsBefore = vi.mocked(getAdminUser).mock.calls.length;
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
+
+	// Save is blocked until the profile is re-read.
+	expect(
+		(
+			screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
+		).disabled,
+	).toBe(true);
+
+	fireEvent.click(screen.getByRole("button", { name: /reload profile/i }));
+	await flush();
+
+	expect(vi.mocked(getAdminUser).mock.calls.length).toBeGreaterThan(
+		getCallsBefore,
+	);
+	expect(
+		(
+			screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement
+		).disabled,
+	).toBe(false);
 });
 
 it("customers_ignoresLateDetailResultAfterSelectionChanges", async () => {

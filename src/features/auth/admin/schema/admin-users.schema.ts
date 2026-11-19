@@ -40,3 +40,14 @@ export type AdminUserStatus = z.infer<typeof AdminUserStatusSchema>;
 export type AdminUser = z.infer<typeof AdminUserSchema>;
 export type AdminUserDetail = z.infer<typeof AdminUserDetailSchema>;
 export type AdminUserCreateInput = z.infer<typeof CreateAdminUserRequestSchema>;
+
+/**
+ * Partial customer-profile update sent to `PATCH /admin/users/{userId}/profile`.
+ * Omitted fields are unchanged; `address: null` clears the stored address.
+ * `phone` cannot be cleared — an explicit `null` is rejected with 400.
+ */
+export type CustomerProfilePatch = {
+	name?: string;
+	phone?: string;
+	address?: string | null;
+};
