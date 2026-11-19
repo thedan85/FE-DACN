@@ -1,0 +1,133 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 20px;
+}
+
+.title:global(.ant-typography) {
+	margin: 0 0 4px;
+	color: var(--color-admin-panel-text-strong);
+	/* 34px/700 is the design's page title; the shell's other pages use 28px, so
+	   the size lives on this page rather than in a shared heading token. */
+	font-size: 34px;
+	line-height: 42px;
+	font-weight: 700;
+	letter-spacing: -0.85px;
+}
+
+/* The tabs sit on the card's top edge, so the bar keeps the card's own
+   horizontal rhythm and the nav's bottom border is the only divider. */
+.tabs:global(.ant-tabs) {
+	padding: 0 20px;
+}
+
+.tabs :global(.ant-tabs-nav) {
+	margin-bottom: 0;
+}
+
+.userCell {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+}
+
+.userName {
+	color: var(--color-admin-panel-text-strong);
+	font-size: 13px;
+	line-height: 18.2px;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.userName:hover {
+	color: var(--color-brand-deep-teal);
+	text-decoration: underline;
+}
+
+.email {
+	color: var(--color-admin-panel-text-muted);
+	font-size: 13px;
+	line-height: 18.2px;
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 2px;
+}
+
+/* A disabled antd Button draws no pointer events, so the tooltip listens on
+   this wrapper instead of the control. */
+.disabledAction {
+	display: inline-flex;
+}
+
+.pagination {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 16px 20px;
+	border-top: 1px solid var(--color-admin-panel-border);
+}
+
+.skeleton {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	padding: 20px;
+}
+
+.skeletonRow {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+}
+
+.bulkSummary {
+	margin: 0 0 6px;
+}
+
+.bulkFailures {
+	margin: 0;
+	padding-inline-start: 18px;
+	font-size: 13px;
+	line-height: 18.2px;
+}
+
+.bulkFailures li + li {
+	margin-top: 4px;
+}
+
+/* Visible to assistive tech, absent from the visual layout. */
+.srOnly {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
+@media (max-width: 767px) {
+	.title:global(.ant-typography) {
+		font-size: 24px;
+		line-height: 32px;
+	}
+}

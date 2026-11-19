@@ -96,13 +96,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 				setAccessToken(session.accessToken);
 				set({ sessionReady: true });
 				set({ user: await getMe(), status: "authenticated" });
-			} catch {
+			} catch (error) {
 				clearSession();
 
-				// Fail closed only when nothing was resolved: a transient failure
-				// must not sign out an account that has already been confirmed.
-				if (get().user === null) {
-					set({ status: "anonymous", sessionReady: true });
+				// An authoritative rejection invalidates even a cached identity.
+				// Preserve the resolved account on transient failures as before.
+				const rejected = error instanceof ApiError && (error.status === 401 || error.status === 403);
+				if (rejected || get().user === null) {
+					set({ user: null, status: "anonymous", sessionReady: true });
 				}
 			} finally {
 				revalidation = null;
