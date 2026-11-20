@@ -24,10 +24,8 @@ export const loginResponseSchema = createApiResponseSchema(loginDataSchema);
 
 export const meResponseSchema = createApiResponseSchema(meDataSchema);
 
-export const registerDataSchema = z.object({
-	userId: z.string(),
-	email: z.string(),
-});
+/** Registration returns the same session payload as login (auto sign-in). */
+export const registerDataSchema = loginDataSchema;
 
 export const registerResponseSchema =
 	createApiResponseSchema(registerDataSchema);

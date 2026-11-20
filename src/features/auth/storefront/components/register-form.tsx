@@ -7,7 +7,9 @@ import { PrimaryButton } from "@/components/auth/auth-controls";
 import { PasswordField } from "@/components/auth/password-field";
 import { TextField } from "@/components/auth/text-field";
 import { ApiError } from "@/lib/api/client";
+import { useAuthStore } from "@/stores/auth-store";
 import { getAuthErrorMessage, register } from "../../api/auth.api";
+import { setAccessToken } from "../../session";
 import { validateEmail, validateRequired } from "../../model/validation";
 import styles from "./auth-form.module.css";
 
@@ -92,8 +94,11 @@ export function RegisterForm() {
 		setPending(true);
 
 		try {
-			await register({ name, email, phone, password });
-			router.replace("/login");
+			const data = await register({ name, email, phone, password });
+			setAccessToken(data.accessToken);
+			useAuthStore.setState({ user: data.user, status: "authenticated" });
+
+			router.replace("/");
 		} catch (submitError) {
 			if (submitError instanceof ApiError && submitError.status === 409) {
 				setFieldErrors({

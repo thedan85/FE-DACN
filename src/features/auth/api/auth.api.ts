@@ -52,6 +52,7 @@ export async function register(input: RegisterInput) {
 	const payload = await apiFetch<unknown>("auth/register", {
 		method: "POST",
 		body: JSON.stringify(input),
+		credentials: "include",
 	});
 
 	return registerResponseSchema.parse(payload).data;
