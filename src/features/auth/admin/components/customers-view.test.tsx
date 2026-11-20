@@ -688,6 +688,93 @@ it("Escape in the lock confirmation returns focus to the row trigger", async () 
 	});
 });
 
+it.each(["user:read", "user:update"])(
+	"closes the status dialog when only %s remains and keeps it closed on regrant",
+	async (remainingPermission) => {
+		vi.mocked(listAdminUsers).mockResolvedValue(page([customer]));
+
+		renderCustomers();
+		await flush();
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Lock Customer User" }),
+		);
+		await flush();
+		expect(screen.getByRole("dialog")).toBeTruthy();
+
+		act(() => {
+			useAuthStore.setState({
+				status: "authenticated",
+				user: { ...user, permissions: [remainingPermission] },
+			});
+		});
+		await flush();
+
+		expect(screen.queryByRole("dialog")).toBeNull();
+		expect(
+			screen.queryByRole("button", { name: "Lock Customer User" }),
+		).toBeNull();
+
+		act(() => {
+			useAuthStore.setState({ user });
+		});
+		await flush();
+
+		expect(screen.getByRole("button", { name: "Lock Customer User" })).toBeTruthy();
+		expect(screen.queryByRole("dialog")).toBeNull();
+		expect(setAdminUserStatus).not.toHaveBeenCalled();
+		expect(patchCustomerProfile).not.toHaveBeenCalled();
+	},
+);
+
+it("renders a fallback identity when a customer row has no profile name", async () => {
+	vi.mocked(listAdminUsers).mockResolvedValue(
+		page([{ ...customer, name: null }]),
+	);
+
+	renderCustomers();
+	await flush();
+
+	expect(
+		screen.getByRole("button", { name: "View details for customer" }),
+	).toBeTruthy();
+	expect(screen.queryByText("null")).toBeNull();
+});
+
+it.each([false, true])(
+	"ignores the closed status dialog's late success (access restored: %s)",
+	async (restored) => {
+		let finish!: (detail: AdminUserDetail) => void;
+		vi.mocked(setAdminUserStatus).mockReturnValueOnce(new Promise((resolve) => {
+			finish = resolve;
+		}));
+		renderCustomers();
+		await flush();
+
+		fireEvent.click(screen.getByRole("button", { name: "Lock Customer User" }));
+		fireEvent.click(screen.getByRole("button", { name: "Lock" }));
+		expect(setAdminUserStatus).toHaveBeenCalledTimes(1);
+		act(() => {
+			useAuthStore.setState({ user: { ...user, permissions: ["user:update"] } });
+		});
+		await flush();
+		expect(screen.queryByRole("dialog")).toBeNull();
+
+		if (restored) {
+			act(() => {
+				useAuthStore.setState({ user });
+			});
+			await flush();
+			fireEvent.click(screen.getByRole("button", { name: "Lock Customer User" }));
+		}
+
+		finish({ ...customerDetail, status: "LOCKED" });
+		await flush();
+		expect(screen.queryByText("Customer User locked.")).toBeNull();
+		expect(screen.queryByRole("dialog") !== null).toBe(restored);
+	},
+);
+
 it("Escape in the profile editor returns focus to the Edit profile button", async () => {
 	vi.mocked(listAdminUsers).mockResolvedValue(page([customer]));
 
@@ -774,6 +861,46 @@ it("profileEdit_rebaseKeepsConcurrentPhoneAndReappliesEditedAddress", async () =
 	await flush();
 
 	// The re-save never reverts the concurrently changed phone.
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(2);
+	expect(patchCustomerProfile).toHaveBeenLastCalledWith("USR_customer", {
+		address: "77 New Address",
+	});
+});
+
+it("profileEdit_paddedStoredNameIsNotReplayedByAnAddressEdit", async () => {
+	const padded = { ...customerDetail, name: "  Customer User  " };
+	vi.mocked(getAdminUser)
+		.mockResolvedValueOnce(padded)
+		.mockResolvedValueOnce(padded)
+		.mockResolvedValueOnce({ ...padded, name: "  Renamed Customer  " });
+	vi.mocked(patchCustomerProfile).mockRejectedValueOnce(
+		new ApiError("Could not reach the API: connection reset", 0),
+	);
+
+	await openProfileEditor();
+
+	fireEvent.change(await screen.findByLabelText("Address"), {
+		target: { value: "77 New Address" },
+	});
+	await flush();
+	const save = screen.getByRole("button", {
+		name: "Save changes",
+	}) as HTMLButtonElement;
+	expect(save.disabled).toBe(false);
+	fireEvent.click(save);
+	await flush();
+
+	expect(patchCustomerProfile).toHaveBeenLastCalledWith("USR_customer", {
+		address: "77 New Address",
+	});
+
+	fireEvent.click(screen.getByRole("button", { name: /reload profile/i }));
+	await flush();
+
+	expect(screen.getByLabelText("Name")).toHaveProperty("value", "  Renamed Customer  ");
+	expect(patchCustomerProfile).toHaveBeenCalledTimes(1);
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await flush();
 	expect(patchCustomerProfile).toHaveBeenCalledTimes(2);
 	expect(patchCustomerProfile).toHaveBeenLastCalledWith("USR_customer", {
 		address: "77 New Address",

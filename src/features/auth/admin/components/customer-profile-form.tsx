@@ -42,15 +42,21 @@ function toInitialValues(
 	detail: AdminUserDetail,
 ): CustomerProfileFormValues {
 	return {
-		name: detail.name,
+		name: detail.name ?? "",
 		phone: detail.phone ?? "",
 		address: detail.address ?? "",
 	};
 }
 
+/** Stored values can carry surrounding whitespace from registration. */
+function normalized(value: string | null | undefined): string {
+	return value?.trim() ?? "";
+}
+
 /**
- * Diffs the trimmed draft against the fetched snapshot and emits only the
- * changed fields. A blanked address clears it via `address: null`; a blanked
+ * Diffs the trimmed draft against the normalized snapshot and emits only the
+ * changed fields. Normalizing both sides keeps a padded stored value from
+ * looking edited. A blanked address clears it via `address: null`; a blanked
  * phone is never sent (validation rejects clearing a phone that is set, and
  * an already-null phone compares equal to blank).
  */
@@ -61,18 +67,17 @@ function diffCustomerProfilePatch(
 	const patch: CustomerProfilePatch = {};
 
 	const name = values.name.trim();
-	if (name !== snapshot.name) {
+	if (name !== normalized(snapshot.name)) {
 		patch.name = name;
 	}
 
 	const phone = values.phone.trim();
-	if (phone !== (snapshot.phone ?? "") && phone !== "") {
+	if (phone !== normalized(snapshot.phone) && phone !== "") {
 		patch.phone = phone;
 	}
 
 	const address = values.address.trim();
-	const snapshotAddress = snapshot.address ?? "";
-	if (address !== snapshotAddress) {
+	if (address !== normalized(snapshot.address)) {
 		patch.address = address === "" ? null : address;
 	}
 
@@ -91,7 +96,7 @@ function applyPatchToValues(
 	patch: CustomerProfilePatch,
 ): CustomerProfileFormValues {
 	return {
-		name: patch.name ?? detail.name,
+		name: patch.name ?? detail.name ?? "",
 		phone: patch.phone ?? detail.phone ?? "",
 		address: patch.address === undefined ? detail.address ?? "" : patch.address ?? "",
 	};

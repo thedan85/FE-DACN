@@ -1,8 +1,10 @@
 import type { UserAccountStatus } from "../schema/user.schema";
 
-/** The two fields the edit screen can change. */
+/** The fields the edit screen can change. */
 export type UserEditFormValues = {
 	role: string;
+	/** A known role code, used when the role list cannot be read. */
+	customRoleCode?: string;
 	status: UserAccountStatus;
 };
 
@@ -23,9 +25,10 @@ export function userEditChanges(
 	values: UserEditFormValues,
 ): UserEditChanges {
 	const changes: UserEditChanges = {};
+	const role = values.customRoleCode?.trim() || values.role;
 
-	if (values.role !== user.roleCode) {
-		changes.roleCode = values.role;
+	if (role !== user.roleCode) {
+		changes.roleCode = role;
 	}
 
 	if (values.status !== user.status) {

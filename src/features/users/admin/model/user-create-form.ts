@@ -29,6 +29,8 @@ export type UserCreateFormValues = {
 	address?: string;
 	/** The role `code`; the request calls this `roleCode`. */
 	role: string;
+	/** A known role code, used when the role list cannot be read. */
+	customRoleCode?: string;
 	password: string;
 };
 
@@ -199,7 +201,7 @@ export function toCreateAdminUserInput(
 		email: values.email.trim(),
 		phone: normalizePhone(values.phone),
 		address: address ? address : undefined,
-		roleCode: values.role,
+		roleCode: values.customRoleCode?.trim() || values.role,
 		password: values.password,
 	};
 }

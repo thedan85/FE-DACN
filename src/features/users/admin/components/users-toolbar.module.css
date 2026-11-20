@@ -47,6 +47,16 @@
 	width: 100%;
 }
 
+.codeForm {
+	display: flex;
+	gap: 8px;
+}
+
+.codeInput {
+	min-width: 140px;
+	min-height: 38px;
+}
+
 .fallbackHint {
 	flex-basis: 100%;
 	color: var(--color-admin-panel-text-muted);

@@ -370,6 +370,26 @@ export function UserCreateForm() {
 										disabled={saving || rolesLoading}
 									/>
 								</Form.Item>
+
+								{usingFallback && (
+									<Form.Item
+										name="customRoleCode"
+										label="Known role code"
+										extra="Overrides the staff role when filled in."
+										rules={[
+											{
+												max: 50,
+												message: "Role code must be 50 characters or fewer.",
+											},
+										]}
+									>
+										<Input
+											placeholder="e.g. catalog_editor"
+											autoComplete="off"
+											disabled={saving}
+										/>
+									</Form.Item>
+								)}
 							</Card>
 
 							<Card title="Password">

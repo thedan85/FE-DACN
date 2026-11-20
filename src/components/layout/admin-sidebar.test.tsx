@@ -36,16 +36,36 @@ it("hides Orders without order:read", () => {
 	expect(screen.queryByRole("link", { name: "Orders" })).toBeNull();
 });
 
-it("links Staff & Permissions to the roles page", () => {
+it("links Staff & Permissions to the roles page with role:read", () => {
+	useAuthStore.setState({
+		status: "authenticated",
+		user: { ...user, permissions: ["role:read"] },
+	});
 	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
 	expect(screen.getByRole("link", { name: "Staff & Permissions" }).getAttribute("href"))
 		.toBe("/admin/roles");
 });
 
-it("links User accounts to the users page", () => {
+it("hides Staff & Permissions without role:read", () => {
+	useAuthStore.setState({ status: "authenticated", user: { ...user, permissions: [] } });
+	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
+	expect(screen.queryByRole("link", { name: "Staff & Permissions" })).toBeNull();
+});
+
+it("links User accounts to the users page with user:read", () => {
+	useAuthStore.setState({
+		status: "authenticated",
+		user: { ...user, permissions: ["user:read"] },
+	});
 	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
 	expect(screen.getByRole("link", { name: "User accounts" }).getAttribute("href"))
 		.toBe("/admin/users");
+});
+
+it("hides User accounts without user:read", () => {
+	useAuthStore.setState({ status: "authenticated", user: { ...user, permissions: [] } });
+	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
+	expect(screen.queryByRole("link", { name: "User accounts" })).toBeNull();
 });
 
 it("links Customers with user:read", () => {
@@ -78,7 +98,7 @@ it("renders the three catalog links without permissions", () => {
 it("keeps an accessible name on every link when collapsed", () => {
 	useAuthStore.setState({
 		status: "authenticated",
-		user: { ...user, permissions: ["order:read", "user:read"] },
+		user: { ...user, permissions: ["order:read", "user:read", "role:read"] },
 	});
 	render(<AdminSidebar collapsed onToggleCollapse={vi.fn()} />);
 

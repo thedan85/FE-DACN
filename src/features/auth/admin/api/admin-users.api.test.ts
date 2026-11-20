@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 
 import {
+	getAdminUser,
 	listAdminUsers,
 	patchCustomerProfile,
 	setAdminUserStatus,
@@ -96,6 +97,28 @@ it("sends only the supplied profile field in the patch body", async () => {
 	expect(init.method).toBe("PATCH");
 	expect(JSON.parse(String(init.body))).toEqual({ name: "New Name" });
 	expect(updated.name).toBe("New Name");
+});
+
+it("decodes a customer with no profile in both list and detail responses", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const customer = {
+		...employee,
+		userId: "USR_customer",
+		roleCode: "customer",
+		roleName: "Customer",
+		name: null,
+		phone: null,
+	};
+	stubFetch(
+		ok({ content: [customer], page: 0, size: 20, totalElements: 1, totalPages: 1 }),
+		ok({ ...customer, address: null, permissions: [] }),
+	);
+
+	const page = await listAdminUsers({ page: 0, size: 20, roleCode: "customer" });
+	expect(page.content).toEqual([customer]);
+	expect(await getAdminUser("USR_customer")).toMatchObject({
+		name: null, phone: null, address: null,
+	});
 });
 
 it("sends the documented status patch body", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -91,7 +91,7 @@ type ListState =
 	| { status: "error"; message: string }
 	/** The chosen filter has no owner yet, so there is nothing to read. */
 	| { status: "prompt" }
-	| { status: "ready"; page: PageData<Media> };
+	| { status: "ready"; page: PageData<Media>; withHiddenAccess: boolean };
 
 /**
  * The media library.
@@ -114,6 +114,9 @@ export function MediaLibraryView() {
 	const mayCreate = can(CATALOG_PERMISSIONS.mediaCreate);
 	const mayUpdate = can(CATALOG_PERMISSIONS.mediaUpdate);
 	const mayDelete = can(CATALOG_PERMISSIONS.mediaDelete);
+	// The backend decides whether the global list includes hidden owners from
+	// this grant; media:create does not affect visibility.
+	const maySeeHidden = can(CATALOG_PERMISSIONS.productCreate);
 
 	const [ownerKind, setOwnerKind] = useState<OwnerKind>("all");
 	const [productId, setProductId] = useState<string | null>(null);
@@ -122,15 +125,27 @@ export function MediaLibraryView() {
 	const [state, setState] = useState<ListState>({ status: "loading" });
 	const [reloadKey, setReloadKey] = useState(0);
 	const [formTarget, setFormTarget] = useState<
-		{ mode: "create" } | { mode: "edit"; media: Media } | null
+		{ mode: "create" } | { mode: "edit"; media: Media; withHiddenAccess: boolean } | null
 	>(null);
 
+	const formAllowed = formTarget?.mode === "edit"
+		? mayUpdate && (!formTarget.withHiddenAccess || maySeeHidden)
+		: mayCreate;
+	const staleVisibility = state.status === "ready" && state.withHiddenAccess !== maySeeHidden;
+	const requestedVisibility = useRef(maySeeHidden);
 	const { headingRef, captureTrigger, requestFocusRestore } =
 		useDialogFocusRestore({
-			settled: state.status !== "loading",
+			settled: state.status !== "loading" && !staleVisibility,
 			anyDialogOpen: formTarget !== null,
 			settleSignal: state,
 		});
+
+	useEffect(() => {
+		if (formTarget && !formAllowed) {
+			setFormTarget(null);
+			requestFocusRestore();
+		}
+	}, [formTarget, formAllowed, requestFocusRestore]);
 
 	const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
@@ -142,6 +157,14 @@ export function MediaLibraryView() {
 		(ownerKind === "variant" && productId !== null && variantId !== null);
 
 	useEffect(() => {
+		if (requestedVisibility.current !== maySeeHidden) {
+			requestedVisibility.current = maySeeHidden;
+			if (page !== 0) {
+				setState({ status: "loading" });
+				setPage(0);
+				return;
+			}
+		}
 		if (!ownerReady) {
 			setState({ status: "prompt" });
 			return;
@@ -160,7 +183,7 @@ export function MediaLibraryView() {
 		listAdminMedia({ page, size: PAGE_SIZE, ...(owner ? { owner } : {}) })
 			.then((result) => {
 				if (active) {
-					setState({ status: "ready", page: result });
+					setState({ status: "ready", page: result, withHiddenAccess: maySeeHidden });
 				}
 			})
 			.catch(async (caught: unknown) => {
@@ -202,9 +225,11 @@ export function MediaLibraryView() {
 		return () => {
 			active = false;
 		};
-	}, [ownerReady, ownerKind, productId, variantId, page, reloadKey, router]);
+		// product:create controls whether the global list may include hidden
+		// products. Losing it must drop the loaded page and refetch visible rows.
+	}, [ownerReady, ownerKind, productId, variantId, page, reloadKey, maySeeHidden, router]);
 
-	const readyPage = state.status === "ready" ? state.page : null;
+	const readyPage = state.status === "ready" && !staleVisibility ? state.page : null;
 
 	/**
 	 * After a delete that emptied the current page, going back one page keeps
@@ -266,7 +291,7 @@ export function MediaLibraryView() {
 								aria-label={`Edit media ${media.mediaId}`}
 								onClick={(event) => {
 									captureTrigger(event);
-									setFormTarget({ mode: "edit", media });
+									setFormTarget({ mode: "edit", media, withHiddenAccess: maySeeHidden });
 								}}
 							/>
 						)}
@@ -281,7 +306,7 @@ export function MediaLibraryView() {
 				),
 			},
 		],
-		[mayUpdate, mayDelete, handleDeleted, handleNotFound, captureTrigger],
+		[mayUpdate, mayDelete, maySeeHidden, handleDeleted, handleNotFound, captureTrigger],
 	);
 
 	const promptText =
@@ -352,7 +377,7 @@ export function MediaLibraryView() {
 							retryLabel="Try again"
 							onRetry={reload}
 						/>
-					) : state.status === "loading" ? (
+					) : state.status === "loading" || staleVisibility ? (
 						<LoadingState rows={6} label="Loading media" />
 					) : readyPage !== null && readyPage.content.length === 0 ? (
 						<EmptyState
@@ -400,7 +425,7 @@ export function MediaLibraryView() {
 				</Card>
 			</section>
 
-			{formTarget && (
+			{formTarget && formAllowed && (
 				<MediaFormModal
 					key={
 						formTarget.mode === "edit"
@@ -412,9 +437,11 @@ export function MediaLibraryView() {
 						requestFocusRestore();
 						setFormTarget(null);
 					}}
-					onSaved={() => {
-						requestFocusRestore();
-						setFormTarget(null);
+					onSaved={(dialogActive) => {
+						if (dialogActive) {
+							requestFocusRestore();
+							setFormTarget(null);
+						}
 						reload();
 					}}
 				/>
@@ -951,7 +978,7 @@ type MediaFormModalProps = {
 	/** Null opens the create form; a row opens the URL edit form for it. */
 	initial: Media | null;
 	onCancel: () => void;
-	onSaved: () => void;
+	onSaved: (dialogActive: boolean) => void;
 };
 
 function MediaFormModal({ initial, onCancel, onSaved }: MediaFormModalProps) {
@@ -960,6 +987,11 @@ function MediaFormModal({ initial, onCancel, onSaved }: MediaFormModalProps) {
 	const [form] = Form.useForm<MediaFormValues>();
 	const [saving, setSaving] = useState(false);
 	const [formError, setFormError] = useState<string | null>(null);
+	const active = useRef(false);
+	useLayoutEffect(() => {
+		active.current = true;
+		return () => { active.current = false; };
+	}, []);
 
 	const [kind, setKind] = useState<"product" | "variant">(
 		initial?.variantId ? "variant" : "product",
@@ -1004,8 +1036,8 @@ function MediaFormModal({ initial, onCancel, onSaved }: MediaFormModalProps) {
 
 			try {
 				await createAdminMedia({ url, ...owner });
-				message.success("Media created.");
-				onSaved();
+				if (active.current) message.success("Media created.");
+				onSaved(active.current);
 			} catch (caught) {
 				await handleAdminAuthFailure(caught, router);
 				setFormError(apiErrorMessage(caught, "Could not save the media row."));
@@ -1019,8 +1051,8 @@ function MediaFormModal({ initial, onCancel, onSaved }: MediaFormModalProps) {
 
 		try {
 			await patchAdminMedia(initial.mediaId, { url });
-			message.success("Media saved.");
-			onSaved();
+			if (active.current) message.success("Media saved.");
+			onSaved(active.current);
 		} catch (caught) {
 			await handleAdminAuthFailure(caught, router);
 			setFormError(apiErrorMessage(caught, "Could not save the media row."));

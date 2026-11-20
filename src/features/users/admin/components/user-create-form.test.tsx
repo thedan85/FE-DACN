@@ -199,6 +199,28 @@ it("submits the normalised payload and opens the new account", async () => {
 	expect(router.push).toHaveBeenCalledWith("/admin/users/USR_alice");
 });
 
+it("accepts a known role code when role:read is missing", async () => {
+	signIn(["user:create"]);
+	vi.mocked(listAdminRoles).mockRejectedValue(new ApiError("No role:read", 403));
+	render(
+		<App>
+			<UserCreateForm />
+		</App>,
+	);
+	await flush();
+
+	expect(screen.getByText(/showing the built-in staff roles/i)).toBeTruthy();
+	fillRequiredFields();
+	fireEvent.change(screen.getByLabelText("Known role code"), {
+		target: { value: " audit_team " },
+	});
+	await submit();
+
+	expect(createAdminUser).toHaveBeenCalledWith(
+		expect.objectContaining({ roleCode: "audit_team" }),
+	);
+});
+
 it.each([null, ""])("uses a display name in the success toast when the response name is %j", async (name) => {
 	signIn(["user:create"]);
 	vi.mocked(createAdminUser).mockResolvedValue({ ...created, name });

@@ -958,3 +958,89 @@ it("mediaList_statusChangeAndPermissionLossResetScope", async () => {
 	expect(new URL(lastProducts!).searchParams.get("status")).toBe("ACTIVE");
 	expect(new URL(lastProducts!).searchParams.get("keyword")).toBeNull();
 });
+
+it("closes the edit dialog and reloads the first page when product:create is revoked", async () => {
+	let resolveSecond!: (response: Response) => void;
+	const second = new Promise<Response>((resolve) => {
+		resolveSecond = resolve;
+	});
+	let mediaCalls = 0;
+	const fetch = vi.fn(async (input: RequestInfo | URL) => {
+		const url = String(input);
+		if (url.includes("/media?")) {
+			mediaCalls += 1;
+			return mediaCalls <= 2
+				? jsonResponse(page([mediaRow()], mediaCalls - 1, 2, 21).body)
+				: second;
+		}
+		return respond(page([]).body);
+	});
+	vi.stubGlobal("fetch", fetch);
+
+	render(
+		<App>
+			<MediaLibraryView />
+		</App>,
+	);
+	await flush();
+	fireEvent.click(screen.getByTitle("2"));
+	await flush();
+	expect(screen.getByText(cloudinaryUrl)).toBeTruthy();
+	fireEvent.click(screen.getByRole("button", { name: "Edit media MED_1" }));
+	expect(await screen.findByRole("dialog")).toBeTruthy();
+	expect(screen.getByLabelText("Image URL")).toHaveProperty("value", cloudinaryUrl);
+
+	const withoutHidden = {
+		...adminUser,
+		permissions: adminUser.permissions.filter((p) => p !== "product:create"),
+	};
+	act(() => {
+		useAuthStore.setState({ user: withoutHidden });
+	});
+	await flush();
+
+	expect(mediaCalls).toBe(3);
+	const requestedPages = fetch.mock.calls.map(([url]) => new URL(String(url)).searchParams.get("page"));
+	expect(requestedPages).toEqual(["0", "1", "0"]);
+	expect(screen.queryByRole("dialog")).toBeNull();
+	expect(screen.queryByText(cloudinaryUrl)).toBeNull();
+	expect(screen.getByLabelText("Loading media")).toBeTruthy();
+
+	resolveSecond(respond(page([]).body));
+	await flush();
+	expect(screen.getByText("No media here yet")).toBeTruthy();
+});
+
+it("does not close a new edit dialog when a revoked dialog's save finishes", async () => {
+	let finish!: (response: Response) => void;
+	const pending = new Promise<Response>((resolve) => { finish = resolve; });
+	const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+		init?.method === "PATCH"
+			? pending
+			: respond(page([mediaRow()]).body),
+	);
+	vi.stubGlobal("fetch", fetch);
+
+	render(<App><MediaLibraryView /></App>);
+	await flush();
+	const edit = () => fireEvent.click(screen.getByRole("button", { name: "Edit media MED_1" }));
+	edit();
+	fireEvent.click(screen.getByRole("button", { name: "Save media" }));
+	await waitFor(() => expect(fetch.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(true));
+
+	act(() => {
+		useAuthStore.setState({ user: {
+			...adminUser,
+			permissions: adminUser.permissions.filter((permission) => permission !== "product:create"),
+		} });
+	});
+	await flush();
+	expect(screen.queryByRole("dialog")).toBeNull();
+	edit();
+	const draft = `${cloudinaryUrl}?v=2`;
+	fireEvent.change(screen.getByLabelText("Image URL"), { target: { value: draft } });
+
+	finish(respond({ code: 200, message: "OK", data: mediaRow() }));
+	await flush();
+	expect(screen.getByLabelText("Image URL")).toHaveProperty("value", draft);
+});

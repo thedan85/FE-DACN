@@ -10,6 +10,7 @@ import {
 	Card,
 	Descriptions,
 	Form,
+	Input,
 	Segmented,
 	Select,
 	Typography,
@@ -83,13 +84,16 @@ export function UserEditForm({ initialUser }: UserEditFormProps) {
 	const detailHref = `${LISTING_PATH}/${encodeURIComponent(user.userId)}`;
 	const isSelf = user.userId === signedInUserId;
 	const isCustomer = user.roleCode.toLowerCase() === CUSTOMER_ROLE_CODE;
-	const roleLocked = isSelf || isCustomer || usingFallback;
+	// Without role:read the built-in pair and a known role code still allow a
+	// staff role change; the fallback must not lock the field.
+	const roleLocked = isSelf || isCustomer;
 	const statusLocked = isSelf;
 
 	const roleOptions = editUserRoleOptions(roles, user);
 
 	const currentValues: UserEditFormValues = {
 		role: watched?.role ?? user.roleCode,
+		customRoleCode: watched?.customRoleCode ?? "",
 		status: watched?.status ?? user.status,
 	};
 	const changes = userEditChanges(user, currentValues);
@@ -217,7 +221,11 @@ export function UserEditForm({ initialUser }: UserEditFormProps) {
 					// This component owns the store and mounts only with loaded data.
 					// Do not clear it in Form effect cleanup: StrictMode replays that
 					// cleanup during mount. A different account gets a fresh component.
-					initialValues={{ role: initialUser.roleCode, status: initialUser.status }}
+					initialValues={{
+						role: initialUser.roleCode,
+						customRoleCode: "",
+						status: initialUser.status,
+					}}
 					onFinish={(values) => void handleFinish(values)}
 				>
 					<div className={styles.columns}>
@@ -261,6 +269,26 @@ export function UserEditForm({ initialUser }: UserEditFormProps) {
 										disabled={saving || rolesLoading || roleLocked}
 									/>
 								</Form.Item>
+
+								{usingFallback && !roleLocked && (
+									<Form.Item
+										name="customRoleCode"
+										label="Known role code"
+										extra="Overrides the role select when filled in."
+										rules={[
+											{
+												max: 50,
+												message: "Role code must be 50 characters or fewer.",
+											},
+										]}
+									>
+										<Input
+											placeholder="e.g. catalog_editor"
+											autoComplete="off"
+											disabled={saving}
+										/>
+									</Form.Item>
+								)}
 
 								{/* A Segmented is a radiogroup, not a labelable control, so
 								    the group carries its own accessible name. */}

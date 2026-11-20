@@ -243,9 +243,27 @@ it.each(currentRoles.flatMap((role) => [false, true].map((fallback) => ({ ...rol
 		// Assert the closed control's rendered value, not a dropdown option/title.
 		const select = screen.getByRole("combobox");
 		expect(select.closest(".ant-select")?.textContent).toContain(roleName);
-		expect(select).toHaveProperty("disabled", fallback || roleCode === "customer");
+		expect(select).toHaveProperty("disabled", roleCode === "customer");
+		expect(screen.queryByLabelText("Known role code") !== null).toBe(
+			fallback && roleCode !== "customer",
+		);
 	},
 );
+
+it("saves a known role code when role:read is missing", async () => {
+	signIn(["user:read", "user:update"]);
+	vi.mocked(listAdminRoles).mockRejectedValue(new ApiError("No role:read", 403));
+	await mount();
+
+	fireEvent.change(screen.getByLabelText("Known role code"), {
+		target: { value: " audit_team " },
+	});
+	await settle();
+	await save();
+
+	expect(setAdminUserRole).toHaveBeenCalledWith("USR_alice", "audit_team");
+	expect(setAdminUserStatus).not.toHaveBeenCalled();
+});
 
 it.each(["ACTIVE", "LOCKED"] as const)("preserves Status=%s through StrictMode effect replay", async (status) => {
 	signIn(["user:read", "user:update"]);

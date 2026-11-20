@@ -14,7 +14,7 @@ beforeEach(() => {
 	route.pathname = "/admin/dashboard";
 	useAuthStore.setState({ status: "authenticated", user: {
 		userId: "actor", name: "Actor", email: "actor@example.com", phone: null, address: null,
-		roleCode: "employee", roleName: "Employee", permissions: ["order:read"], hasPassword: true,
+		roleCode: "employee", roleName: "Employee", permissions: ["order:read", "user:read", "role:read"], hasPassword: true,
 	} });
 	vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 	vi.stubGlobal("matchMedia", vi.fn().mockImplementation((query: string) => ({

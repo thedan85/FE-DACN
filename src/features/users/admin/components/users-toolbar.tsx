@@ -48,6 +48,7 @@ export function UsersToolbar({
 }: UsersToolbarProps) {
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [keywordDraft, setKeywordDraft] = useState(query.keyword ?? "");
+	const [roleCodeDraft, setRoleCodeDraft] = useState("");
 
 	// The URL is the source of truth for the committed keyword, so the box must
 	// follow it: "Clear filters", a back button, or a pasted link would otherwise
@@ -86,6 +87,27 @@ export function UsersToolbar({
 				options={USER_SORT_OPTIONS.map((option) => ({ ...option }))}
 				onChange={(value) => onChange({ sort: value, page: 1 })}
 			/>
+			{staff && rolesFallback && (
+				<form
+					className={styles.codeForm}
+					onSubmit={(event) => {
+						event.preventDefault();
+						const code = roleCodeDraft.trim().toLowerCase();
+						setRoleCodeDraft("");
+						onChange({ roleCode: code || undefined, page: 1 });
+					}}
+				>
+					<Input
+						className={styles.codeInput}
+						aria-label="Known role code"
+						placeholder="Custom role code"
+						maxLength={50}
+						value={roleCodeDraft}
+						onChange={(event) => setRoleCodeDraft(event.target.value)}
+					/>
+					<Button htmlType="submit">Apply</Button>
+				</form>
+			)}
 		</>
 	);
 

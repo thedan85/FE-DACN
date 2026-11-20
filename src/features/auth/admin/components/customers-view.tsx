@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
 	Alert,
@@ -35,6 +35,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore";
+import { displayName } from "@/features/users/admin/model/user-format";
 import { useAuthStore } from "@/stores/auth-store";
 
 import {
@@ -132,6 +133,7 @@ export function CustomersView() {
 	const permissions = useAuthStore((state) => state.user?.permissions);
 	const mayRead = permissions?.includes("user:read") === true;
 	const mayUpdate = permissions?.includes("user:update") === true;
+	const mayChangeStatus = mayRead && mayUpdate;
 
 	const [keywordDraft, setKeywordDraft] = useState("");
 	const [keyword, setKeyword] = useState("");
@@ -153,6 +155,15 @@ export function CustomersView() {
 			anyDialogOpen: statusTarget !== null || editOpen,
 			settleSignal: state,
 		});
+	// Losing access must also drop the pending target, not just hide the
+	// dialog, so a later regrant cannot reopen a stale confirmation.
+	useEffect(() => {
+		if (!mayChangeStatus && statusTarget !== null) {
+			setStatusTarget(null);
+			requestFocusRestore();
+		}
+	}, [mayChangeStatus, statusTarget, requestFocusRestore]);
+
 	const requestKey = JSON.stringify([
 		query.status,
 		query.page,
@@ -305,11 +316,18 @@ export function CustomersView() {
 	}, [mayRead, selectedId, detailReloadKey, router]);
 
 	const handleStatusDone = useCallback(
-		(name: string, action: "locked" | "unlocked") => {
+		(name: string, action: "locked" | "unlocked", dialogActive: boolean) => {
+			if (!useAuthStore.getState().user?.permissions.includes("user:read")) {
+				return;
+			}
+			setDetailReloadKey((key) => key + 1);
+			if (!dialogActive) {
+				setReloadKey((key) => key + 1);
+				return;
+			}
 			message.success(`${name} ${action}.`);
 			setStatusTarget(null);
 			requestFocusRestore();
-			setDetailReloadKey((key) => key + 1);
 			const removesFromFilter =
 				query.status !== undefined &&
 				query.status !== (action === "locked" ? "LOCKED" : "ACTIVE");
@@ -346,7 +364,7 @@ export function CustomersView() {
 				key: "customer",
 				render: (_, row) => (
 					<div className={styles.customerCell}>
-						<span className={styles.customerName}>{row.name}</span>
+						<span className={styles.customerName}>{displayName(row)}</span>
 						<span className={styles.customerEmail}>{row.email}</span>
 					</div>
 				),
@@ -397,7 +415,7 @@ export function CustomersView() {
 							<Button
 								type="link"
 								size="small"
-								aria-label={`View details for ${row.name}`}
+								aria-label={`View details for ${displayName(row)}`}
 								aria-pressed={selected}
 								onClick={() =>
 									setSelectedId((current) =>
@@ -413,7 +431,7 @@ export function CustomersView() {
 									size="small"
 									aria-label={`${
 										row.status === "ACTIVE" ? "Lock" : "Unlock"
-									} ${row.name}`}
+									} ${displayName(row)}`}
 									onClick={(event) => {
 										captureTrigger(event);
 										setStatusTarget(row);
@@ -595,7 +613,7 @@ export function CustomersView() {
 								size="small"
 								column={{ xs: 1, sm: 2 }}
 								items={[
-									{ label: "Name", children: detailState.detail.name },
+									{ label: "Name", children: displayName(detailState.detail) },
 									{ label: "Email", children: detailState.detail.email },
 									{
 										label: "Phone",
@@ -641,7 +659,7 @@ export function CustomersView() {
 					</Card>
 				)}
 
-				{statusTarget && (
+				{mayChangeStatus && statusTarget && (
 					<StatusActionModal
 						target={statusTarget}
 						onClose={() => {
@@ -671,12 +689,17 @@ function StatusActionModal({
 }: {
 	target: AdminUser;
 	onClose: () => void;
-	onDone: (name: string, action: "locked" | "unlocked") => void;
+	onDone: (name: string, action: "locked" | "unlocked", dialogActive: boolean) => void;
 }) {
 	const router = useRouter();
 	const locking = target.status === "ACTIVE";
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const active = useRef(false);
+	useLayoutEffect(() => {
+		active.current = true;
+		return () => { active.current = false; };
+	}, []);
 
 	const submit = async () => {
 		if (submitting) {
@@ -688,7 +711,7 @@ function StatusActionModal({
 
 		try {
 			await setAdminUserStatus(target.userId, locking ? "LOCKED" : "ACTIVE");
-			onDone(target.name, locking ? "locked" : "unlocked");
+			onDone(displayName(target), locking ? "locked" : "unlocked", active.current);
 		} catch (caught) {
 			// Rejected writes are not retried automatically; the dialog stays
 			// open so the admin can read the reason and decide.
@@ -706,7 +729,7 @@ function StatusActionModal({
 	return (
 		<Modal
 			open
-			title={`${locking ? "Lock" : "Unlock"} ${target.name}?`}
+			title={`${locking ? "Lock" : "Unlock"} ${displayName(target)}?`}
 			okText={locking ? "Lock" : "Unlock"}
 			confirmLoading={submitting}
 			onOk={() => void submit()}

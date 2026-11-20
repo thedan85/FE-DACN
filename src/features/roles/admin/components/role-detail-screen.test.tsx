@@ -91,6 +91,58 @@ it("keeps all admin user/role permissions checked and disabled, but other resour
 	expect(screen.getByRole("checkbox", { name: /Update Product/ })).toHaveProperty("disabled", false);
 	expect(screen.getByText("The admin role must always keep user and role permissions")).toBeTruthy();
 });
+it("does not replace locked admin grants after an editable grant is toggled back", async () => {
+	signInRoleActor(["role:read", "role:update"]);
+	vi.mocked(getRole).mockResolvedValue({ ...roleFixture, permissions: [] });
+	await mount();
+
+	// Auto-checked locked grants are not a user edit, so the form starts clean.
+	const save = screen.getByRole("button", { name: "Save changes" });
+	expect(save).toHaveProperty("disabled", true);
+
+	const editable = screen.getByRole("checkbox", { name: /Update Product/ });
+	fireEvent.click(editable);
+	expect(save).toHaveProperty("disabled", false);
+	fireEvent.click(editable);
+	expect(save).toHaveProperty("disabled", true);
+
+	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+		target: { value: "Admin Desk" },
+	});
+	await waitFor(() => expect(save).toHaveProperty("disabled", false));
+	fireEvent.click(save);
+	await screen.findByText("Role updated successfully");
+
+	expect(updateRole).toHaveBeenCalledWith(roleFixture.roleId, {
+		name: "Admin Desk",
+	});
+	expect(replaceRolePermissions).not.toHaveBeenCalled();
+});
+
+it("uses the grants returned by a metadata save as the next draft", async () => {
+	signInRoleActor(["role:read", "role:update"]);
+	vi.mocked(updateRole).mockImplementation(async (_, input) => ({
+		...roleDetailFixture,
+		...input,
+		permissions: [permissionFixture, product],
+	}));
+	await mount();
+
+	for (const name of ["Support Desk", "Support Team"]) {
+		fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+			target: { value: name },
+		});
+		const save = screen.getByRole("button", { name: "Save changes" });
+		await waitFor(() => expect(save).toHaveProperty("disabled", false));
+		fireEvent.click(save);
+		await screen.findByText("No changes");
+		expect(screen.getByRole("checkbox", { name: /Update Product/ })).toHaveProperty("checked", true);
+	}
+
+	expect(updateRole).toHaveBeenCalledTimes(2);
+	expect(replaceRolePermissions).not.toHaveBeenCalled();
+});
+
 it("keeps customer permissions read-only while allowing its name to change", async () => {
 	signInRoleActor(["role:read", "role:update"]);
 	vi.mocked(getRole).mockResolvedValue({ ...roleDetailFixture, code: "customer", name: "Customer", system: true });

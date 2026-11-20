@@ -623,6 +623,31 @@ it("staff mode redirects a role-only account to /admin/roles without requesting 
 	expect(listAdminUsers).not.toHaveBeenCalled();
 });
 
+it("staff mode offers a known role code when role:read is missing", async () => {
+	signIn(["user:read"]);
+	router.pathname = "/admin/staff";
+	const view = <App><UsersListing staff /></App>;
+	const { rerender } = render(view);
+	await flush();
+
+	expect(screen.getByText(/showing the built-in staff roles/i)).toBeTruthy();
+	for (const [input, expectedRoleCode] of [[" Support ", "support"], [" Customer ", "employee"]]) {
+		fireEvent.change(screen.getByRole("textbox", { name: "Known role code" }), {
+			target: { value: input },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+		const url = new URL(String(router.replace.mock.lastCall?.[0]), "http://localhost");
+		router.searchParams = url.searchParams;
+		rerender(<App><UsersListing staff /></App>);
+		await flush();
+
+		expect(listAdminUsers).toHaveBeenLastCalledWith(
+			expect.objectContaining({ roleCode: expectedRoleCode }),
+		);
+	}
+});
+
 it("staff mode requests nothing when neither read permission is held", async () => {
 	signIn([]);
 	await mountStaff();

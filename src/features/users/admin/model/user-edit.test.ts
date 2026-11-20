@@ -31,4 +31,14 @@ describe("userEditChanges", () => {
 			),
 		).toEqual({ roleCode: "admin", status: "ACTIVE" });
 	});
+
+	it("uses a known role code over the fallback select", () => {
+		expect(
+			userEditChanges(user, {
+				role: "employee",
+				customRoleCode: " audit_team ",
+				status: "ACTIVE",
+			}),
+		).toEqual({ roleCode: "audit_team" });
+	});
 });
