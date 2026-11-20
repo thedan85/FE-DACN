@@ -1,10 +1,15 @@
 import { expect, it } from "vitest";
 
 import {
+	DEFAULT_STAFF_ROLE_CODE,
 	DEFAULT_USERS_LISTING_QUERY,
+	STAFF_DEFAULT_USERS_LISTING_QUERY,
+	STAFF_PATH,
 	USER_SORT_OPTIONS,
 	USERS_PAGE_SIZE,
+	parseStaffUsersListingQuery,
 	parseUsersListingQuery,
+	rolesTabRedirect,
 	toUsersApiParams,
 	toUsersListingHref,
 	toUsersSearchParams,
@@ -145,4 +150,106 @@ it("sends a zero-based page and the fixed page size", () => {
 	expect(
 		toUsersApiParams({ ...DEFAULT_USERS_LISTING_QUERY, page: 4 }).page,
 	).toBe(3);
+});
+
+it("keeps the customer role in the general query (dev behaviour)", () => {
+	expect(parseUsersListingQuery({ roleCode: "customer" }).roleCode).toBe("customer");
+	expect(parseUsersListingQuery({ roleCode: "CUSTOMER" }).roleCode).toBe("customer");
+});
+
+it("staff mode defaults to the employee role", () => {
+	expect(parseStaffUsersListingQuery({})).toEqual(STAFF_DEFAULT_USERS_LISTING_QUERY);
+	expect(STAFF_DEFAULT_USERS_LISTING_QUERY.roleCode).toBe("employee");
+	expect(DEFAULT_STAFF_ROLE_CODE).toBe("employee");
+});
+
+it("staff mode rejects the customer role, case-insensitively", () => {
+	for (const spelling of ["customer", "CUSTOMER", "Customer", "cUsToMeR"]) {
+		expect(parseStaffUsersListingQuery({ roleCode: spelling }).roleCode).toBe(
+			DEFAULT_STAFF_ROLE_CODE,
+		);
+	}
+});
+
+it("staff mode rejects customer while preserving the other filters", () => {
+	expect(
+		parseStaffUsersListingQuery({
+			roleCode: "Customer",
+			status: "LOCKED",
+			page: "3",
+		}),
+	).toMatchObject({
+		roleCode: DEFAULT_STAFF_ROLE_CODE,
+		status: "LOCKED",
+		page: 3,
+	});
+});
+
+it("staff mode keeps an assignable staff role", () => {
+	expect(parseStaffUsersListingQuery({ roleCode: "catalog_editor" }).roleCode).toBe(
+		"catalog_editor",
+	);
+	expect(parseStaffUsersListingQuery({ roleCode: "ADMIN" }).roleCode).toBe("admin");
+});
+
+it("omits the staff default role from the URL and keeps others", () => {
+	expect(
+		toUsersSearchParams(
+			STAFF_DEFAULT_USERS_LISTING_QUERY,
+			STAFF_DEFAULT_USERS_LISTING_QUERY,
+		),
+	).toEqual({});
+	expect(
+		toUsersSearchParams(
+			{ ...STAFF_DEFAULT_USERS_LISTING_QUERY, roleCode: "catalog_editor" },
+			STAFF_DEFAULT_USERS_LISTING_QUERY,
+		),
+	).toEqual({ roleCode: "catalog_editor" });
+});
+
+it("builds the staff href for the compat route", () => {
+	expect(
+		toUsersListingHref(
+			STAFF_DEFAULT_USERS_LISTING_QUERY,
+			STAFF_PATH,
+			STAFF_DEFAULT_USERS_LISTING_QUERY,
+		),
+	).toBe("/admin/staff");
+	expect(
+		toUsersListingHref(
+			{ ...STAFF_DEFAULT_USERS_LISTING_QUERY, status: "LOCKED" },
+			STAFF_PATH,
+			STAFF_DEFAULT_USERS_LISTING_QUERY,
+		),
+	).toBe("/admin/staff?status=LOCKED");
+});
+
+it("redirects the retired roles tab to /admin/roles, case-insensitively", () => {
+	expect(rolesTabRedirect("roles")).toBe("/admin/roles");
+	expect(rolesTabRedirect("ROLES")).toBe("/admin/roles");
+	expect(rolesTabRedirect(" Roles ")).toBe("/admin/roles");
+	expect(rolesTabRedirect(["roles"])).toBe("/admin/roles");
+});
+
+it("leaves every other staff tab value to the staff view", () => {
+	expect(rolesTabRedirect("staff")).toBeNull();
+	expect(rolesTabRedirect(undefined)).toBeNull();
+	expect(rolesTabRedirect("")).toBeNull();
+	expect(rolesTabRedirect("role")).toBeNull();
+	expect(rolesTabRedirect(["staff", "roles"])).toBeNull();
+});
+
+it("staff mode never reads a keyword from the URL", () => {
+	const parsed = parseStaffUsersListingQuery({
+		keyword: "alice@example.com",
+		status: "LOCKED",
+		page: "3",
+	});
+
+	expect(parsed.keyword).toBeUndefined();
+	expect(parsed).toMatchObject({
+		roleCode: DEFAULT_STAFF_ROLE_CODE,
+		status: "LOCKED",
+		page: 3,
+	});
 });

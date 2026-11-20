@@ -49,8 +49,11 @@ export function RoleEditor({ initialRole, initialPermissions, onNotFound }: Role
 	// The refreshed catalog is authoritative: do not resurrect an id removed
 	// from it after a permission-not-found response just because the old detail had it.
 	const locked = adminLockedIds(role, catalog);
-	const chosen = customer ? role.permissions.map((permission) => permission.permissionId) : effectiveSelection(selected, locked);
-	const diff = selectionDiff(role.permissions.map((permission) => permission.permissionId), chosen);
+	const baseline = role.permissions.map((permission) => permission.permissionId);
+	const chosen = customer ? baseline : effectiveSelection(selected, locked);
+	// Automatic locked grants are not an edit. Only an explicit toggle makes
+	// grants dirty, so a metadata-only save cannot also replace permissions.
+	const diff = selectionDiff(effectiveSelection(baseline, locked), chosen);
 	const information = { name: watched?.name ?? role.name ?? "", description: watched?.description ?? role.description ?? "" };
 	const patch = roleInformationPatch(role, information);
 	const permissionsChanged = diff.added.length > 0 || diff.removed.length > 0;
@@ -100,6 +103,9 @@ export function RoleEditor({ initialRole, initialPermissions, onNotFound }: Role
 			if (Object.keys(pending).length > 0) {
 				latest = await updateRole(role.roleId, pending);
 				setRole(latest);
+				if (!permissionsChanged) {
+					setSelected(latest.permissions.map((permission) => permission.permissionId));
+				}
 				saved.push("role information");
 			}
 			if (permissionsChanged && !customer) {

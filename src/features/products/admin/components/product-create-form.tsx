@@ -7,9 +7,9 @@ import { Alert, App, Button, Form, Result, Typography } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 
 import { ApiError } from "@/lib/api/client";
-import { getCategories } from "@/features/products/api/products.api";
 import type { Category } from "@/features/products/types";
 
+import { listAdminCategories } from "../api/categories.api";
 import { createProduct } from "../api/products.api";
 import { CATALOG_PERMISSIONS } from "../model/permissions";
 import {
@@ -62,7 +62,7 @@ export function ProductCreateForm() {
 	useEffect(() => {
 		let active = true;
 
-		getCategories()
+		listAdminCategories()
 			.then((result) => {
 				if (active) {
 					setCategories(result);

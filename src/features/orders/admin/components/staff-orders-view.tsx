@@ -29,6 +29,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
 import { ApiError } from "@/lib/api/client";
 import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/constants/labels";
 import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
@@ -635,7 +636,7 @@ function OrderDetails({ order }: { order: Order }) {
 					{order.items.map((item, index) => (
 						<li key={`${item.variantId}-${index}`} className={styles.item}>
 							<div className={styles.thumb}>
-								{item.thumbnail ? (
+								{isOptimizableImageUrl(item.thumbnail) ? (
 									<Image
 										src={item.thumbnail}
 										alt=""

@@ -23,6 +23,12 @@
 	letter-spacing: -0.85px;
 }
 
+/* The staff-mode anomaly banner sits between the toolbar and the table,
+   inside the card's 20px horizontal rhythm. */
+.suppression {
+	margin: 12px 20px 0;
+}
+
 /* The tabs sit on the card's top edge, so the bar keeps the card's own
    horizontal rhythm and the nav's bottom border is the only divider. */
 .tabs:global(.ant-tabs) {

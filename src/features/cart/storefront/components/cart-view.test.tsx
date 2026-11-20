@@ -24,6 +24,11 @@ vi.mock("next/link", () => ({
 		<a href={href} {...rest}>{children}</a>
 	),
 }));
+vi.mock("next/image", () => ({
+	default: ({ src, alt }: { src: string; alt: string }) => (
+		<img src={src} alt={alt} />
+	),
+}));
 
 const cart: Cart = {
 	cartId: "CART_1",
@@ -131,6 +136,42 @@ describe("CartView compatibility", () => {
 		const nextCart = setCart.mock.calls[0][0] as Cart;
 		expect(nextCart.compatibility).toBe(cart.compatibility);
 		expect(screen.getByText("Caution")).toBeTruthy();
+	});
+});
+
+describe("CartView thumbnail gate", () => {
+	const allowed =
+		"https://res.cloudinary.com/ibk3z2nt/image/upload/v1/guppy.png";
+	const unsupported = "https://cdn.example.com/rogue.png";
+
+	function withThumbnail(thumbnail: string): Cart {
+		return {
+			...cart,
+			items: [{ ...cart.items[0]!, thumbnail }],
+		};
+	}
+
+	function renderWith(thumbnail: string) {
+		vi.mocked(useCart).mockReturnValue({
+			state: { status: "ready", cart: withThumbnail(thumbnail) },
+			reload,
+			setCart,
+			refresh: vi.fn(),
+		});
+		return render(<App><CartView /></App>);
+	}
+
+	it("renders an allowed catalog thumbnail", () => {
+		const { container } = renderWith(allowed);
+
+		expect(container.querySelector(`img[src="${allowed}"]`)).not.toBeNull();
+	});
+
+	it("never renders an unsupported thumbnail", () => {
+		const { container } = renderWith(unsupported);
+
+		expect(container.querySelector("img")).toBeNull();
+		expect(container.innerHTML).not.toContain("cdn.example.com");
 	});
 });
 

@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Drawer, Input, Select } from "antd";
+import { useId, useState } from "react";
+import { Button, Drawer, Input, Select, Typography } from "antd";
 import { FilterOutlined, SearchOutlined } from "@ant-design/icons";
 
+import { validateRoleCode } from "@/features/roles/admin/model/role-form";
 import {
 	USER_SORT_OPTIONS,
 	type UsersListingQuery,
 } from "../model/listing-query";
-import { ROLE_FALLBACK_HINT, userRoleFilterOptions } from "../model/roles";
+import { ROLE_FALLBACK_HINT, normalizeRoleCode, staffRoleFilterOptions, userRoleFilterOptions } from "../model/roles";
 import type { Role } from "../schema/user.schema";
 import styles from "./users-toolbar.module.css";
 
@@ -18,6 +19,8 @@ type UsersToolbarProps = {
 	rolesLoading: boolean;
 	/** True when the role list is the built-in floor rather than the API's. */
 	rolesFallback: boolean;
+	/** Staff mode: never offer the customer role; no "All roles" escape. */
+	staff?: boolean;
 	/** Fires on every committed change; the page owns URL synchronisation. */
 	onChange: (next: Partial<UsersListingQuery>) => void;
 	/** The keyword is committed on submit rather than per keystroke. */
@@ -40,11 +43,15 @@ export function UsersToolbar({
 	roles,
 	rolesLoading,
 	rolesFallback,
+	staff = false,
 	onChange,
 	onKeywordSubmit,
 }: UsersToolbarProps) {
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [keywordDraft, setKeywordDraft] = useState(query.keyword ?? "");
+	const [roleCodeDraft, setRoleCodeDraft] = useState("");
+	const [roleCodeError, setRoleCodeError] = useState<string | null>(null);
+	const roleCodeErrorId = useId();
 
 	// The URL is the source of truth for the committed keyword, so the box must
 	// follow it: "Clear filters", a back button, or a pasted link would otherwise
@@ -57,9 +64,11 @@ export function UsersToolbar({
 		setKeywordDraft(query.keyword ?? "");
 	}
 
-	const roleOptions = userRoleFilterOptions(roles, query.roleCode);
+	const roleOptions = staff
+		? staffRoleFilterOptions(roles, query.roleCode)
+		: userRoleFilterOptions(roles, query.roleCode);
 
-	const filters = (
+	const renderFilters = (errorId: string) => (
 		<>
 			<Select
 				className={styles.select}
@@ -81,6 +90,41 @@ export function UsersToolbar({
 				options={USER_SORT_OPTIONS.map((option) => ({ ...option }))}
 				onChange={(value) => onChange({ sort: value, page: 1 })}
 			/>
+			{staff && rolesFallback && (
+				<form
+					className={styles.codeForm}
+					onSubmit={(event) => {
+						event.preventDefault();
+						const code = roleCodeDraft.trim();
+						const error = code ? validateRoleCode(code) : null;
+						setRoleCodeError(error);
+						if (error) return;
+
+						setRoleCodeDraft("");
+						onChange({ roleCode: normalizeRoleCode(code) || undefined, page: 1 });
+					}}
+				>
+					<Input
+						className={styles.codeInput}
+						aria-label="Known role code"
+						aria-invalid={roleCodeError !== null}
+						aria-describedby={roleCodeError ? errorId : undefined}
+						placeholder="Custom role code"
+						status={roleCodeError ? "error" : undefined}
+						value={roleCodeDraft}
+						onChange={(event) => {
+							setRoleCodeDraft(event.target.value);
+							setRoleCodeError(null);
+						}}
+					/>
+					<Button htmlType="submit">Apply</Button>
+					{roleCodeError && (
+						<Typography.Text id={errorId} className={styles.codeError} type="danger" role="alert">
+							{roleCodeError}
+						</Typography.Text>
+					)}
+				</form>
+			)}
 		</>
 	);
 
@@ -112,7 +156,7 @@ export function UsersToolbar({
 				/>
 			</form>
 
-			<div className={styles.desktopFilters}>{filters}</div>
+			<div className={styles.desktopFilters}>{renderFilters(`${roleCodeErrorId}-desktop`)}</div>
 
 			<Button
 				className={styles.mobileFilterButton}
@@ -135,7 +179,7 @@ export function UsersToolbar({
 				onClose={() => setDrawerOpen(false)}
 				size="auto"
 			>
-				<div className={styles.drawerFilters}>{filters}</div>
+				<div className={styles.drawerFilters}>{renderFilters(`${roleCodeErrorId}-drawer`)}</div>
 			</Drawer>
 		</div>
 	);

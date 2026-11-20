@@ -1,8 +1,11 @@
 import type { UserAccountStatus } from "../schema/user.schema";
+import { normalizeRoleCode } from "./roles";
 
-/** The two fields the edit screen can change. */
+/** The fields the edit screen can change. */
 export type UserEditFormValues = {
 	role: string;
+	/** A known role code, used when the role list cannot be read. */
+	customRoleCode?: string;
 	status: UserAccountStatus;
 };
 
@@ -23,9 +26,10 @@ export function userEditChanges(
 	values: UserEditFormValues,
 ): UserEditChanges {
 	const changes: UserEditChanges = {};
+	const role = normalizeRoleCode(values.customRoleCode ?? "") || normalizeRoleCode(values.role);
 
-	if (values.role !== user.roleCode) {
-		changes.roleCode = values.role;
+	if (role !== normalizeRoleCode(user.roleCode)) {
+		changes.roleCode = role;
 	}
 
 	if (values.status !== user.status) {

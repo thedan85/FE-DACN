@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Card, Tag } from "antd";
 
 import { StockAvailability } from "@/features/stock/components/stock-availability";
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
 
 import type { Product } from "../../types";
 import { formatPriceRange } from "../model/product-format";
@@ -47,7 +48,7 @@ export function ProductCard({
 			}}
 			cover={
 				<div className={styles.imageBox}>
-					{product.thumbnail ? (
+					{isOptimizableImageUrl(product.thumbnail) ? (
 						<Image
 							src={product.thumbnail}
 							alt={product.name}

@@ -22,6 +22,7 @@ export function RoleDetailScreen({ roleId }: { roleId: string }) {
 	const [reload, setReload] = useState(0);
 	useEffect(() => {
 		if (!canRead) return;
+		setState({ status: "loading" });
 		let active = true;
 		Promise.all([getRole(roleId), listPermissions()]).then(([role, permissions]) => {
 			if (active) setState({ status: "ready", role, permissions, roleId });
@@ -34,13 +35,22 @@ export function RoleDetailScreen({ roleId }: { roleId: string }) {
 		});
 		return () => { active = false; };
 	}, [roleId, canRead, reload, handleFailure]);
+	// A save that started on an unmounted role must not replace what is on
+	// screen now: a not-found answer only flips the view for the role the
+	// editor it came from was actually showing.
+	const handleNotFound = (editorRoleId: string) =>
+		setState((current) =>
+			current.status === "ready" && current.roleId === editorRoleId
+				? { status: "not-found" }
+				: current,
+		);
 	const back = <Button href={ROLES_PATH}>Back to roles</Button>;
 	return <AdminTheme><section className={styles.page}>
 		{!canRead ? <Result status="403" title="You don't have access to roles" extra={back} />
 			: state.status === "not-found" ? <Result status="404" title="Role not found" subTitle="This role may have been deleted, or the link is wrong." extra={back} />
 				: state.status === "forbidden" ? <Result status="403" title="You don't have permission to do this" extra={back} />
 					: state.status === "error" ? <ErrorState description={state.message} action={back} onRetry={() => { setState({ status: "loading" }); setReload((value) => value + 1); }} />
-						: state.status === "ready" && state.roleId === roleId ? <RoleEditor key={roleId} initialRole={state.role} initialPermissions={state.permissions} onNotFound={() => setState({ status: "not-found" })} />
+						: state.status === "ready" && state.roleId === roleId ? <RoleEditor key={roleId} initialRole={state.role} initialPermissions={state.permissions} onNotFound={() => handleNotFound(state.roleId)} />
 							: <div className={styles.skeleton} aria-busy="true" aria-label="Loading role"><Skeleton active paragraph={{ rows: 8 }} /></div>}
 	</section></AdminTheme>;
 }

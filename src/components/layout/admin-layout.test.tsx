@@ -14,7 +14,7 @@ beforeEach(() => {
 	route.pathname = "/admin/dashboard";
 	useAuthStore.setState({ status: "authenticated", user: {
 		userId: "actor", name: "Actor", email: "actor@example.com", phone: null, address: null,
-		roleCode: "employee", roleName: "Employee", permissions: ["order:read"], hasPassword: true,
+		roleCode: "employee", roleName: "Employee", permissions: ["order:read", "user:read", "role:read"], hasPassword: true,
 	} });
 	vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 	vi.stubGlobal("matchMedia", vi.fn().mockImplementation((query: string) => ({
@@ -38,6 +38,11 @@ it.each([
 	["/admin/roles", "Roles & permissions", null],
 	["/admin/roles/new", "Add role", "Roles & permissions"],
 	["/admin/roles/role-42", "Role detail", "Roles & permissions"],
+	["/admin/staff", "Staff & Permissions", null],
+	["/admin/customers", "Customers", null],
+	["/admin/categories", "Categories", null],
+	["/admin/attributes", "Attributes", null],
+	["/admin/media", "Media", null],
 ])("preserves the combined branches' breadcrumb for %s", (pathname, title, parent) => {
 	route.pathname = pathname;
 	render(shell());

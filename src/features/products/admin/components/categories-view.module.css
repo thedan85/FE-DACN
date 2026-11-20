@@ -1,0 +1,66 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 20px;
+}
+
+.title:global(.ant-typography) {
+	margin: 0 0 4px;
+	color: var(--color-admin-panel-text-strong);
+	/* 34px/700 is the design's page title, matching the other admin views. */
+	font-size: 34px;
+	line-height: 42px;
+	font-weight: 700;
+	letter-spacing: -0.85px;
+}
+
+/* The card's radius and border come from AdminCatalogTheme; nothing here
+   duplicates them. */
+
+.toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 20px;
+	border-bottom: 1px solid var(--color-admin-panel-border);
+}
+
+.searchForm {
+	flex: 1;
+	min-width: 200px;
+}
+
+/* 38px is the design's control height; antd's affix wrapper computes 36 from
+   its own padding, so it is set explicitly rather than left to the token. */
+.search:global(.ant-input-affix-wrapper) {
+	min-height: 38px;
+	border-radius: 6px;
+}
+
+.nameCell {
+	display: inline-flex;
+	align-items: center;
+	color: var(--color-admin-panel-text-strong);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.formError {
+	margin-bottom: 16px;
+}
+
+@media (max-width: 767px) {
+	.title:global(.ant-typography) {
+		font-size: 24px;
+		line-height: 32px;
+	}
+}

@@ -26,7 +26,8 @@ type PageCrumb = {
  * label the page "Edit", and the section name is what the design shows.
  *
  * The `/admin/users` routes are listed before the section itself so the
- * three-level pages win over the generic "User accounts" prefix match.
+ * three-level pages win over the generic "User accounts" prefix match. The
+ * flat catalog and customer sections each match their own segment.
  */
 const PAGE_TITLES: {
 	matches: (pathname: string) => boolean;
@@ -62,6 +63,11 @@ const PAGE_TITLES: {
 		matches: (pathname) => isAtOrBelow(pathname, "/admin/users"),
 		title: "User accounts",
 	},
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/staff"), title: "Staff & Permissions" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/customers"), title: "Customers" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/categories"), title: "Categories" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/attributes"), title: "Attributes" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/media"), title: "Media" },
 ];
 
 function isAtOrBelow(pathname: string, href: string): boolean {

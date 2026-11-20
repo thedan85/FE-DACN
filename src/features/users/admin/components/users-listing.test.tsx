@@ -22,11 +22,12 @@ const router = vi.hoisted(() => ({
 	// A stable instance: `useSearchParams` returns the same object until the URL
 	// changes, and a fresh one per render would re-run the fetch effect forever.
 	searchParams: new URLSearchParams(),
+	pathname: "/admin/users",
 }));
 
 vi.mock("next/navigation", () => ({
 	useRouter: () => router,
-	usePathname: () => "/admin/users",
+	usePathname: () => router.pathname,
 	useSearchParams: () => router.searchParams,
 }));
 
@@ -115,6 +116,8 @@ async function mount() {
 
 beforeEach(() => {
 	router.replace.mockReset();
+	router.pathname = "/admin/users";
+	router.searchParams = new URLSearchParams();
 	vi.mocked(listAdminUsers).mockReset().mockResolvedValue(page());
 	vi.mocked(deleteAdminUser).mockReset().mockResolvedValue();
 	vi.mocked(setAdminUserStatus)
@@ -313,7 +316,10 @@ it("names a bulk lock failure using the email fallback", async () => {
 	fireEvent.click(rowCheckbox("alice@test.com"));
 	fireEvent.click(screen.getByRole("button", { name: "Lock users" }));
 
-	const failure = await screen.findByText(/Cannot lock this user/);
+	const failure = await screen.findByText(/Cannot lock this user/, undefined, {
+		// Load flake on a busy suite: the 409 text renders past the 1s default.
+		timeout: 15000,
+	});
 	expect(failure.textContent).toBe("alice: Cannot lock this user");
 });
 
@@ -387,4 +393,285 @@ it("disables the checkbox for the signed-in account", async () => {
 
 	expect(rowCheckbox("Admin Actor").disabled).toBe(true);
 	expect(rowCheckbox("Alice User").disabled).toBe(false);
+});
+
+const carol: UserSummary = {
+	userId: "USR_carol",
+	email: "carol@test.com",
+	name: "Carol Customer",
+	phone: null,
+	roleCode: "customer",
+	roleName: "Customer",
+	status: "ACTIVE",
+	lastLogin: null,
+	createdAt: "2026-10-15T00:00:00.000Z",
+};
+
+async function mountStaff() {
+	router.pathname = "/admin/staff";
+	render(
+		<App>
+			<UsersListing staff />
+		</App>,
+	);
+	await flush();
+}
+
+it("staff mode renders the staff heading and links rows to the canonical user detail", async () => {
+	signIn(["user:read"]);
+	await mountStaff();
+
+	expect(screen.getByRole("heading", { level: 1, name: "Staff & Permissions" }))
+		.toBeTruthy();
+	expect(screen.getByRole("link", { name: "Alice User" }).getAttribute("href"))
+		.toBe("/admin/users/USR_alice");
+	expect(screen.getByRole("link", { name: "View Alice User" }).getAttribute("href"))
+		.toBe("/admin/users/USR_alice");
+});
+
+it("staff mode defaults the role filter to employee and never sends customer", async () => {
+	signIn(["user:read"]);
+	await mountStaff();
+
+	expect(listAdminUsers).toHaveBeenCalledWith(
+		expect.objectContaining({ roleCode: "employee" }),
+	);
+});
+
+it("staff mode rejects a customer role smuggled into the URL", async () => {
+	signIn(["user:read"]);
+	router.pathname = "/admin/staff";
+	router.searchParams = new URLSearchParams("role=CUSTOMER");
+	render(
+		<App>
+			<UsersListing staff />
+		</App>,
+	);
+	await flush();
+
+	expect(listAdminUsers).toHaveBeenCalledWith(
+		expect.objectContaining({ roleCode: "employee" }),
+	);
+});
+
+it("staff mode suppresses every mutation when a customer row arrives", async () => {
+	signIn(["user:read", "user:create", "user:update", "user:delete"]);
+	vi.mocked(listAdminUsers).mockResolvedValue({
+		...page(),
+		content: [alice, carol],
+		totalElements: 2,
+	});
+	await mountStaff();
+
+	// No selection, no row actions, no create.
+	expect(screen.queryByRole("checkbox")).toBeNull();
+	expect(screen.queryByRole("link", { name: "Edit Alice User" })).toBeNull();
+	expect(screen.queryByRole("button", { name: "Delete Alice User" })).toBeNull();
+	expect(screen.queryByRole("link", { name: "Add staff" })).toBeNull();
+
+	// The anomaly is visible, and read access is not taken away.
+	expect(screen.getByText(/staff actions are disabled/i)).toBeTruthy();
+	expect(screen.getByRole("link", { name: "Alice User" })).toBeTruthy();
+	expect(screen.getByRole("link", { name: "View Alice User" })).toBeTruthy();
+});
+
+it("staff mode gives customer rows no canonical detail links or actions", async () => {
+	signIn(["user:read", "user:create", "user:update", "user:delete"]);
+	vi.mocked(listAdminUsers).mockResolvedValue({
+		...page(),
+		content: [alice, carol],
+		totalElements: 2,
+	});
+	await mountStaff();
+
+	// A customer row on the staff screen must not lead to the canonical user
+	// detail, whose screen offers Delete.
+	const carolRow = screen.getByText("Carol Customer").closest("tr");
+	expect(carolRow).not.toBeNull();
+	expect(within(carolRow as HTMLElement).queryByRole("link")).toBeNull();
+	expect(within(carolRow as HTMLElement).queryByRole("button")).toBeNull();
+
+	// Staff rows keep their read links.
+	expect(screen.getByRole("link", { name: "Alice User" })).toBeTruthy();
+	expect(screen.getByRole("link", { name: "View Alice User" })).toBeTruthy();
+});
+
+it("general listing keeps customer row links unchanged", async () => {
+	signIn(["user:read", "user:update", "user:delete"]);
+	vi.mocked(listAdminUsers).mockResolvedValue({
+		...page(),
+		content: [carol],
+		totalElements: 1,
+	});
+	router.pathname = "/admin/users";
+	render(
+		<App>
+			<UsersListing />
+		</App>,
+	);
+	await flush();
+
+	expect(screen.getByRole("link", { name: "Carol Customer" }).getAttribute("href"))
+		.toBe("/admin/users/USR_carol");
+	expect(screen.getByRole("link", { name: "View Carol Customer" })).toBeTruthy();
+});
+
+it("staff mode keeps staff mutations when no customer row arrives", async () => {
+	signIn(["user:read", "user:create", "user:update", "user:delete"]);
+	await mountStaff();
+
+	expect(screen.getByRole("link", { name: "Edit Alice User" })).toBeTruthy();
+	expect(screen.getByRole("link", { name: "Add staff" })).toBeTruthy();
+	expect(screen.queryByText(/staff actions are disabled/i)).toBeNull();
+});
+
+it("staff mode clearing the filters stays on the compat route", async () => {
+	signIn(["user:read"]);
+	router.pathname = "/admin/staff";
+	router.searchParams = new URLSearchParams("status=LOCKED");
+	vi.mocked(listAdminUsers).mockResolvedValue({
+		content: [],
+		page: 0,
+		size: 20,
+		totalElements: 0,
+		totalPages: 0,
+	});
+	render(
+		<App>
+			<UsersListing staff />
+		</App>,
+	);
+	await flush();
+
+	fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+	expect(router.replace).toHaveBeenCalledWith("/admin/staff");
+});
+
+function submitSearch(value: string) {
+	const input = screen.getByLabelText("Search users by name or email");
+	fireEvent.change(input, { target: { value } });
+	fireEvent.submit(input.closest("form") as HTMLFormElement);
+}
+
+function replacedUrls(): string[] {
+	return router.replace.mock.calls.map(([url]) => String(url));
+}
+
+it("staff mode ignores a keyword smuggled into the URL", async () => {
+	signIn(["user:read"]);
+	router.pathname = "/admin/staff";
+	router.searchParams = new URLSearchParams("keyword=alice%40test.com");
+	render(
+		<App>
+			<UsersListing staff />
+		</App>,
+	);
+	await flush();
+
+	expect(listAdminUsers).toHaveBeenCalledWith(
+		expect.objectContaining({ keyword: undefined, roleCode: "employee" }),
+	);
+});
+
+it("staff mode keeps its keyword local: sent to the API, never written to the URL", async () => {
+	signIn(["user:read"]);
+	await mountStaff();
+
+	submitSearch("alice@test.com");
+	await flush();
+
+	expect(listAdminUsers).toHaveBeenCalledWith(
+		expect.objectContaining({ keyword: "alice@test.com", roleCode: "employee" }),
+	);
+	expect(replacedUrls().some((url) => url.includes("keyword"))).toBe(false);
+});
+
+it("staff mode resets the page on a filter without leaking the keyword into the URL", async () => {
+	signIn(["user:read"]);
+	await mountStaff();
+
+	submitSearch("alice@test.com");
+	await flush();
+	fireEvent.click(screen.getByRole("tab", { name: "Locked" }));
+	await flush();
+
+	// The tab carries status, resets page to 1 (omitted), and keeps the local
+	// keyword out of the URL even though it is still in the API request.
+	expect(router.replace).toHaveBeenCalledWith("/admin/staff?status=LOCKED");
+	expect(listAdminUsers).toHaveBeenCalledWith(
+		expect.objectContaining({ keyword: "alice@test.com", roleCode: "employee" }),
+	);
+});
+
+it("general listing still writes its keyword to the URL", async () => {
+	signIn(["user:read"]);
+	await mount();
+
+	submitSearch("alice@test.com");
+	await flush();
+
+	expect(replacedUrls().some((url) => url.includes("keyword=alice%40test.com"))).toBe(
+		true,
+	);
+});
+
+it("staff mode redirects a role-only account to /admin/roles without requesting users", async () => {
+	signIn(["role:read"]);
+	await mountStaff();
+
+	expect(router.replace).toHaveBeenCalledWith("/admin/roles");
+	expect(listAdminUsers).not.toHaveBeenCalled();
+});
+
+it("staff mode offers a known role code when role:read is missing", async () => {
+	signIn(["user:read"]);
+	router.pathname = "/admin/staff";
+	const view = <App><UsersListing staff /></App>;
+	const { rerender } = render(view);
+	await flush();
+
+	expect(screen.getByText(/showing the built-in staff roles/i)).toBeTruthy();
+	for (const [input, expectedRoleCode] of [[" Support ", "support"], [" Customer ", "employee"]]) {
+		fireEvent.change(screen.getByRole("textbox", { name: "Known role code" }), {
+			target: { value: input },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+		const url = new URL(String(router.replace.mock.lastCall?.[0]), "http://localhost");
+		router.searchParams = url.searchParams;
+		rerender(<App><UsersListing staff /></App>);
+		await flush();
+
+		expect(listAdminUsers).toHaveBeenLastCalledWith(
+			expect.objectContaining({ roleCode: expectedRoleCode }),
+		);
+	}
+});
+
+it.each(["staff@example.test", "a".repeat(51)])(
+	"keeps invalid known role codes out of the Staff URL: %s",
+	async (value) => {
+		signIn(["user:read"]);
+		await mountStaff();
+		router.replace.mockClear();
+		const field = screen.getByRole("textbox", { name: "Known role code" });
+
+		fireEvent.change(field, { target: { value } });
+		fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+		await flush();
+
+		expect(router.replace).not.toHaveBeenCalled();
+		expect(field).toHaveProperty("value", value);
+		expect(field.hasAttribute("maxlength")).toBe(false);
+		expect(screen.getByRole("alert").textContent).toMatch(/letters|characters/);
+	},
+);
+
+it("staff mode requests nothing when neither read permission is held", async () => {
+	signIn([]);
+	await mountStaff();
+
+	expect(listAdminUsers).not.toHaveBeenCalled();
+	expect(listAdminRoles).not.toHaveBeenCalled();
+	expect(router.replace).not.toHaveBeenCalledWith("/admin/roles");
 });

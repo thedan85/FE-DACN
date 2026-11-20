@@ -1,3 +1,4 @@
+import { validateRoleCode } from "@/features/roles/admin/model/role-form";
 import type { Role, UserDetail } from "../schema/user.schema";
 
 /**
@@ -32,6 +33,21 @@ export const ROLE_FALLBACK_HINT =
 
 export const CUSTOMER_ROLE_CODE = "customer";
 
+export function normalizeRoleCode(value: string): string {
+	return value.trim().toLowerCase();
+}
+
+export async function validateKnownStaffRoleCode(_rule: unknown, value?: string) {
+	const code = value?.trim();
+	if (!code) return;
+
+	if (normalizeRoleCode(code) === CUSTOMER_ROLE_CODE) {
+		throw new Error("Customer is reserved and cannot be assigned to staff.");
+	}
+	const error = validateRoleCode(code);
+	if (error) throw new Error(error);
+}
+
 /** The roles the create and edit screens may assign: everything but customer. */
 export function staffRoles(roles: readonly Role[]): Role[] {
 	return roles.filter((role) => role.code.toLowerCase() !== CUSTOMER_ROLE_CODE);
@@ -59,4 +75,23 @@ export function userRoleFilterOptions(roles: readonly Role[], currentCode?: stri
 		else options[index] = { ...options[index], value: currentCode };
 	}
 	return [{ value: "", label: "All roles" }, ...options];
+}
+
+/**
+ * The staff screen's filter options: the staff-assignable roles only, with no
+ * "All roles" escape and the customer role excluded in every spelling. An
+ * unknown current code stays visible so a shared link never renders a blank
+ * select, unless it is the customer role, which staff mode never offers.
+ */
+export function staffRoleFilterOptions(roles: readonly Role[], currentCode?: string) {
+	const options = staffRoles(roles).map((role) => ({ value: role.code, label: role.name }));
+	const current = currentCode?.trim();
+
+	if (current && current.toLowerCase() !== CUSTOMER_ROLE_CODE) {
+		const index = options.findIndex((option) => option.value.toLowerCase() === current.toLowerCase());
+		if (index < 0) options.unshift({ value: current, label: current });
+		else options[index] = { ...options[index], value: current };
+	}
+
+	return options;
 }

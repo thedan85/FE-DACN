@@ -47,6 +47,22 @@
 	width: 100%;
 }
 
+.codeForm {
+	display: grid;
+	grid-template-columns: minmax(140px, 1fr) auto;
+	align-items: start;
+	gap: 8px;
+}
+
+.codeError {
+	grid-column: 1 / -1;
+}
+
+.codeInput {
+	min-width: 140px;
+	min-height: 38px;
+}
+
 .fallbackHint {
 	flex-basis: 100%;
 	color: var(--color-admin-panel-text-muted);

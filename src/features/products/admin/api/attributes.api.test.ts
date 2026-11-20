@@ -3,8 +3,14 @@ import { afterEach, expect, it, vi } from "vitest";
 import {
 	addProductAttribute,
 	addVariantAttribute,
+	createAttribute,
+	createAttributeValue,
+	deleteAttribute,
+	deleteAttributeValue,
 	listAttributes,
 	listAttributeValues,
+	patchAttribute,
+	patchAttributeValue,
 	removeProductAttribute,
 } from "./attributes.api";
 
@@ -185,5 +191,123 @@ it("removes a link by its own id, not the attribute's", async () => {
 	expect(init.method).toBe("DELETE");
 	expect(new URL(String(url)).pathname).toBe(
 		"/api/v1/product-attributes/PRD_198-temperature",
+	);
+});
+
+it("creates an attribute with only its name", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = stubFetch(
+		ok({
+			attributeId: "humidity",
+			name: "Humidity",
+			deleted: false,
+			createdAt: "2026-11-19T00:00:00Z",
+			updatedAt: "2026-11-19T00:00:00Z",
+		}),
+	);
+
+	const attribute = await createAttribute({ name: "Humidity" });
+
+	expect(attribute.name).toBe("Humidity");
+	const [url, init] = fetch.mock.calls[0];
+	expect(init.method).toBe("POST");
+	expect(new URL(String(url)).pathname).toBe("/api/v1/attributes");
+	expect(JSON.parse(String(init.body))).toEqual({ name: "Humidity" });
+});
+
+it("patches an attribute with only its name", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = stubFetch(
+		ok({
+			attributeId: "humidity",
+			name: "Rel. humidity",
+			deleted: false,
+			createdAt: "2026-11-19T00:00:00Z",
+			updatedAt: "2026-11-19T00:00:00Z",
+		}),
+	);
+
+	await patchAttribute("humidity", { name: "Rel. humidity" });
+
+	const [url, init] = fetch.mock.calls[0];
+	expect(init.method).toBe("PATCH");
+	expect(new URL(String(url)).pathname).toBe("/api/v1/attributes/humidity");
+	expect(JSON.parse(String(init.body))).toEqual({ name: "Rel. humidity" });
+});
+
+it("deletes an attribute accepting the 200 null-data envelope", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = stubFetch(ok(null));
+
+	await deleteAttribute("humidity");
+
+	const [url, init] = fetch.mock.calls[0];
+	expect(init.method).toBe("DELETE");
+	expect(new URL(String(url)).pathname).toBe("/api/v1/attributes/humidity");
+});
+
+it("creates a value with the parent attributeId", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = stubFetch(
+		ok({
+			attributeValueId: "humidity-40-60",
+			attributeId: "humidity",
+			attributeName: "Humidity",
+			value: "40-60 %",
+			createdAt: "2026-11-19T00:00:00Z",
+			updatedAt: "2026-11-19T00:00:00Z",
+		}),
+	);
+
+	const value = await createAttributeValue({
+		attributeId: "humidity",
+		value: "40-60 %",
+	});
+
+	expect(value.attributeValueId).toBe("humidity-40-60");
+	const [url, init] = fetch.mock.calls[0];
+	expect(init.method).toBe("POST");
+	expect(new URL(String(url)).pathname).toBe("/api/v1/attribute-values");
+	expect(JSON.parse(String(init.body))).toEqual({
+		attributeId: "humidity",
+		value: "40-60 %",
+	});
+});
+
+it("patches a value without the parent attributeId", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = stubFetch(
+		ok({
+			attributeValueId: "humidity-40-60",
+			attributeId: "humidity",
+			attributeName: "Humidity",
+			value: "50-70 %",
+			createdAt: "2026-11-19T00:00:00Z",
+			updatedAt: "2026-11-19T00:00:00Z",
+		}),
+	);
+
+	await patchAttributeValue("humidity-40-60", { value: "50-70 %" });
+
+	const [url, init] = fetch.mock.calls[0];
+	expect(init.method).toBe("PATCH");
+	expect(new URL(String(url)).pathname).toBe(
+		"/api/v1/attribute-values/humidity-40-60",
+	);
+	const body = JSON.parse(String(init.body));
+	expect(body).toEqual({ value: "50-70 %" });
+	expect(body).not.toHaveProperty("attributeId");
+});
+
+it("deletes a value accepting the 200 null-data envelope", async () => {
+	vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080/api/v1");
+	const fetch = stubFetch(ok(null));
+
+	await deleteAttributeValue("humidity-40-60");
+
+	const [url, init] = fetch.mock.calls[0];
+	expect(init.method).toBe("DELETE");
+	expect(new URL(String(url)).pathname).toBe(
+		"/api/v1/attribute-values/humidity-40-60",
 	);
 });

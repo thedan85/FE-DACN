@@ -149,6 +149,19 @@ describe("toCreateAdminUserInput", () => {
 		});
 	});
 
+	it("uses a known role code over the fallback select", () => {
+		const input = toCreateAdminUserInput({
+			name: "Alice User",
+			email: "alice@example.com",
+			phone: "0912345678",
+			role: "employee",
+			customRoleCode: " audit_team ",
+			password: "correct horse battery",
+		});
+
+		expect(input.roleCode).toBe("audit_team");
+	});
+
 	it("omits a blank address rather than sending an empty string", () => {
 		const input = toCreateAdminUserInput({
 			name: "Alice User",

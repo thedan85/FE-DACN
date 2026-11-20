@@ -1,3 +1,5 @@
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
+
 import type { Product, ProductUpdateInput, UploadResult } from "../../types";
 import { productCurrentValues } from "./product-edit";
 
@@ -18,6 +20,113 @@ import { productCurrentValues } from "./product-edit";
 
 /** `UploadService.MAX_SIZE` — 10 MiB, not 10,000,000. */
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * The media row's URL rules as the UI enforces them. The backend's
+ * `MediaCreateRequest` only checks `@NotBlank`, so these are the UI's
+ * responsibility — HTTPS only, bounded length, no embedded credentials
+ * (`https://user:pass@host/...` would leak the secret into every rendered
+ * image URL).
+ */
+export const MEDIA_URL_MAX_LENGTH = 500;
+
+/** Why this URL cannot be used for a media row, or `null` when it can. */
+export function validateMediaUrl(url: string): string | null {
+	const trimmed = url.trim();
+
+	if (!trimmed) {
+		return "Enter the image URL.";
+	}
+
+	if (trimmed.length > MEDIA_URL_MAX_LENGTH) {
+		return `The URL must be ${MEDIA_URL_MAX_LENGTH} characters or fewer.`;
+	}
+
+	let parsed: URL;
+
+	try {
+		parsed = new URL(trimmed);
+	} catch {
+		return "That URL is not valid. Check it and try again.";
+	}
+
+	if (parsed.protocol !== "https:") {
+		return "The URL must start with https://.";
+	}
+
+	if (parsed.username || parsed.password) {
+		return "The URL must not embed credentials.";
+	}
+
+	return null;
+}
+
+/** What a media row renders as. */
+export type MediaPreview =
+	/** The Cloudinary host the Next image config allows — rendered as an image. */
+	| { kind: "image" }
+	/** Another absolute HTTPS host without credentials renders as an external link. */
+	| { kind: "link"; href: string }
+	/** Relative, credentialed, non-HTTPS or malformed URLs render neither. */
+	| { kind: "none" };
+
+/**
+ * What a media row is allowed to render. A row URL is bound by the media
+ * contract to an absolute HTTPS URL without credentials: relative paths must
+ * not turn into previews just because the shared image gate also accepts local
+ * static assets, and a credential must never be copied into a rendered href.
+ * Only after parsing does the image branch reuse the same gate as every catalog
+ * `<Image>`; a safe external HTTPS host degrades to a link with
+ * `rel="noreferrer"`, and an unusable URL renders nothing clickable.
+ */
+export function mediaPreviewKind(url: string): MediaPreview {
+	let parsed: URL;
+
+	try {
+		parsed = new URL(url);
+	} catch {
+		return { kind: "none" };
+	}
+
+	if (
+		parsed.protocol !== "https:" ||
+		parsed.username !== "" ||
+		parsed.password !== ""
+	) {
+		return { kind: "none" };
+	}
+
+	if (isOptimizableImageUrl(url)) {
+		return { kind: "image" };
+	}
+
+	return { kind: "link", href: parsed.toString() };
+}
+
+/**
+ * The owner label for a media row. Rows are labelled from their returned
+ * owner fields, never from the filter that found them: the product media
+ * endpoint falls back to variant-owned rows when the product has no direct
+ * media. Absent metadata degrades to "—" rather than a guess.
+ */
+export function ownerLabel(media: {
+	productId: string | null;
+	variantId: string | null;
+}): string {
+	const variant = media.variantId?.trim();
+
+	if (variant) {
+		return `Variant ${variant}`;
+	}
+
+	const product = media.productId?.trim();
+
+	if (product) {
+		return `Product ${product}`;
+	}
+
+	return "—";
+}
 
 /**
  * `UploadService.ALLOWED_TYPES`, in the order the picker lists them.

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "antd";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
@@ -91,6 +91,58 @@ it("keeps all admin user/role permissions checked and disabled, but other resour
 	expect(screen.getByRole("checkbox", { name: /Update Product/ })).toHaveProperty("disabled", false);
 	expect(screen.getByText("The admin role must always keep user and role permissions")).toBeTruthy();
 });
+it("does not replace locked admin grants after an editable grant is toggled back", async () => {
+	signInRoleActor(["role:read", "role:update"]);
+	vi.mocked(getRole).mockResolvedValue({ ...roleFixture, permissions: [] });
+	await mount();
+
+	// Auto-checked locked grants are not a user edit, so the form starts clean.
+	const save = screen.getByRole("button", { name: "Save changes" });
+	expect(save).toHaveProperty("disabled", true);
+
+	const editable = screen.getByRole("checkbox", { name: /Update Product/ });
+	fireEvent.click(editable);
+	expect(save).toHaveProperty("disabled", false);
+	fireEvent.click(editable);
+	expect(save).toHaveProperty("disabled", true);
+
+	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+		target: { value: "Admin Desk" },
+	});
+	await waitFor(() => expect(save).toHaveProperty("disabled", false));
+	fireEvent.click(save);
+	await screen.findByText("Role updated successfully");
+
+	expect(updateRole).toHaveBeenCalledWith(roleFixture.roleId, {
+		name: "Admin Desk",
+	});
+	expect(replaceRolePermissions).not.toHaveBeenCalled();
+});
+
+it("uses the grants returned by a metadata save as the next draft", async () => {
+	signInRoleActor(["role:read", "role:update"]);
+	vi.mocked(updateRole).mockImplementation(async (_, input) => ({
+		...roleDetailFixture,
+		...input,
+		permissions: [permissionFixture, product],
+	}));
+	await mount();
+
+	for (const name of ["Support Desk", "Support Team"]) {
+		fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+			target: { value: name },
+		});
+		const save = screen.getByRole("button", { name: "Save changes" });
+		await waitFor(() => expect(save).toHaveProperty("disabled", false));
+		fireEvent.click(save);
+		await screen.findByText("No changes");
+		expect(screen.getByRole("checkbox", { name: /Update Product/ })).toHaveProperty("checked", true);
+	}
+
+	expect(updateRole).toHaveBeenCalledTimes(2);
+	expect(replaceRolePermissions).not.toHaveBeenCalled();
+});
+
 it("keeps customer permissions read-only while allowing its name to change", async () => {
 	signInRoleActor(["role:read", "role:update"]);
 	vi.mocked(getRole).mockResolvedValue({ ...roleDetailFixture, code: "customer", name: "Customer", system: true });
@@ -228,4 +280,181 @@ it("does not write if the own-permission confirmation is cancelled", async () =>
 	fireEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
 	expect(replaceRolePermissions).not.toHaveBeenCalled();
 	expect(updateRole).not.toHaveBeenCalled();
+});
+
+const roleBFixture = {
+	...roleDetailFixture,
+	roleId: "role-b",
+	code: "catalog_editor",
+	name: "Catalog Editor",
+	permissions: [
+		{ ...permissionFixture, permissionId: "opaque-product-id", code: "product:update", resource: "product", name: "Update Product" },
+	],
+};
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
+function mockBothRoles() {
+	vi.mocked(getRole).mockImplementation((id: string) =>
+		Promise.resolve(id === "role-b" ? roleBFixture : roleDetailFixture),
+	);
+}
+
+it("ignores the stale load when the role switches between two reads", async () => {
+	signInRoleActor(["role:read"]);
+	const staleLoad = deferred<typeof roleDetailFixture>();
+	vi.mocked(getRole).mockImplementation((id: string) =>
+		id === "role-b" ? Promise.resolve(roleBFixture) : staleLoad.promise,
+	);
+	const view = render(<App><RoleDetailScreen roleId={roleDetailFixture.roleId} /></App>);
+	view.rerender(<App><RoleDetailScreen roleId="role-b" /></App>);
+	expect(await screen.findByRole("heading", { level: 1, name: "Catalog Editor" })).toBeTruthy();
+	staleLoad.resolve({ ...roleDetailFixture, name: "Stale Support" });
+	// Flush the stale promise: B must still be the role on screen.
+	await act(async () => {
+		await Promise.resolve();
+	});
+	expect(screen.getByRole("heading", { level: 1, name: "Catalog Editor" })).toBeTruthy();
+	expect(screen.queryByText("Stale Support")).toBeNull();
+});
+
+it("applies a late save to the role that was edited, never to the one shown", async () => {
+	signInRoleActor(["role:read", "role:update"]);
+	mockBothRoles();
+	const lateSave = deferred<Awaited<ReturnType<typeof updateRole>>>();
+	vi.mocked(updateRole).mockReturnValue(lateSave.promise);
+	const view = render(<App><RoleDetailScreen roleId={roleDetailFixture.roleId} /></App>);
+	await screen.findByRole("heading", { level: 1, name: "Support" });
+
+	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+		target: { value: "Support renamed" },
+	});
+	// The form's watched state settles asynchronously; wait until the
+	// save button actually arms before clicking.
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Save changes" })).toHaveProperty("disabled", false),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+	// A's save is in flight; switch to B before it resolves.
+	view.rerender(<App><RoleDetailScreen roleId="role-b" /></App>);
+	expect(await screen.findByRole("heading", { level: 1, name: "Catalog Editor" })).toBeTruthy();
+
+	await act(async () => {
+		lateSave.resolve({ ...roleDetailFixture, name: "Support renamed" });
+		await Promise.resolve();
+	});
+
+	expect(screen.getByRole("heading", { level: 1, name: "Catalog Editor" })).toBeTruthy();
+	expect(screen.getByRole("textbox", { name: "Name" })).toHaveProperty("value", "Catalog Editor");
+	// Exactly one write, and it carried the edited role's id; B was never written to.
+	expect(vi.mocked(updateRole)).toHaveBeenCalledTimes(1);
+	expect(vi.mocked(updateRole).mock.calls[0][0]).toBe(roleDetailFixture.roleId);
+	expect(replaceRolePermissions).not.toHaveBeenCalled();
+});
+
+it("after A's late metadata save, B's grants save uses B's id and B's selection", async () => {
+	signInRoleActor(["role:read", "role:update"]);
+	mockBothRoles();
+	const lateSave = deferred<Awaited<ReturnType<typeof updateRole>>>();
+	vi.mocked(updateRole).mockReturnValue(lateSave.promise);
+	vi.mocked(replaceRolePermissions).mockResolvedValue({
+		...roleBFixture,
+		permissions: [],
+	});
+	const view = render(<App><RoleDetailScreen roleId={roleDetailFixture.roleId} /></App>);
+	await screen.findByRole("heading", { level: 1, name: "Support" });
+
+	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+		target: { value: "Support renamed" },
+	});
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Save changes" })).toHaveProperty("disabled", false),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+	// A's metadata save is still in flight; switch to B.
+	view.rerender(<App><RoleDetailScreen roleId="role-b" /></App>);
+	await screen.findByRole("heading", { level: 1, name: "Catalog Editor" });
+
+	await act(async () => {
+		lateSave.resolve({ ...roleDetailFixture, name: "Support renamed" });
+		await Promise.resolve();
+	});
+
+	// B's own grant change saves against B, from B's seeded selection.
+	const productGrant = await screen.findByRole("checkbox", { name: /Update Product/ });
+	expect(productGrant).toHaveProperty("checked", true);
+	fireEvent.click(productGrant);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Save changes" })).toHaveProperty("disabled", false),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	await screen.findByText("Role updated successfully");
+
+	expect(vi.mocked(updateRole)).toHaveBeenCalledTimes(1);
+	expect(vi.mocked(updateRole).mock.calls[0][0]).toBe(roleDetailFixture.roleId);
+	expect(replaceRolePermissions).toHaveBeenCalledTimes(1);
+	expect(replaceRolePermissions).toHaveBeenCalledWith("role-b", []);
+	expect(screen.getByRole("heading", { level: 1, name: "Catalog Editor" })).toBeTruthy();
+});
+
+it("keeps the role on screen when a stale save says it no longer exists", async () => {
+	signInRoleActor(["role:read", "role:update"]);
+	mockBothRoles();
+	const lateSave = deferred<never>();
+	vi.mocked(updateRole).mockReturnValue(lateSave.promise);
+	const view = render(<App><RoleDetailScreen roleId={roleDetailFixture.roleId} /></App>);
+	await screen.findByRole("heading", { level: 1, name: "Support" });
+
+	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+		target: { value: "Support renamed" },
+	});
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Save changes" })).toHaveProperty("disabled", false),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+	// Switch to B; only then does A's save answer "not found".
+	view.rerender(<App><RoleDetailScreen roleId="role-b" /></App>);
+	expect(await screen.findByRole("heading", { level: 1, name: "Catalog Editor" })).toBeTruthy();
+
+	await act(async () => {
+		lateSave.reject(new ApiError("gone", 404));
+		await Promise.resolve();
+	});
+
+	expect(screen.queryByText("Role not found")).toBeNull();
+	expect(screen.getByRole("heading", { level: 1, name: "Catalog Editor" })).toBeTruthy();
+});
+
+it("still reports a not-found role when the same role's save 404s", async () => {
+	signInRoleActor(["role:read", "role:update"]);
+	const lateSave = deferred<never>();
+	vi.mocked(updateRole).mockReturnValue(lateSave.promise);
+	render(<App><RoleDetailScreen roleId={roleDetailFixture.roleId} /></App>);
+	await screen.findByRole("heading", { level: 1, name: "Support" });
+
+	fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+		target: { value: "Support renamed" },
+	});
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Save changes" })).toHaveProperty("disabled", false),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+	await act(async () => {
+		lateSave.reject(new ApiError("gone", 404));
+		await Promise.resolve();
+	});
+
+	expect(await screen.findByText("Role not found")).toBeTruthy();
 });

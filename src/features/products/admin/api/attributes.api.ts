@@ -42,8 +42,14 @@ const attributePageResponseSchema = createApiResponseSchema(
 	createPageResponseSchema(AttributeSchema),
 );
 
+const attributeResponseSchema = createApiResponseSchema(AttributeSchema);
+
 const attributeValuePageResponseSchema = createApiResponseSchema(
 	createPageResponseSchema(AttributeValueSchema),
+);
+
+const attributeValueResponseSchema = createApiResponseSchema(
+	AttributeValueSchema,
 );
 
 const productAttributeValueResponseSchema = createApiResponseSchema(
@@ -123,6 +129,142 @@ export async function listAttributeValues(
 	attributeId: string,
 ): Promise<AttributeValue[]> {
 	return collectPages((page) => fetchAttributeValuePage(attributeId, page));
+}
+
+/**
+ * The name/value pair — the only two fields these requests accept. Blank and
+ * `VARCHAR(255)` overflow checks belong to the caller, before the request is
+ * sent.
+ */
+export interface AttributeNameInput {
+	name: string;
+}
+
+/**
+ * Creates an attribute. A case-insensitive duplicate name is a 409 and
+ * reaches the caller as an `ApiError` carrying the backend's message.
+ */
+export async function createAttribute(
+	input: AttributeNameInput,
+): Promise<Attribute> {
+	const payload = await apiFetch<unknown>("attributes", {
+		method: "POST",
+		headers: getAuthHeaders(),
+		body: JSON.stringify(input),
+	});
+
+	return parseOrThrow(
+		attributeResponseSchema,
+		payload,
+		"The created attribute response",
+	).data;
+}
+
+/** Renames an attribute. Only the name changes; there is no merge request. */
+export async function patchAttribute(
+	id: string,
+	input: AttributeNameInput,
+): Promise<Attribute> {
+	const payload = await apiFetch<unknown>(
+		`attributes/${encodeURIComponent(id)}`,
+		{
+			method: "PATCH",
+			headers: getAuthHeaders(),
+			body: JSON.stringify(input),
+		},
+	);
+
+	return parseOrThrow(
+		attributeResponseSchema,
+		payload,
+		"The updated attribute response",
+	).data;
+}
+
+/**
+ * Deletes an attribute. The backend soft-deletes the row; the 200 response
+ * carries a null `data`.
+ */
+export async function deleteAttribute(id: string): Promise<void> {
+	const payload = await apiFetch<unknown>(
+		`attributes/${encodeURIComponent(id)}`,
+		{
+			method: "DELETE",
+			headers: getAuthHeaders(),
+		},
+	);
+
+	parseOrThrow(
+		nullDataResponseSchema,
+		payload,
+		"The delete-attribute response",
+	);
+}
+
+/**
+ * Creates a value. `attributeId` names the parent; the backend takes the
+ * pair `{attributeId, value}` and answers 409 for a case-insensitive
+ * duplicate within the attribute.
+ */
+export async function createAttributeValue(
+	input: { attributeId: string; value: string },
+): Promise<AttributeValue> {
+	const payload = await apiFetch<unknown>("attribute-values", {
+		method: "POST",
+		headers: getAuthHeaders(),
+		body: JSON.stringify(input),
+	});
+
+	return parseOrThrow(
+		attributeValueResponseSchema,
+		payload,
+		"The created attribute value response",
+	).data;
+}
+
+/**
+ * Renames a value. Deliberately has no `attributeId`: the value's parent is
+ * fixed at creation, so the PATCH body carries `{value}` only.
+ */
+export async function patchAttributeValue(
+	id: string,
+	input: { value: string },
+): Promise<AttributeValue> {
+	const payload = await apiFetch<unknown>(
+		`attribute-values/${encodeURIComponent(id)}`,
+		{
+			method: "PATCH",
+			headers: getAuthHeaders(),
+			body: JSON.stringify(input),
+		},
+	);
+
+	return parseOrThrow(
+		attributeValueResponseSchema,
+		payload,
+		"The updated attribute value response",
+	).data;
+}
+
+/**
+ * Deletes a value. This is a **hard** delete; a value still linked to a
+ * product or variant violates an FK and reaches the caller as a 409, so the
+ * UI must offer to detach it first rather than retry.
+ */
+export async function deleteAttributeValue(id: string): Promise<void> {
+	const payload = await apiFetch<unknown>(
+		`attribute-values/${encodeURIComponent(id)}`,
+		{
+			method: "DELETE",
+			headers: getAuthHeaders(),
+		},
+	);
+
+	parseOrThrow(
+		nullDataResponseSchema,
+		payload,
+		"The delete-attribute-value response",
+	);
 }
 
 /** Links an attribute value to a product. */

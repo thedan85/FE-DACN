@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
 
 import type { VariantDetail } from "../../types";
 
@@ -31,8 +32,10 @@ export function ProductVariantGallery({
 	variant,
 	productName,
 }: ProductVariantGalleryProps) {
+	// An unusable URL is dropped, not left to occupy the active slot: a later
+	// allowed image must still be reachable and shown by default.
 	const images = variant.media
-		.filter((media) => !media.deleted && media.url)
+		.filter((media) => !media.deleted && isOptimizableImageUrl(media.url))
 		.map((media) => media.url);
 
 	const [activeIndex, setActiveIndex] = useState(0);

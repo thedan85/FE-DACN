@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+	Alert,
 	Button,
 	Card,
 	Pagination,
@@ -33,8 +34,11 @@ import {
 } from "../api/users.api";
 import {
 	DEFAULT_USERS_LISTING_QUERY,
+	STAFF_DEFAULT_USERS_LISTING_QUERY,
+	STAFF_PATH,
 	USER_STATUS_TABS,
 	USERS_PAGE_SIZE,
+	parseStaffUsersListingQuery,
 	parseUsersListingQuery,
 	toUsersApiParams,
 	toUsersListingHref,
@@ -42,6 +46,7 @@ import {
 	type UsersListingQuery,
 } from "../model/listing-query";
 import { USER_PERMISSIONS } from "../model/permissions";
+import { CUSTOMER_ROLE_CODE } from "../model/roles";
 import { normalizeUserConflict } from "../model/user-api-error";
 import { displayName, formatUserDate } from "../model/user-format";
 import { useUserApiFailure } from "../model/use-user-api-failure";
@@ -62,10 +67,24 @@ const { Title, Text } = Typography;
 /** The listing route, where the sidebar's "User accounts" item points. */
 const LISTING_PATH = "/admin/users";
 
+type UsersListingProps = {
+	/**
+	 * The `/admin/staff` compatibility screen: a staff-scoped view of the same
+	 * directory. The role filter drops the customer role, the role URL parameter
+	 * rejects it in every spelling, and staff mutations are suppressed whenever
+	 * an unexpected customer row arrives. Detail links stay canonical.
+	 */
+	staff?: boolean;
+};
+
 type ListingState =
 	| { status: "loading" }
 	| { status: "error"; message: string; requestKey: string }
 	| { status: "ready"; page: UserPage; requestKey: string };
+
+function isCustomer(row: UserSummary): boolean {
+	return row.roleCode.toLowerCase() === CUSTOMER_ROLE_CODE;
+}
 
 /**
  * User accounts listing.
@@ -80,22 +99,36 @@ type ListingState =
  * for an old filter cannot overwrite a newer one. Loading is derived from that
  * comparison rather than stored as a second piece of state.
  */
-export function UsersListing() {
+export function UsersListing({ staff = false }: UsersListingProps = {}) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
-	const { can } = useUserPermissions();
+	const { can, permissions } = useUserPermissions();
 	const canRead = can(USER_PERMISSIONS.read);
 	const canCreate = can(USER_PERMISSIONS.create);
 	const canUpdate = can(USER_PERMISSIONS.update);
 	const canDelete = can(USER_PERMISSIONS.delete);
+	const canReadRoles = permissions?.includes("role:read") ?? false;
+	// The staff route also admits role-only accounts. They have no reason to
+	// see the user directory, so send them to the canonical roles screen.
+	const roleOnlyRedirect = staff && !canRead && canReadRoles;
 	const signedInUserId = useAuthStore((state) => state.user?.userId);
 	const handleFailure = useUserApiFailure();
-
-	const query = useMemo(
-		() => parseUsersListingQuery(Object.fromEntries(searchParams.entries())),
-		[searchParams],
+	const listingDefaults = staff
+		? STAFF_DEFAULT_USERS_LISTING_QUERY
+		: DEFAULT_USERS_LISTING_QUERY;
+	/** Staff keyword: local state, because a keyword can carry PII. */
+	const [staffKeyword, setStaffKeyword] = useState<string | undefined>(
+		undefined,
 	);
+
+	const query = useMemo(() => {
+		const parsed = (staff ? parseStaffUsersListingQuery : parseUsersListingQuery)(
+			Object.fromEntries(searchParams.entries()),
+		);
+
+		return staff ? { ...parsed, keyword: staffKeyword } : parsed;
+	}, [searchParams, staff, staffKeyword]);
 
 	const apiParams = useMemo(() => toUsersApiParams(query), [query]);
 
@@ -133,6 +166,12 @@ export function UsersListing() {
 	// makes `requestKey` available on the other two arms.
 	const isFetching =
 		state.status === "loading" || state.requestKey !== requestKey;
+
+	useEffect(() => {
+		if (roleOnlyRedirect) {
+			router.replace("/admin/roles");
+		}
+	}, [roleOnlyRedirect, router]);
 
 	useEffect(() => {
 		if (!canRead) {
@@ -177,8 +216,11 @@ export function UsersListing() {
 	const updateQuery = useCallback(
 		(next: Partial<UsersListingQuery>) => {
 			const merged: UsersListingQuery = { ...query, ...next };
+			// Staff keeps the keyword in state only. Never serialise it: URLs
+			// are logged and shared, and a keyword can carry customer PII.
+			const urlQuery = staff ? { ...merged, keyword: undefined } : merged;
 			const search = new URLSearchParams(
-				toUsersSearchParams(merged),
+				toUsersSearchParams(urlQuery, listingDefaults),
 			).toString();
 
 			// A filter or page change replaces the rows, so a selection made on
@@ -186,11 +228,36 @@ export function UsersListing() {
 			setSelectedRowKeys([]);
 			router.replace(search ? `${pathname}?${search}` : pathname);
 		},
-		[query, router, pathname],
+		[query, router, pathname, listingDefaults, staff],
 	);
+
+	function clearFilters() {
+		if (staff) {
+			setStaffKeyword(undefined);
+		}
+		router.replace(
+			toUsersListingHref(
+				listingDefaults,
+				staff ? STAFF_PATH : LISTING_PATH,
+				listingDefaults,
+			),
+		);
+	}
 
 	const page = state.status === "ready" ? state.page : null;
 	const rows = page?.content ?? [];
+	// Staff mode: a customer row on the staff screen means the filter or the
+	// backend response is off. Every staff mutation stays off for the page
+	// until the anomaly clears, and customer rows get no detail links — the
+	// canonical detail offers Delete.
+	const hasCustomerRow = rows.some(isCustomer);
+	const mutationsSuppressed = staff && hasCustomerRow;
+
+	useEffect(() => {
+		if (mutationsSuppressed) {
+			setSelectedRowKeys((keys) => (keys.length > 0 ? [] : keys));
+		}
+	}, [mutationsSuppressed]);
 
 	const columns = useMemo<TableColumnsType<UserSummary>>(() => {
 		const allColumns: TableColumnsType<UserSummary> = [
@@ -200,12 +267,18 @@ export function UsersListing() {
 				render: (_, row) => (
 					<div className={styles.userCell}>
 						<UserAvatar name={row.name} email={row.email} />
-						<Link
-							className={styles.userName}
-							href={`${LISTING_PATH}/${encodeURIComponent(row.userId)}`}
-						>
-							{displayName(row)}
-						</Link>
+						{staff && isCustomer(row) ? (
+							// The canonical detail offers Delete; a customer row
+							// on the staff screen must not link into it.
+							<span className={styles.userName}>{displayName(row)}</span>
+						) : (
+							<Link
+								className={styles.userName}
+								href={`${LISTING_PATH}/${encodeURIComponent(row.userId)}`}
+							>
+								{displayName(row)}
+							</Link>
+						)}
 					</div>
 				),
 			},
@@ -248,7 +321,10 @@ export function UsersListing() {
 			},
 		];
 
-		if (canUpdate || canDelete) {
+		// Staff mode keeps the column even without a write permission: the
+		// View link is the read-only way out. General mode keeps the old
+		// behaviour — no column at all for read-only accounts.
+		if (staff || canUpdate || canDelete) {
 			allColumns.push({
 				title: "Actions",
 				key: "actions",
@@ -256,16 +332,19 @@ export function UsersListing() {
 				render: (_, row) => {
 					const isSelf = row.userId === signedInUserId;
 					const detailHref = `${LISTING_PATH}/${encodeURIComponent(row.userId)}`;
+					const suppressLinks = staff && isCustomer(row);
 
 					return (
 						<div className={styles.actions}>
-							<Button
-								type="link"
-								href={detailHref}
-								icon={<EyeOutlined />}
-								aria-label={`View ${displayName(row)}`}
-							/>
-							{canUpdate && (
+							{!suppressLinks && (
+								<Button
+									type="link"
+									href={detailHref}
+									icon={<EyeOutlined />}
+									aria-label={`View ${displayName(row)}`}
+								/>
+							)}
+							{canUpdate && !mutationsSuppressed && (
 								<Button
 									type="link"
 									href={`${detailHref}/edit`}
@@ -274,6 +353,7 @@ export function UsersListing() {
 								/>
 							)}
 							{canDelete &&
+								!mutationsSuppressed &&
 								(isSelf ? (
 									<Tooltip title="You can't delete your own account">
 										<span className={styles.disabledAction}>
@@ -302,11 +382,12 @@ export function UsersListing() {
 		}
 
 		return allColumns;
-	}, [canUpdate, canDelete, signedInUserId]);
+	}, [canUpdate, canDelete, signedInUserId, mutationsSuppressed, staff]);
 
 	const hasFilters =
-		Boolean(query.keyword ?? query.roleCode ?? query.status) ||
-		query.sort !== DEFAULT_USERS_LISTING_QUERY.sort;
+		Boolean(query.keyword ?? query.status) ||
+		query.roleCode !== listingDefaults.roleCode ||
+		query.sort !== listingDefaults.sort;
 	const totalShown = rows.length;
 	const firstShown =
 		totalShown === 0 ? 0 : (query.page - 1) * USERS_PAGE_SIZE + 1;
@@ -426,21 +507,29 @@ export function UsersListing() {
 		}
 	}
 
+	// The redirect effect above owns this view. Rendering the 403 panel here
+	// would flash a denial at an account that is merely in the wrong place.
+	if (roleOnlyRedirect) {
+		return null;
+	}
+
 	return (
 		<AdminTheme>
 			<section className={styles.page}>
 				<header className={styles.header}>
 					<div>
 						<Title level={1} className={styles.title}>
-							User accounts
+							{staff ? "Staff & Permissions" : "User accounts"}
 						</Title>
 						<Text type="secondary">
-							Manage staff and customer accounts.
+							{staff
+								? "Manage staff accounts and access."
+								: "Manage staff and customer accounts."}
 						</Text>
 					</div>
-					{canCreate && (
+					{canCreate && !mutationsSuppressed && (
 						<Button type="primary" href={`${LISTING_PATH}/new`}>
-							Add user
+							{staff ? "Add staff" : "Add user"}
 						</Button>
 					)}
 				</header>
@@ -449,7 +538,11 @@ export function UsersListing() {
 					{!canRead ? (
 						<Result
 							status="403"
-							title="You don't have access to user accounts"
+							title={
+								staff
+									? "You don't have access to staff accounts"
+									: "You don't have access to user accounts"
+							}
 							subTitle="Viewing accounts needs the user:read permission. Ask an administrator to grant it to your role."
 							extra={<Button href="/admin/dashboard">Back to dashboard</Button>}
 						/>
@@ -478,16 +571,36 @@ export function UsersListing() {
 								roles={roles}
 								rolesLoading={rolesLoading}
 								rolesFallback={rolesFallback}
+								staff={staff}
 								onChange={updateQuery}
-								onKeywordSubmit={(keyword) =>
+								onKeywordSubmit={(keyword) => {
+									if (staff) {
+										setStaffKeyword(keyword || undefined);
+									}
 									updateQuery({
 										keyword: keyword || undefined,
 										page: 1,
-									})
-								}
+									});
+								}}
 							/>
 
-							{selectedRowKeys.length > 0 && (
+							{mutationsSuppressed && (
+								<Alert
+									className={styles.suppression}
+									type="warning"
+									showIcon
+									title="Customer accounts appear on this page"
+									description={
+										<>
+											Staff actions are disabled while a customer
+											account is shown. Manage customer accounts in the{" "}
+											<Link href="/admin/customers">Customers directory</Link>.
+										</>
+									}
+								/>
+							)}
+
+							{selectedRowKeys.length > 0 && !mutationsSuppressed && (
 								<UsersBulkBar
 									count={selectedRowKeys.length}
 									busy={bulkLocking ? "lock" : null}
@@ -520,15 +633,7 @@ export function UsersListing() {
 									}
 									action={
 										hasFilters ? (
-											<Button
-												onClick={() =>
-													router.replace(
-														toUsersListingHref(
-															DEFAULT_USERS_LISTING_QUERY,
-														),
-													)
-												}
-											>
+											<Button onClick={clearFilters}>
 												Clear filters
 											</Button>
 										) : undefined
@@ -540,7 +645,9 @@ export function UsersListing() {
 									dataSource={rows}
 									columns={columns}
 									rowSelection={
-										canUpdate || canDelete ? rowSelection : undefined
+										(canUpdate || canDelete) && !mutationsSuppressed
+											? rowSelection
+											: undefined
 									}
 									pagination={false}
 								/>

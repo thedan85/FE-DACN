@@ -1,6 +1,10 @@
 import { expect, it } from "vitest";
 import type { Role } from "../schema/user.schema";
-import { editUserRoleOptions, userRoleFilterOptions } from "./roles";
+import {
+	editUserRoleOptions,
+	staffRoleFilterOptions,
+	userRoleFilterOptions,
+} from "./roles";
 
 const roles: Role[] = [
 	{ roleId: "role-employee", code: "employee", name: "Employee from list", description: null, system: true },
@@ -37,4 +41,30 @@ it("keeps a selected filter represented even when its role is not in the fetched
 		{ value: "custom_missing", label: "custom_missing" },
 	]);
 	expect(userRoleFilterOptions(roles, "EMPLOYEE")[1]).toEqual({ value: "EMPLOYEE", label: "Employee from list" });
+});
+
+it("staff filter never offers the customer role, case-insensitively", () => {
+	const options = staffRoleFilterOptions(roles);
+	expect(options.map((option) => option.value)).toEqual(["employee", "admin"]);
+	expect(
+		staffRoleFilterOptions([
+			{ roleId: "r1", code: "CUSTOMER", name: "Customer", description: null, system: true },
+			{ roleId: "r2", code: "support", name: "Support", description: null, system: false },
+		]).map((option) => option.value),
+	).toEqual(["support"]);
+});
+
+it("staff filter offers no all-roles escape hatch", () => {
+	expect(staffRoleFilterOptions(roles).some((option) => option.value === "")).toBe(false);
+});
+
+it("staff filter keeps an unknown current code visible, unless it is customer", () => {
+	expect(staffRoleFilterOptions(roles, "catalog_editor").map((o) => o.value)).toEqual([
+		"catalog_editor",
+		"employee",
+		"admin",
+	]);
+	expect(
+		staffRoleFilterOptions(roles, "CUSTOMER").map((o) => o.value),
+	).toEqual(["employee", "admin"]);
 });

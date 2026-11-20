@@ -16,6 +16,8 @@ import {
 import { DeleteOutlined } from "@ant-design/icons";
 
 import type { Product } from "@/features/products/types";
+import { MediaPlaceholder } from "@/components/ui/media-placeholder";
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
 
 import { uploadProductThumbnail } from "../api/media.api";
 import { putProduct } from "../api/products.api";
@@ -185,13 +187,17 @@ export function ProductMediaCard({
 				) : (
 					<>
 						<div className={styles.preview}>
-							<Image
-								className={styles.image}
-								src={product.thumbnail}
-								alt={`Thumbnail for ${product.name}`}
-								fill
-								unoptimized
-							/>
+							{isOptimizableImageUrl(product.thumbnail) ? (
+								<Image
+									className={styles.image}
+									src={product.thumbnail}
+									alt={`Thumbnail for ${product.name}`}
+									fill
+									unoptimized
+								/>
+							) : (
+								<MediaPlaceholder label="" />
+							)}
 						</div>
 
 						<Flex align="center" justify="space-between" gap={12} wrap>

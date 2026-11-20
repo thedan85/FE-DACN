@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Empty } from "antd";
 
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
+
 import type { DashboardSummary } from "../types";
 import styles from "./dashboard-view.module.css";
 
@@ -48,7 +50,7 @@ export function LowStockAlerts({ products, lowStock }: LowStockAlertsProps) {
 				<ul className={styles.lowStockList}>
 					{products.map((product) => (
 						<li key={product.productId} className={styles.lowStockItem}>
-							{product.thumbnail ? (
+							{isOptimizableImageUrl(product.thumbnail) ? (
 								<Image
 									className={styles.lowStockThumb}
 									src={product.thumbnail}

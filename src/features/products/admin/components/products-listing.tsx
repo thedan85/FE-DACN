@@ -9,14 +9,15 @@ import type { TableColumnsType } from "antd";
 import { EditOutlined } from "@ant-design/icons";
 
 import { ApiError } from "@/lib/api/client";
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
 import { formatVndPrice } from "@/features/products/storefront/model/product-format";
-import { getCategories } from "@/features/products/api/products.api";
 import type {
 	Category,
 	ProductDetail,
 	ProductPage,
 } from "@/features/products/types";
 
+import { listAdminCategories } from "../api/categories.api";
 import {
 	getAdminProductDetailBySlug,
 	listAdminProducts,
@@ -161,7 +162,7 @@ export function ProductsListing() {
 	useEffect(() => {
 		let active = true;
 
-		getCategories()
+		listAdminCategories()
 			.then((result) => {
 				if (active) {
 					setCategories(result);
@@ -235,7 +236,7 @@ export function ProductsListing() {
 				key: "product",
 				render: (_, row) => (
 					<div className={styles.productCell}>
-						{row.thumbnail ? (
+						{isOptimizableImageUrl(row.thumbnail) ? (
 							<Image
 								className={styles.thumbnail}
 								src={row.thumbnail}

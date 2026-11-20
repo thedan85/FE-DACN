@@ -5,11 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "antd";
 
-import {
-	ORDER_PERMISSIONS,
-	type OrderPermission,
-} from "@/features/orders/admin/model/order-permissions";
-import { useOrderPermissions } from "@/features/orders/admin/use-order-permissions";
+import { ORDER_PERMISSIONS } from "@/features/orders/admin/model/order-permissions";
+import { useAuthStore } from "@/stores/auth-store";
 
 import styles from "./admin-sidebar.module.css";
 
@@ -27,9 +24,13 @@ type NavItem = {
 	icon: string;
 	/** Present only for items that route; inert items render with no destination. */
 	href?: string;
-	/** When set, the item renders only for accounts holding this permission. */
-	permission?: OrderPermission;
+	/** When set, the item renders only for accounts holding at least one of these permissions. */
+	anyPermission?: readonly string[];
 };
+
+/** Staff and customer accounts share the `user:read` grant (see Admin User API). */
+const USER_READ_PERMISSION = "user:read";
+const ROLE_READ_PERMISSION = "role:read";
 
 /** Static design data — the Figma admin design's nav items. */
 const navItems: NavItem[] = [
@@ -42,24 +43,49 @@ const navItems: NavItem[] = [
 		label: "Orders",
 		icon: "/images/admin/nav/shopping-bag.svg",
 		href: "/admin/orders",
-		permission: ORDER_PERMISSIONS.read,
+		anyPermission: [ORDER_PERMISSIONS.read],
 	},
 	{
 		label: "Products & Variants",
 		icon: "/images/admin/nav/fish.svg",
 		href: "/admin/products",
 	},
-	{ label: "Categories", icon: "/images/admin/nav/layers.svg" },
+	{
+		label: "Categories",
+		icon: "/images/admin/nav/layers.svg",
+		href: "/admin/categories",
+	},
+	{
+		label: "Attributes",
+		icon: "/images/admin/nav/tag.svg",
+		href: "/admin/attributes",
+	},
+	{
+		label: "Media",
+		icon: "/images/admin/nav/package.svg",
+		href: "/admin/media",
+	},
 	{ label: "Inventory", icon: "/images/admin/nav/package.svg" },
-	{ label: "Customers", icon: "/images/admin/nav/users.svg" },
+	{
+		label: "Customers",
+		icon: "/images/admin/nav/users.svg",
+		href: "/admin/customers",
+		anyPermission: [USER_READ_PERMISSION],
+	},
 	{ label: "Reviews", icon: "/images/admin/nav/message-square.svg" },
 	{ label: "Promotions", icon: "/images/admin/nav/tag.svg" },
 	{ label: "Analytics", icon: "/images/admin/nav/chart-no-axes-combined.svg" },
-	{ label: "Staff & Permissions", icon: "/images/admin/nav/shield-check.svg", href: "/admin/roles" },
+	{
+		label: "Staff & Permissions",
+		icon: "/images/admin/nav/shield-check.svg",
+		href: "/admin/roles",
+		anyPermission: [ROLE_READ_PERMISSION],
+	},
 	{
 		label: "User accounts",
 		icon: "/images/admin/nav/user-cog.svg",
 		href: "/admin/users",
+		anyPermission: [USER_READ_PERMISSION],
 	},
 	{ label: "Settings", icon: "/images/admin/nav/settings.svg" },
 ];
@@ -81,9 +107,13 @@ export function AdminSidebar({
 	inDrawer = false,
 }: AdminSidebarProps) {
 	const pathname = usePathname();
-	const { can } = useOrderPermissions();
+	const permissions = useAuthStore((state) => state.user?.permissions);
 	const visibleNavItems = navItems.filter(
-		(item) => item.permission === undefined || can(item.permission),
+		(item) =>
+			item.anyPermission === undefined ||
+			item.anyPermission.some((permission) =>
+				permissions?.includes(permission),
+			),
 	);
 
 	return (
@@ -114,6 +144,8 @@ export function AdminSidebar({
 								className={styles.navIcon}
 							/>
 						);
+						// The collapsed rail hides the label span, so the name lives
+						// on the link itself and survives icon-only rendering.
 						const label = <span className={styles.navLabel}>{item.label}</span>;
 
 						return (
@@ -123,6 +155,7 @@ export function AdminSidebar({
 										href={item.href}
 										className={`${styles.navLink} ${isActive ? styles.navLinkActive : ""}`}
 										aria-current={isActive ? "page" : undefined}
+										aria-label={item.label}
 										onClick={onNavigate}
 									>
 										{icon}

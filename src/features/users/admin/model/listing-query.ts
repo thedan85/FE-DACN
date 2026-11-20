@@ -8,6 +8,8 @@ import {
 } from "../api/users.api";
 import type { UserAccountStatus } from "../schema/user.schema";
 
+import { CUSTOMER_ROLE_CODE } from "./roles";
+
 /**
  * The user listing's URL state: the single place filter values become safe to
  * send.
@@ -40,12 +42,23 @@ export interface UsersListingQuery {
 	page: number;
 }
 
+/** The staff compat route's address. */
+export const STAFF_PATH = "/admin/staff";
+
+/** The staff screen's default role, matching the retired staff directory. */
+export const DEFAULT_STAFF_ROLE_CODE = "employee";
+
 export const DEFAULT_USERS_LISTING_QUERY: UsersListingQuery = {
 	keyword: undefined,
 	roleCode: undefined,
 	status: undefined,
 	sort: "createdAt,desc",
 	page: 1,
+};
+
+export const STAFF_DEFAULT_USERS_LISTING_QUERY: UsersListingQuery = {
+	...DEFAULT_USERS_LISTING_QUERY,
+	roleCode: DEFAULT_STAFF_ROLE_CODE,
 };
 
 /**
@@ -157,11 +170,54 @@ export function parseUsersListingQuery(
 }
 
 /**
+ * The staff compat screen's parse rule. It inherits the general parser's
+ * validation, then refuses the customer role in any spelling: the staff
+ * screen can never filter or display its way into the customer directory.
+ * Rejection falls back to the staff default rather than erroring, matching
+ * the parser's no-throw contract. A keyword is dropped: it can carry PII, so
+ * staff mode keeps it in component state and never reads it from a URL.
+ */
+export function parseStaffUsersListingQuery(
+	params: Record<string, unknown>,
+): UsersListingQuery {
+	const query = parseUsersListingQuery(params);
+	const staffQuery: UsersListingQuery = { ...query, keyword: undefined };
+
+	if (
+		staffQuery.roleCode === undefined ||
+		staffQuery.roleCode.toLowerCase() === CUSTOMER_ROLE_CODE
+	) {
+		return { ...staffQuery, roleCode: DEFAULT_STAFF_ROLE_CODE };
+	}
+
+	return staffQuery;
+}
+
+/**
+ * The redirect for the retired `tab=roles` staff URL: the roles experience
+ * lives at `/admin/roles` now. Anything else stays on the staff view, so
+ * stale links degrade to the nearest useful page instead of an error.
+ *
+ * Case- and whitespace-insensitive because the URL is hand-editable input;
+ * the first value wins for a repeated parameter, like the rest of the parser.
+ */
+export function rolesTabRedirect(
+	tab: string | string[] | undefined,
+): "/admin/roles" | null {
+	const first = firstValue(tab).trim().toLowerCase();
+
+	return first === "roles" ? "/admin/roles" : null;
+}
+
+/**
  * Builds the router query from a listing query, omitting defaults so the
- * unfiltered view keeps the bare `/admin/users` URL.
+ * unfiltered view keeps the bare listing URL. The `defaults` argument is what
+ * the caller treats as "no filter"; the staff screen passes its employee
+ * default so a bare `/admin/staff` URL means the same thing the user sees.
  */
 export function toUsersSearchParams(
 	query: UsersListingQuery,
+	defaults: UsersListingQuery = DEFAULT_USERS_LISTING_QUERY,
 ): Record<string, string> {
 	const params: Record<string, string> = {};
 
@@ -169,7 +225,7 @@ export function toUsersSearchParams(
 		params.keyword = query.keyword;
 	}
 
-	if (query.roleCode) {
+	if (query.roleCode && query.roleCode !== defaults.roleCode) {
 		params.roleCode = query.roleCode;
 	}
 
@@ -177,7 +233,7 @@ export function toUsersSearchParams(
 		params.status = query.status;
 	}
 
-	if (query.sort !== DEFAULT_USERS_LISTING_QUERY.sort) {
+	if (query.sort !== defaults.sort) {
 		params.sort = query.sort;
 	}
 
@@ -189,10 +245,14 @@ export function toUsersSearchParams(
 }
 
 /** The listing href, for links and `router.push`. */
-export function toUsersListingHref(query: UsersListingQuery): string {
-	const search = new URLSearchParams(toUsersSearchParams(query)).toString();
+export function toUsersListingHref(
+	query: UsersListingQuery,
+	base: string = "/admin/users",
+	defaults: UsersListingQuery = DEFAULT_USERS_LISTING_QUERY,
+): string {
+	const search = new URLSearchParams(toUsersSearchParams(query, defaults)).toString();
 
-	return search ? `/admin/users?${search}` : "/admin/users";
+	return search ? `${base}?${search}` : base;
 }
 
 /**

@@ -243,9 +243,66 @@ it.each(currentRoles.flatMap((role) => [false, true].map((fallback) => ({ ...rol
 		// Assert the closed control's rendered value, not a dropdown option/title.
 		const select = screen.getByRole("combobox");
 		expect(select.closest(".ant-select")?.textContent).toContain(roleName);
-		expect(select).toHaveProperty("disabled", fallback || roleCode === "customer");
+		expect(select).toHaveProperty("disabled", roleCode === "customer");
+		expect(screen.queryByLabelText("Known role code") !== null).toBe(
+			fallback && roleCode !== "customer",
+		);
 	},
 );
+
+it("saves a known role code when role:read is missing", async () => {
+	signIn(["user:read", "user:update"]);
+	vi.mocked(listAdminRoles).mockRejectedValue(new ApiError("No role:read", 403));
+	await mount();
+
+	fireEvent.change(screen.getByLabelText("Known role code"), {
+		target: { value: " audit_team " },
+	});
+	await settle();
+	await save();
+
+	expect(setAdminUserRole).toHaveBeenCalledWith("USR_alice", "audit_team");
+	expect(setAdminUserStatus).not.toHaveBeenCalled();
+});
+
+it("rejects the customer role inline and preserves the pending status edit", async () => {
+	signIn(["user:read", "user:update"]);
+	await mount();
+	const code = screen.getByLabelText("Known role code");
+	fireEvent.change(code, { target: { value: " CuStOmEr " } });
+	fireEvent.click(screen.getByRole("radio", { name: "Locked" }));
+	await settle();
+	await save();
+
+	expect(setAdminUserRole).not.toHaveBeenCalled();
+	expect(setAdminUserStatus).not.toHaveBeenCalled();
+	expect(await screen.findByText(/customer is reserved/i)).toBeTruthy();
+
+	fireEvent.change(code, { target: { value: "" } });
+	await settle();
+	await save();
+	expect(setAdminUserRole).not.toHaveBeenCalled();
+	expect(setAdminUserStatus).toHaveBeenCalledWith("USR_alice", "LOCKED");
+});
+
+it("retries a failed status update without resending the saved mixed-case role", async () => {
+	signIn(["user:read", "user:update"]);
+	vi.mocked(setAdminUserRole).mockResolvedValue(aliceAsAdmin);
+	vi.mocked(setAdminUserStatus).mockRejectedValueOnce(new ApiError("Unavailable", 500));
+	await mount();
+	fireEvent.change(screen.getByLabelText("Known role code"), {
+		target: { value: " AdMiN " },
+	});
+	fireEvent.click(screen.getByRole("radio", { name: "Locked" }));
+	await settle();
+	await save();
+	expect(await screen.findByText("User partially updated")).toBeTruthy();
+
+	await save();
+	expect(setAdminUserRole).toHaveBeenCalledTimes(1);
+	expect(setAdminUserStatus).toHaveBeenCalledTimes(2);
+	expect(setAdminUserStatus).toHaveBeenLastCalledWith("USR_alice", "LOCKED");
+});
 
 it.each(["ACTIVE", "LOCKED"] as const)("preserves Status=%s through StrictMode effect replay", async (status) => {
 	signIn(["user:read", "user:update"]);

@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { MediaPlaceholder } from "@/components/ui/media-placeholder";
+import { isOptimizableImageUrl } from "@/lib/utils/image-src";
 import { getAuthErrorMessage } from "@/features/auth/api/auth.api";
 import type { MeData } from "@/features/auth/types";
 import { effectiveStock } from "@/features/stock/model/effective-stock";
@@ -574,7 +575,7 @@ export function CheckoutView() {
 						{cart.items.map((item) => (
 							<li key={item.cartItemId} className={styles.summaryItem}>
 								<div className={styles.summaryThumb}>
-									{item.thumbnail ? (
+									{isOptimizableImageUrl(item.thumbnail) ? (
 										<Image
 											src={item.thumbnail}
 											alt={item.productName}

@@ -30,7 +30,7 @@ import {
 	parseCreateValidationError,
 	type UserFormField,
 } from "../model/create-errors";
-import { ROLE_FALLBACK_HINT, staffRoles } from "../model/roles";
+import { ROLE_FALLBACK_HINT, staffRoles, validateKnownStaffRoleCode } from "../model/roles";
 import { displayName } from "../model/user-format";
 import {
 	PASSWORD_MAX_BYTES,
@@ -370,6 +370,21 @@ export function UserCreateForm() {
 										disabled={saving || rolesLoading}
 									/>
 								</Form.Item>
+
+								{usingFallback && (
+									<Form.Item
+										name="customRoleCode"
+										label="Known role code"
+										extra="Overrides the staff role when filled in."
+										rules={[{ validator: validateKnownStaffRoleCode }]}
+									>
+										<Input
+											placeholder="e.g. catalog_editor"
+											autoComplete="off"
+											disabled={saving}
+										/>
+									</Form.Item>
+								)}
 							</Card>
 
 							<Card title="Password">
