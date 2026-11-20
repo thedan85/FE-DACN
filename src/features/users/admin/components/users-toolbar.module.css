@@ -48,8 +48,14 @@
 }
 
 .codeForm {
-	display: flex;
+	display: grid;
+	grid-template-columns: minmax(140px, 1fr) auto;
+	align-items: start;
 	gap: 8px;
+}
+
+.codeError {
+	grid-column: 1 / -1;
 }
 
 .codeInput {

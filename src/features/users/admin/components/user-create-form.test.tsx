@@ -221,6 +221,20 @@ it("accepts a known role code when role:read is missing", async () => {
 	);
 });
 
+it("rejects a padded, mixed-case customer role before creating a staff account", async () => {
+	signIn(["user:create"]);
+	render(<App><UserCreateForm /></App>);
+	await flush();
+	fillRequiredFields();
+	fireEvent.change(screen.getByLabelText("Known role code"), {
+		target: { value: " CuStOmEr " },
+	});
+	await submit();
+
+	expect(createAdminUser).not.toHaveBeenCalled();
+	expect(await screen.findByText(/customer is reserved/i)).toBeTruthy();
+});
+
 it.each([null, ""])("uses a display name in the success toast when the response name is %j", async (name) => {
 	signIn(["user:create"]);
 	vi.mocked(createAdminUser).mockResolvedValue({ ...created, name });

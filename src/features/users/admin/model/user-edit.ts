@@ -1,4 +1,5 @@
 import type { UserAccountStatus } from "../schema/user.schema";
+import { normalizeRoleCode } from "./roles";
 
 /** The fields the edit screen can change. */
 export type UserEditFormValues = {
@@ -25,9 +26,9 @@ export function userEditChanges(
 	values: UserEditFormValues,
 ): UserEditChanges {
 	const changes: UserEditChanges = {};
-	const role = values.customRoleCode?.trim() || values.role;
+	const role = normalizeRoleCode(values.customRoleCode ?? "") || normalizeRoleCode(values.role);
 
-	if (role !== user.roleCode) {
+	if (role !== normalizeRoleCode(user.roleCode)) {
 		changes.roleCode = role;
 	}
 

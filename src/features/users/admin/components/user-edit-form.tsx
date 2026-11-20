@@ -25,7 +25,7 @@ import {
 	setAdminUserRole,
 	setAdminUserStatus,
 } from "../api/users.api";
-import { CUSTOMER_ROLE_CODE, ROLE_FALLBACK_HINT, editUserRoleOptions } from "../model/roles";
+import { CUSTOMER_ROLE_CODE, ROLE_FALLBACK_HINT, editUserRoleOptions, validateKnownStaffRoleCode } from "../model/roles";
 import {
 	normalizeUserConflict,
 } from "../model/user-api-error";
@@ -275,12 +275,7 @@ export function UserEditForm({ initialUser }: UserEditFormProps) {
 										name="customRoleCode"
 										label="Known role code"
 										extra="Overrides the role select when filled in."
-										rules={[
-											{
-												max: 50,
-												message: "Role code must be 50 characters or fewer.",
-											},
-										]}
+										rules={[{ validator: validateKnownStaffRoleCode }]}
 									>
 										<Input
 											placeholder="e.g. catalog_editor"

@@ -1,3 +1,4 @@
+import { validateRoleCode } from "@/features/roles/admin/model/role-form";
 import type { Role, UserDetail } from "../schema/user.schema";
 
 /**
@@ -31,6 +32,21 @@ export const ROLE_FALLBACK_HINT =
 	"Role list unavailable — showing the built-in staff roles.";
 
 export const CUSTOMER_ROLE_CODE = "customer";
+
+export function normalizeRoleCode(value: string): string {
+	return value.trim().toLowerCase();
+}
+
+export async function validateKnownStaffRoleCode(_rule: unknown, value?: string) {
+	const code = value?.trim();
+	if (!code) return;
+
+	if (normalizeRoleCode(code) === CUSTOMER_ROLE_CODE) {
+		throw new Error("Customer is reserved and cannot be assigned to staff.");
+	}
+	const error = validateRoleCode(code);
+	if (error) throw new Error(error);
+}
 
 /** The roles the create and edit screens may assign: everything but customer. */
 export function staffRoles(roles: readonly Role[]): Role[] {

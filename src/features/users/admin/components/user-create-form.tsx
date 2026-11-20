@@ -30,7 +30,7 @@ import {
 	parseCreateValidationError,
 	type UserFormField,
 } from "../model/create-errors";
-import { ROLE_FALLBACK_HINT, staffRoles } from "../model/roles";
+import { ROLE_FALLBACK_HINT, staffRoles, validateKnownStaffRoleCode } from "../model/roles";
 import { displayName } from "../model/user-format";
 import {
 	PASSWORD_MAX_BYTES,
@@ -376,12 +376,7 @@ export function UserCreateForm() {
 										name="customRoleCode"
 										label="Known role code"
 										extra="Overrides the staff role when filled in."
-										rules={[
-											{
-												max: 50,
-												message: "Role code must be 50 characters or fewer.",
-											},
-										]}
+										rules={[{ validator: validateKnownStaffRoleCode }]}
 									>
 										<Input
 											placeholder="e.g. catalog_editor"

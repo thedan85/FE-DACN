@@ -648,6 +648,25 @@ it("staff mode offers a known role code when role:read is missing", async () => 
 	}
 });
 
+it.each(["staff@example.test", "a".repeat(51)])(
+	"keeps invalid known role codes out of the Staff URL: %s",
+	async (value) => {
+		signIn(["user:read"]);
+		await mountStaff();
+		router.replace.mockClear();
+		const field = screen.getByRole("textbox", { name: "Known role code" });
+
+		fireEvent.change(field, { target: { value } });
+		fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+		await flush();
+
+		expect(router.replace).not.toHaveBeenCalled();
+		expect(field).toHaveProperty("value", value);
+		expect(field.hasAttribute("maxlength")).toBe(false);
+		expect(screen.getByRole("alert").textContent).toMatch(/letters|characters/);
+	},
+);
+
 it("staff mode requests nothing when neither read permission is held", async () => {
 	signIn([]);
 	await mountStaff();
