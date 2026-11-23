@@ -6,7 +6,8 @@ import { OrderSchema } from "@/features/orders/schema/order.schema";
 import type { OrderPage } from "@/features/orders/types";
 
 import { DashboardSummaryResponseSchema } from "../schema/dashboard.schema";
-import type { DashboardSummary } from "../types";
+import { RevenueForecastResponseSchema } from "../schema/revenue-forecast.schema";
+import type { DashboardSummary, RevenueForecast } from "../types";
 
 /**
  * Admin dashboard reads.
@@ -42,6 +43,19 @@ export async function getDashboardSummary(
 		DashboardSummaryResponseSchema,
 		payload,
 		"The dashboard summary response",
+	).data;
+}
+
+/** Precomputed Prophet forecast; 503 means the generated file is missing. */
+export async function getRevenueForecast(): Promise<RevenueForecast> {
+	const payload = await apiFetch<unknown>("admin/dashboard/forecast", {
+		headers: getAuthHeaders(),
+	});
+
+	return parseOrThrow(
+		RevenueForecastResponseSchema,
+		payload,
+		"The revenue forecast response",
 	).data;
 }
 

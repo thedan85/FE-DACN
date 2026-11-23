@@ -13,15 +13,17 @@ import type { OrderPage } from "@/features/orders/types";
 import {
 	DASHBOARD_RANGES,
 	getDashboardSummary,
+	getRevenueForecast,
 	listRecentOrders,
 	parseDashboardRange,
 	type DashboardRange,
 } from "../api/dashboard.api";
-import type { DashboardSummary } from "../types";
+import type { DashboardSummary, RevenueForecast } from "../types";
 import { LowStockAlerts } from "./low-stock-alerts";
 import { OrderStatusDonut } from "./order-status-donut";
 import { RecentOrders } from "./recent-orders";
 import { RevenueChart } from "./revenue-chart";
+import { RevenueForecastPanel } from "./revenue-forecast-panel";
 import styles from "./dashboard-view.module.css";
 
 type SummaryState =
@@ -33,6 +35,11 @@ type OrdersState =
 	| { status: "loading" }
 	| { status: "error"; message: string }
 	| { status: "ready"; orders: OrderPage };
+
+type ForecastState =
+	| { status: "loading" }
+	| { status: "error"; message: string }
+	| { status: "ready"; forecast: RevenueForecast };
 
 function errorMessage(error: unknown, fallback: string): string {
 	return error instanceof Error ? error.message : fallback;
@@ -82,8 +89,12 @@ export function DashboardView() {
 	const [ordersState, setOrdersState] = useState<OrdersState>({
 		status: "loading",
 	});
+	const [forecastState, setForecastState] = useState<ForecastState>({
+		status: "loading",
+	});
 	const [reloadKey, setReloadKey] = useState(0);
 	const [ordersReloadKey, setOrdersReloadKey] = useState(0);
+	const [forecastReloadKey, setForecastReloadKey] = useState(0);
 
 	const requestKey = `${days}:${reloadKey}`;
 	const isFetching =
@@ -131,6 +142,27 @@ export function DashboardView() {
 			active = false;
 		};
 	}, [ordersReloadKey]);
+
+	useEffect(() => {
+		let active = true;
+
+		getRevenueForecast()
+			.then((forecast) => {
+				if (!active) return;
+				setForecastState({ status: "ready", forecast });
+			})
+			.catch((error: unknown) => {
+				if (!active) return;
+				setForecastState({
+					status: "error",
+					message: errorMessage(error, "The revenue forecast could not be loaded."),
+				});
+			});
+
+		return () => {
+			active = false;
+		};
+	}, [forecastReloadKey]);
 
 	function changeRange(value: DashboardRange) {
 		const params = new URLSearchParams(searchParams.toString());
@@ -227,6 +259,25 @@ export function DashboardView() {
 							completionRate={summaryState.summary.completionRate}
 						/>
 					</div>
+
+					{forecastState.status === "loading" ? (
+						<section
+							className={styles.panel}
+							aria-busy="true"
+							aria-label="Loading revenue forecast"
+						>
+							<Skeleton active paragraph={{ rows: 5 }} />
+						</section>
+					) : forecastState.status === "error" ? (
+						<ErrorState
+							className={styles.panel}
+							title="Revenue forecast is unavailable"
+							description={`${forecastState.message}\nHistorical revenue is unaffected.`}
+							onRetry={() => setForecastReloadKey((key) => key + 1)}
+						/>
+					) : (
+						<RevenueForecastPanel forecast={forecastState.forecast} />
+					)}
 
 					<RecentOrdersSection
 						state={ordersState}
