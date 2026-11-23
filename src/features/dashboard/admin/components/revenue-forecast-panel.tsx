@@ -28,6 +28,19 @@ const timeFormatter = new Intl.DateTimeFormat("en-GB", {
 	timeZone: STORE_TIME_ZONE,
 });
 
+function safeDate(value: string): Date | null {
+	const parsed = new Date(value);
+
+	return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function monthLabel(value: string | undefined): string {
+	if (!value) return "";
+	const date = safeDate(`${value}T00:00:00Z`);
+
+	return date ? monthFormatter.format(date) : "—";
+}
+
 function compactVnd(value: number): string {
 	if (value >= 1_000_000_000) {
 		return `${compactFormatter.format(value / 1_000_000_000)} tỷ`;
@@ -97,7 +110,8 @@ export function RevenueForecastPanel({ forecast }: RevenueForecastPanelProps) {
 		];
 	}, [months.length]);
 
-	const generatedTime = timeFormatter.format(new Date(forecast.generatedAt));
+	const generatedDate = safeDate(forecast.generatedAt);
+	const generatedTime = generatedDate ? timeFormatter.format(generatedDate) : "time unavailable";
 	const mape = forecast.mape === null ? "n/a" : `${forecast.mape.toFixed(1)}%`;
 
 	return (
@@ -152,7 +166,7 @@ export function RevenueForecastPanel({ forecast }: RevenueForecastPanelProps) {
 				<div className={styles.xAxis} aria-hidden="true">
 					{labelIndexes.map((index) => (
 						<span key={months[index]?.date ?? index}>
-							{monthFormatter.format(new Date(`${months[index]?.date}T00:00:00Z`))}
+							{monthLabel(months[index]?.date)}
 						</span>
 					))}
 				</div>

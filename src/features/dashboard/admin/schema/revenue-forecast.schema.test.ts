@@ -69,3 +69,47 @@ it("rejects inverted interval bounds", () => {
 
 	expect(result.success).toBe(false);
 });
+
+it("accepts a null MAPE", () => {
+	const result = RevenueForecastResponseSchema.safeParse({
+		code: 200,
+		message: "OK",
+		data: { ...fixture, mape: null },
+	});
+
+	expect(result.success).toBe(true);
+	if (result.success) expect(result.data.data.mape).toBeNull();
+});
+
+it("rejects malformed timestamps and dates", () => {
+	for (const data of [
+		{ ...fixture, generatedAt: "not-a-date" },
+		{ ...fixture, months: [{ ...fixture.months[0], date: "November" }] },
+	]) {
+		expect(
+			RevenueForecastResponseSchema.safeParse({
+				code: 200,
+				message: "OK",
+				data,
+			}).success,
+		).toBe(false);
+	}
+});
+
+it("rejects empty months and annual counts above 12", () => {
+	for (const data of [
+		{ ...fixture, months: [] },
+		{
+			...fixture,
+			annual: [{ ...fixture.annual[1], months: 13 }],
+		},
+	]) {
+		expect(
+			RevenueForecastResponseSchema.safeParse({
+				code: 200,
+				message: "OK",
+				data,
+			}).success,
+		).toBe(false);
+	}
+});

@@ -1,8 +1,12 @@
-import { render, screen } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, expect, it } from "vitest";
 
 import type { RevenueForecast } from "../types";
 import { RevenueForecastPanel } from "./revenue-forecast-panel";
+
+afterEach(() => {
+	cleanup();
+});
 
 const forecast: RevenueForecast = {
 	generatedAt: "2026-11-23T10:00:00+07:00",
@@ -51,4 +55,25 @@ it("renders monthly points, partial-year labels, and generated time", () => {
 	expect(screen.getByText("2026 (partial)")).toBeTruthy();
 	expect(screen.getByText("2027")).toBeTruthy();
 	expect(screen.getByText(/Generated 10:00 ICT/)).toBeTruthy();
+});
+
+it("renders unavailable MAPE as n/a", () => {
+	render(<RevenueForecastPanel forecast={{ ...forecast, mape: null }} />);
+
+	expect(screen.getByText(/MAPE n\/a/)).toBeTruthy();
+});
+
+it("does not crash on malformed generatedAt or month dates", () => {
+	render(
+		<RevenueForecastPanel
+			forecast={{
+				...forecast,
+				generatedAt: "not-a-date",
+				months: [{ ...forecast.months[0], date: "nope" }],
+			}}
+		/>,
+	);
+
+	expect(screen.getByText(/Generated time unavailable/)).toBeTruthy();
+	expect(screen.getByRole("img", { name: /forecast/i })).toBeTruthy();
 });
