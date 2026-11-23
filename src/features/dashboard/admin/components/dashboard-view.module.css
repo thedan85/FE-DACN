@@ -342,6 +342,61 @@
 	font-weight: 500;
 }
 
+.forecastPoint {
+	fill: var(--color-admin-dashboard-chart-line);
+	stroke: var(--color-admin-panel-surface-subtle);
+	stroke-width: 1.5;
+	cursor: pointer;
+}
+
+.forecastPoint:focus-visible {
+	outline: none;
+	stroke-width: 3;
+}
+
+.forecastPointActive {
+	stroke-width: 3;
+}
+
+.forecastTooltip {
+	position: absolute;
+	z-index: 3;
+	display: flex;
+	min-width: 150px;
+	flex-direction: column;
+	gap: 2px;
+	padding: 6px 8px;
+	border: 1px solid var(--color-admin-panel-border);
+	border-radius: 6px;
+	background: var(--color-admin-panel-surface-subtle);
+	color: var(--color-admin-panel-text-strong);
+	font-size: 10px;
+	line-height: 1.4;
+	pointer-events: none;
+	transform: translate(-50%, -115%);
+}
+
+.forecastTable {
+	width: 100%;
+	margin-top: 14px;
+	border-collapse: collapse;
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+}
+
+.forecastTable th,
+.forecastTable td {
+	padding: 3px 6px;
+	border-bottom: 1px solid var(--color-admin-panel-border);
+	text-align: right;
+}
+
+.forecastTable th:first-child {
+	color: var(--color-admin-panel-text-muted);
+	font-weight: 500;
+	text-align: left;
+}
+
 /* ---------- Order status donut ---------- */
 
 .distribution {
