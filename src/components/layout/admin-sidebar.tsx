@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "antd";
 
 import { ORDER_PERMISSIONS } from "@/features/orders/admin/model/order-permissions";
+import { REVIEW_PERMISSIONS } from "@/features/reviews/admin/model/review-permissions";
 import { useAuthStore } from "@/stores/auth-store";
 
 import styles from "./admin-sidebar.module.css";
@@ -65,15 +66,18 @@ const navItems: NavItem[] = [
 		icon: "/images/admin/nav/package.svg",
 		href: "/admin/media",
 	},
-	{ label: "Inventory", icon: "/images/admin/nav/package.svg" },
 	{
 		label: "Customers",
 		icon: "/images/admin/nav/users.svg",
 		href: "/admin/customers",
 		anyPermission: [USER_READ_PERMISSION],
 	},
-	{ label: "Reviews", icon: "/images/admin/nav/message-square.svg" },
-	{ label: "Promotions", icon: "/images/admin/nav/tag.svg" },
+	{
+		label: "Reviews",
+		icon: "/images/admin/nav/message-square.svg",
+		href: "/admin/reviews",
+		anyPermission: [REVIEW_PERMISSIONS.read],
+	},
 	{ label: "Analytics", icon: "/images/admin/nav/chart-no-axes-combined.svg" },
 	{
 		label: "Staff & Permissions",
@@ -87,7 +91,6 @@ const navItems: NavItem[] = [
 		href: "/admin/users",
 		anyPermission: [USER_READ_PERMISSION],
 	},
-	{ label: "Settings", icon: "/images/admin/nav/settings.svg" },
 ];
 
 /**

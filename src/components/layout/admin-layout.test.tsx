@@ -40,6 +40,7 @@ it.each([
 	["/admin/roles/role-42", "Role detail", "Roles & permissions"],
 	["/admin/staff", "Staff & Permissions", null],
 	["/admin/customers", "Customers", null],
+	["/admin/reviews", "Reviews", null],
 	["/admin/categories", "Categories", null],
 	["/admin/attributes", "Attributes", null],
 	["/admin/media", "Media", null],

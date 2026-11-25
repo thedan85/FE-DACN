@@ -84,6 +84,22 @@ it("hides Customers without user:read", () => {
 	expect(screen.queryByRole("link", { name: "Customers" })).toBeNull();
 });
 
+it("links Reviews with review:read", () => {
+	useAuthStore.setState({
+		status: "authenticated",
+		user: { ...user, permissions: ["review:read"] },
+	});
+	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
+	expect(screen.getByRole("link", { name: "Reviews" }).getAttribute("href"))
+		.toBe("/admin/reviews");
+});
+
+it("hides Reviews without review:read", () => {
+	useAuthStore.setState({ status: "authenticated", user: { ...user, permissions: [] } });
+	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
+	expect(screen.queryByRole("link", { name: "Reviews" })).toBeNull();
+});
+
 it("renders the three catalog links without permissions", () => {
 	useAuthStore.setState({ status: "authenticated", user: { ...user, permissions: [] } });
 	render(<AdminSidebar collapsed={false} onToggleCollapse={vi.fn()} />);
@@ -98,7 +114,7 @@ it("renders the three catalog links without permissions", () => {
 it("keeps an accessible name on every link when collapsed", () => {
 	useAuthStore.setState({
 		status: "authenticated",
-		user: { ...user, permissions: ["order:read", "user:read", "role:read"] },
+		user: { ...user, permissions: ["order:read", "user:read", "role:read", "review:read"] },
 	});
 	render(<AdminSidebar collapsed onToggleCollapse={vi.fn()} />);
 
@@ -112,6 +128,7 @@ it("keeps an accessible name on every link when collapsed", () => {
 		"Attributes",
 		"Media",
 		"Customers",
+		"Reviews",
 		"Staff & Permissions",
 		"User accounts",
 		"View storefront",

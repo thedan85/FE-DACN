@@ -64,6 +64,7 @@ const PAGE_TITLES: {
 		title: "User accounts",
 	},
 	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/staff"), title: "Staff & Permissions" },
+	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/reviews"), title: "Reviews" },
 	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/customers"), title: "Customers" },
 	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/categories"), title: "Categories" },
 	{ matches: (pathname) => isAtOrBelow(pathname, "/admin/attributes"), title: "Attributes" },
