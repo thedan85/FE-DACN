@@ -1,0 +1,10 @@
+/* Ant Design dims the current value on open. Keep it readable without revealing
+   the value that's intentionally hidden while the user types a search. */
+:global(.ant-select.ant-select-open)
+	.selectContent:global(.ant-select-content-has-value):not(:global(.ant-select-content-has-search-value)) {
+	opacity: 1;
+}
+
+.selectOption:global(.ant-select-item-option-active):not(:global(.ant-select-item-option-disabled)) {
+	box-shadow: inset 0 0 0 1px var(--color-brand-deep-teal);
+}

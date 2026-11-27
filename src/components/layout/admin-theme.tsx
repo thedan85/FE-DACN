@@ -4,8 +4,39 @@ import type { ReactNode } from "react";
 import { ConfigProvider } from "antd";
 
 import { designTokens } from "@/lib/design-tokens";
+import styles from "./admin-theme.module.css";
 
 const { admin } = designTokens.colors;
+
+/** Select states shared by all admin pages, including portaled popups. */
+export function AdminSelectTheme({ children }: { children: ReactNode }) {
+	return (
+		<ConfigProvider
+			select={{
+				classNames: {
+					content: styles.selectContent,
+					popup: { listItem: styles.selectOption },
+				},
+			}}
+			theme={{
+				components: {
+					Select: {
+						activeBorderColor: admin.focusRing,
+						activeOutlineColor: admin.focusRing,
+						colorTextPlaceholder: designTokens.colors.textBody,
+						colorTextQuaternary: admin.panelTextMuted,
+						controlItemBgActiveHover: admin.avatarSurface,
+						optionActiveBg: admin.panelSurfaceSubtle,
+						optionSelectedBg: admin.avatarSurface,
+						optionSelectedColor: designTokens.colors.brandDeepTeal,
+					},
+				},
+			}}
+		>
+			{children}
+		</ConfigProvider>
+	);
+}
 
 /**
  * Theme for the admin portal's data screens.

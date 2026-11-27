@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { AdminPortalGuard } from "@/components/layout/admin-portal-guard";
+import { AdminSelectTheme } from "@/components/layout/admin-theme";
 
 type AdminShellLayoutProps = {
 	children: ReactNode;
@@ -14,7 +15,9 @@ type AdminShellLayoutProps = {
 export default function AdminShellLayout({ children }: AdminShellLayoutProps) {
 	return (
 		<AdminPortalGuard>
-			<AdminLayout>{children}</AdminLayout>
+			<AdminSelectTheme>
+				<AdminLayout>{children}</AdminLayout>
+			</AdminSelectTheme>
 		</AdminPortalGuard>
 	);
 }
