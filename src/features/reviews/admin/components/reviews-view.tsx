@@ -6,8 +6,6 @@ import {
 	App,
 	Button,
 	Card,
-	Descriptions,
-	Drawer,
 	Input,
 	Modal,
 	Pagination,
@@ -391,69 +389,72 @@ export function ReviewsView() {
 					)}
 				</Card>
 
-				<Drawer
+				<Modal
 					open={selected !== null}
-					onClose={() => setSelected(null)}
 					title="Review details"
-					size={480}
+					centered
+					width={560}
+					closable={{ "aria-label": "Dismiss review details" }}
+					keyboard={deleteTarget === null}
+					mask={{ closable: deleteTarget === null }}
 					destroyOnHidden
-					footer={
-						mayDelete && selected !== null ? (
-							<div className={styles.drawerFooter}>
-								<Button
-									danger
-									onClick={() => {
-										setDeleteError(null);
-										setDeleteTarget(selected);
-									}}
-								>
-									Delete
-								</Button>
-							</div>
-						) : null
-					}
+					classNames={{ body: styles.detailsBody, footer: styles.detailsFooter }}
+					onCancel={() => setSelected(null)}
+					footer={[
+						mayDelete && selected !== null && (
+							<Button
+								key="delete"
+								className={styles.deleteAction}
+								danger
+								onClick={() => {
+									setDeleteError(null);
+									setDeleteTarget(selected);
+								}}
+							>
+								Delete
+							</Button>
+						),
+						<Button key="close" type="primary" onClick={() => setSelected(null)}>
+							Close
+						</Button>,
+					]}
 				>
 					{selected !== null && (
-						<Descriptions
-							size="small"
-							column={1}
-							items={[
-								{ key: "reviewer", label: "Reviewer", children: selected.customerName },
-								{
-									key: "rating",
-									label: "Rating",
-									children: <RatingStars rating={selected.rating} />,
-								},
-								{
-									key: "verified",
-									label: "Verified purchase",
-									children: selected.verifiedPurchase ? "Verified" : "Not verified",
-								},
-								{ key: "product", label: "Product", children: selected.productName },
-								{ key: "sku", label: "SKU", children: selected.variantSku },
-								{
-									key: "created",
-									label: "Created",
-									children:
-										formatDate(selected.createdAt, STORE_TIME_ZONE) ?? "—",
-								},
-								{
-									key: "updated",
-									label: "Updated",
-									children:
-										formatDate(selected.updatedAt, STORE_TIME_ZONE) ?? "—",
-								},
-								{
-									key: "comment",
-									label: "Comment",
-									children: (
-										<Text className={styles.comment}>{selected.comment}</Text>
-									),
-								},
-							]}
-						/>
+						<>
+							<div className={styles.reviewSummary}>
+								<div className={styles.reviewIdentity}>
+									<Text strong className={styles.detailReviewer}>{selected.customerName}</Text>
+									<RatingStars rating={selected.rating} />
+								</div>
+								<Tag className={styles.purchaseStatus} color={selected.verifiedPurchase ? "success" : "default"}>
+									{selected.verifiedPurchase ? "Verified purchase" : "Purchase not verified"}
+								</Tag>
+							</div>
+							<section className={styles.commentPanel}>
+								<h2>Comment</h2>
+								<Text className={styles.comment}>{selected.comment}</Text>
+							</section>
+							<dl className={styles.reviewMeta}>
+								<div>
+									<dt>Product</dt>
+									<dd>{selected.productName}</dd>
+								</div>
+								<div>
+									<dt>SKU</dt>
+									<dd>{selected.variantSku}</dd>
+								</div>
+								<div>
+									<dt>Created</dt>
+									<dd>{formatDate(selected.createdAt, STORE_TIME_ZONE) ?? "—"}</dd>
+								</div>
+								<div>
+									<dt>Updated</dt>
+									<dd>{formatDate(selected.updatedAt, STORE_TIME_ZONE) ?? "—"}</dd>
+								</div>
+							</dl>
+						</>
 					)}
-				</Drawer>
+				</Modal>
 
 				<Modal
 					open={deleteTarget !== null}

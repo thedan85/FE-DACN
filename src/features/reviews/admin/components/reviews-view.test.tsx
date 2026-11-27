@@ -7,8 +7,9 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
-import { App } from "antd";
+import { App, ConfigProvider } from "antd";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { clearSession } from "@/features/auth/session";
@@ -87,9 +88,11 @@ async function flush() {
 
 function reviewsElement() {
 	return (
-		<App>
-			<ReviewsView />
-		</App>
+		<ConfigProvider theme={{ token: { motion: false } }}>
+			<App>
+				<ReviewsView />
+			</App>
+		</ConfigProvider>
 	);
 }
 
@@ -126,7 +129,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-it("shows a review row and opens the full comment in a drawer", async () => {
+it("shows the full comment in a dialog with a close action", async () => {
 	useAuthStore.setState({ status: "authenticated", user: {
 		...user, permissions: ["review:read"],
 	} });
@@ -138,12 +141,17 @@ it("shows a review row and opens the full comment in a drawer", async () => {
 	expect(screen.queryByText(review.comment)).toBeNull();
 
 	fireEvent.click(screen.getByRole("button", { name: "Show details" }));
-	expect(await screen.findByText(review.comment)).toBeTruthy();
+	const dialog = within(await screen.findByRole("dialog"));
+	expect(dialog.getByText("Review details")).toBeTruthy();
+	expect(dialog.getByRole("heading", { name: "Comment" })).toBeTruthy();
+	expect(dialog.getByText(review.comment)).toBeTruthy();
 	// Delete is gated on review:delete, not on review:read.
-	expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+	expect(dialog.queryByRole("button", { name: "Delete" })).toBeNull();
+	fireEvent.click(dialog.getByRole("button", { name: "Close" }));
+	await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });
 
-it("deletes from the drawer after confirmation", async () => {
+it("deletes from review details after confirmation", async () => {
 	renderReviews();
 
 	await screen.findByText("An");
